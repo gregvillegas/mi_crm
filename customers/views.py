@@ -20,6 +20,7 @@ def is_executive(user):
 def customer_list(request):
     user = request.user
     customers = Customer.objects.none()
+    view_mode = request.GET.get('view', 'table')
 
     # Get base customer queryset based on user role
     if user.role in ['admin', 'president', 'gm', 'vp']:
@@ -88,6 +89,8 @@ def customer_list(request):
     # Get filter options for the template
     context = {
         'customers': customers,
+        'view_mode': view_mode,
+        'show_actions': (view_mode == 'card' and user.role == 'admin'),
         'industry_choices': Customer.INDUSTRY_CHOICES,
         'territory_choices': Customer.TERRITORY_CHOICES,
         'current_filters': {
@@ -96,6 +99,7 @@ def customer_list(request):
             'industry': industry_filter,
             'territory': territory_filter,
             'search': search_query or '',
+            'view': view_mode,
         },
         'stats': {
             'total': customers.count(),
@@ -468,15 +472,18 @@ def toggle_customer_vip(request, pk):
             action = 'vip_enabled' if customer.is_vip else 'vip_disabled'
             description = f"Customer VIP status changed from {'VIP' if old_vip_status else 'Regular'} to {'VIP' if customer.is_vip else 'Regular'} by {request.user.get_full_name() or request.user.username}"
             
-            CustomerHistory.log_customer_change(
+            history_entry = CustomerHistory(
                 customer=customer,
                 action=action,
                 description=description,
                 changed_by=request.user,
+                salesperson_at_time=customer.salesperson,
                 old_value={'is_vip': old_vip_status},
                 new_value={'is_vip': customer.is_vip},
-                request=request
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
+            history_entry.save()
             
             return JsonResponse({
                 'success': True,
@@ -839,15 +846,18 @@ def toggle_customer_active(request, pk):
             action = 'activated' if customer.is_active else 'deactivated'
             description = f"Customer status changed from {'Active' if old_active_status else 'Inactive'} to {'Active' if customer.is_active else 'Inactive'} by {request.user.get_full_name() or request.user.username}"
             
-            CustomerHistory.log_customer_change(
+            history_entry = CustomerHistory(
                 customer=customer,
                 action=action,
                 description=description,
                 changed_by=request.user,
+                salesperson_at_time=customer.salesperson,
                 old_value={'is_active': old_active_status},
                 new_value={'is_active': customer.is_active},
-                request=request
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
             )
+            history_entry.save()
             
             status = 'activated' if customer.is_active else 'deactivated'
             return JsonResponse({

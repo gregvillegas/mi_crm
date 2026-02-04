@@ -164,7 +164,7 @@ class AsmPersonalTarget(models.Model):
         ordering = ['-month']
 
 class RoleMonthlyQuota(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='role_monthly_quotas', limit_choices_to={'role__in': ['supervisor', 'asm', 'avp']})
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='role_monthly_quotas', limit_choices_to={'role__in': ['supervisor', 'asm', 'avp', 'gm', 'vp']})
     month = models.DateField()
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     notes = models.TextField(blank=True)
@@ -177,3 +177,32 @@ class RoleMonthlyQuota(models.Model):
 
     def __str__(self):
         return f"{self.user.username} {self.month.strftime('%Y-%m')} ₱{self.amount}"
+
+class CompanyAnnualTarget(models.Model):
+    year = models.IntegerField()
+    amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    set_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'role__in': ['gm', 'vp', 'admin']}, related_name='company_targets_set')
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = ('year',)
+        ordering = ['-year']
+    
+    def __str__(self):
+        return f"Company Annual Target {self.year} ₱{self.amount}"
+
+class CompanyAnnualTargetLog(models.Model):
+    target = models.ForeignKey(CompanyAnnualTarget, on_delete=models.CASCADE, related_name='change_logs')
+    previous_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    new_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='company_target_changes')
+    changed_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-changed_at']
+    
+    def __str__(self):
+        return f"{self.target.year} change: ₱{self.previous_amount} → ₱{self.new_amount}"

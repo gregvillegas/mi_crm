@@ -194,6 +194,59 @@
     </div>
     {% endif %}
 
+    {% if supervisor_achievements %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-user-tie"></i> Supervisor Achievement (Monthly)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Supervisor</th>
+                                    <th>Team</th>
+                                    <th>Group</th>
+                                    <th>Supervisor Quota</th>
+                                    <th>Actual Profit</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in supervisor_achievements %}
+                                <tr>
+                                    <td>{{ item.supervisor_name }}</td>
+                                    <td>{{ item.team_name }}</td>
+                                    <td>{{ item.group.name }}</td>
+                                    <td>₱{{ item.supervisor_quota|floatformat:2|intcomma }}</td>
+                                    <td>₱{{ item.actual_profit|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="flex-grow-1">
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-{{ item.status_color }}" role="progressbar" style="width: {{ item.progress_pct }}%" aria-valuenow="{{ item.progress_pct }}" aria-valuemin="0" aria-valuemax="100">
+                                                        {{ item.progress_pct|floatformat:1 }}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% if item.supervisor_id and user.role in 'admin,avp' %}
+                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' item.supervisor_id %}">Edit Quota</a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     {% if group_achievements %}
     <div class="row mb-4">
         <div class="col-12">

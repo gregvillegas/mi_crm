@@ -1,6 +1,5 @@
 {% extends 'base.html' %}
 {% load humanize %}
-
 {% block title %}Executive CRM Dashboard{% endblock %}
 
 {% block extra_css %}
@@ -161,6 +160,43 @@
         </div>
     </div>
 
+    <!-- Company Annual Target -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">Company Annual Target</h5>
+                            <div class="text-muted">Set by GM/VP</div>
+                        </div>
+                        <div class="text-end">
+                            <div><strong>Target:</strong> ₱{{ company_target.quota|floatformat:2|intcomma }}</div>
+                            <div><strong>YTD Profit:</strong> ₱{{ company_target.actual_profit|floatformat:2|intcomma }}</div>
+                        </div>
+                    </div>
+                    {% if user.role in 'gm,vp,admin' %}
+                    <div class="mt-2 text-end">
+                        <a class="btn btn-sm btn-outline-primary" href="{% url 'update_company_target' %}">Update Annual Target</a>
+                    </div>
+                    {% endif %}
+                    <div class="mt-3">
+                        <div class="progress" style="height: 18px;">
+                            <div class="progress-bar bg-{{ company_target.status_color }}" role="progressbar" style="width: {{ company_target.progress_pct }}%" aria-valuenow="{{ company_target.progress_pct }}" aria-valuemin="0" aria-valuemax="100">
+                                {{ company_target.progress_pct|floatformat:1 }}%
+                            </div>
+                        </div>
+                        {% if company_target.deficit > 0 %}
+                        <small class="text-muted">Remaining: ₱{{ company_target.deficit|floatformat:2|intcomma }}</small>
+                        {% else %}
+                        <small class="text-muted">Target achieved or exceeded</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 1. Top-Level: Team A vs Team B Performance Comparison -->
     <div class="row mb-4">
         <div class="col-12">
@@ -227,6 +263,12 @@
                             <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_a.asm_id %}">Edit</a>
                             {% endif %}
                         </div>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 14px;">
+                                <div class="progress-bar bg-{{ team_kpis.team_a.asm_status_color }}" role="progressbar" style="width: {{ team_kpis.team_a.asm_progress_pct }}%" aria-valuenow="{{ team_kpis.team_a.asm_progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small class="text-muted">{{ team_kpis.team_a.asm_progress_pct|floatformat:1 }}%</small>
+                        </div>
                     </div>
                     <div class="row mt-2">
                         <div class="col-12 d-flex justify-content-between align-items-center">
@@ -237,6 +279,12 @@
                             {% if user.role in 'admin,avp' and team_kpis.team_a.avp_id %}
                             <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_a.avp_id %}">Edit</a>
                             {% endif %}
+                        </div>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 14px;">
+                                <div class="progress-bar bg-{{ team_kpis.team_a.avp_status_color }}" role="progressbar" style="width: {{ team_kpis.team_a.avp_progress_pct }}%" aria-valuenow="{{ team_kpis.team_a.avp_progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small class="text-muted">{{ team_kpis.team_a.avp_progress_pct|floatformat:1 }}%</small>
                         </div>
                     </div>
                     <div class="text-end mt-3">
@@ -303,6 +351,12 @@
                             <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_b.asm_id %}">Edit</a>
                             {% endif %}
                         </div>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 14px;">
+                                <div class="progress-bar bg-{{ team_kpis.team_b.asm_status_color }}" role="progressbar" style="width: {{ team_kpis.team_b.asm_progress_pct }}%" aria-valuenow="{{ team_kpis.team_b.asm_progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small class="text-muted">{{ team_kpis.team_b.asm_progress_pct|floatformat:1 }}%</small>
+                        </div>
                     </div>
                     <div class="row mt-2">
                         <div class="col-12 d-flex justify-content-between align-items-center">
@@ -313,6 +367,12 @@
                             {% if user.role in 'admin,avp' and team_kpis.team_b.avp_id %}
                             <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_b.avp_id %}">Edit</a>
                             {% endif %}
+                        </div>
+                        <div class="mt-2">
+                            <div class="progress" style="height: 14px;">
+                                <div class="progress-bar bg-{{ team_kpis.team_b.avp_status_color }}" role="progressbar" style="width: {{ team_kpis.team_b.avp_progress_pct }}%" aria-valuenow="{{ team_kpis.team_b.avp_progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small class="text-muted">{{ team_kpis.team_b.avp_progress_pct|floatformat:1 }}%</small>
                         </div>
                     </div>
                     <div class="text-end mt-3">
@@ -377,6 +437,63 @@
                     {% empty %}
                     <p class="text-muted text-center">No active deals in pipeline</p>
                     {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user-tie text-primary me-2"></i>
+                        Supervisor Achievement (Monthly)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped performance-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Supervisor</th>
+                                    <th>Team</th>
+                                    <th>Group</th>
+                                    <th>Supervisor Quota</th>
+                                    <th>Actual Profit</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in supervisor_achievements %}
+                                <tr>
+                                    <td>{{ item.supervisor_name }}</td>
+                                    <td>{{ item.team_name }}</td>
+                                    <td>{{ item.group_name }}</td>
+                                    <td>₱{{ item.supervisor_quota|floatformat:2|intcomma }}</td>
+                                    <td>₱{{ item.actual_profit|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="flex-grow-1">
+                                                <div class="progress" style="height: 16px;">
+                                                    <div class="progress-bar bg-{{ item.status_color }}" role="progressbar" style="width: {{ item.progress_pct }}%" aria-valuenow="{{ item.progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                                </div>
+                                                <small class="text-muted">{{ item.progress_pct|floatformat:1 }}%</small>
+                                            </div>
+                                            {% if item.supervisor_id and user.role in 'admin,avp' %}
+                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' item.supervisor_id %}">Edit Quota</a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">No supervisor achievements available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

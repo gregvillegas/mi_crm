@@ -137,7 +137,7 @@
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     {% if user.is_authenticated %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'customer_list' %}">Customers</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'delinquent_list' %}"><i class="fas fa-exclamation-triangle text-warning"></i> Delinquent</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'delinquent_list' %}"></i> Delinquent</a></li>
                         {% if user.role in 'salesperson,supervisor,teamlead,asm,avp,admin,president,gm,vp' %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="leadsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -170,7 +170,7 @@
                                 <ul class="dropdown-menu" aria-labelledby="salesFunnelDropdown">
                                     <li><a class="dropdown-item" href="{% url 'sales_funnel:dashboard' %}">Dashboard</a></li>
                                     <li><a class="dropdown-item" href="{% url 'sales_funnel:deals_history' %}">Deals History</a></li>
-                                    {% if user.role == 'salesperson' %}
+                                    {% if user.role in 'salesperson,supervisor,asm,avp' %}
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{% url 'sales_funnel:add_entry' %}">Add New Entry</a></li>
                                     {% endif %}

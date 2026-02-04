@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-
+{% load humanize %}
 {% block title %}Group Performance - Sales Monitoring{% endblock %}
 
 {% block content %}
@@ -44,13 +44,13 @@
                     <div class="row mb-4">
                         <div class="col-md-4">
                             <div class="text-center p-3 border rounded">
-                                <h3 class="text-primary">₱{{ group_data.group_quota|floatformat:2 }}</h3>
+                                <h3 class="text-primary">₱{{ group_data.group_quota|floatformat:2|intcomma }}</h3>
                                 <p class="text-muted mb-0">Total Quota</p>
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="text-center p-3 border rounded">
-                                <h3 class="text-success">₱{{ group_data.group_profit|floatformat:2 }}</h3>
+                                <h3 class="text-success">₱{{ group_data.group_profit|floatformat:2|intcomma }}</h3>
                                 <p class="text-muted mb-0">Total Profit</p>
                             </div>
                         </div>
@@ -91,8 +91,8 @@
                                         <strong>{{ sp_data.salesperson.get_full_name|default:sp_data.salesperson.username }}</strong>
                                         <br><small class="text-muted">{{ sp_data.salesperson.initials }}</small>
                                     </td>
-                                    <td>₱{{ sp_data.quota|floatformat:2 }}</td>
-                                    <td>₱{{ sp_data.total_profit|floatformat:2 }}</td>
+                                    <td>₱{{ sp_data.quota|floatformat:2|intcomma }}</td>
+                                    <td>₱{{ sp_data.total_profit|floatformat:2|intcomma }}</td>
                                     <td>
                                         <span class="badge bg-{% if sp_data.quota_achievement >= 100 %}success{% elif sp_data.quota_achievement >= 80 %}warning{% else %}danger{% endif %}">
                                             {{ sp_data.quota_achievement|floatformat:1 }}%

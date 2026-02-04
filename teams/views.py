@@ -4,6 +4,10 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from .models import Team, Group, TeamMembership, SupervisorCommitment
 from .forms import TeamForm, GroupForm, GroupEditForm, TeamMembershipQuotaForm, SupervisorCommitmentForm, PersonalContributionForm, AsmPersonalTargetForm, RoleMonthlyQuotaForm
 from users.models import User
+from django.contrib.auth.decorators import user_passes_test, login_required
+from django.utils import timezone
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib import messages
 
 def is_admin(user):
     return user.role == 'admin'
@@ -337,3 +341,39 @@ def update_role_quota(request, user_id):
     else:
         form = RoleMonthlyQuotaForm(instance=quota)
     return render(request, 'teams/update_role_quota.html', {'form': form, 'target_user': target_user, 'title': f'Update Quota - {target_user.get_full_name() or target_user.username}'})
+
+def can_manage_company_target(user):
+    return user.role in ['gm', 'vp', 'admin']
+
+@login_required
+@user_passes_test(can_manage_company_target)
+def update_company_target(request):
+    from .models import CompanyAnnualTarget, CompanyAnnualTargetLog
+    from .forms import CompanyAnnualTargetForm
+    today = timezone.now().date()
+    current_year = today.year
+    target = CompanyAnnualTarget.objects.filter(year=current_year).first()
+    if request.method == 'POST':
+        form = CompanyAnnualTargetForm(request.POST, instance=target)
+        if form.is_valid():
+            previous_amount = target.amount if target else 0
+            instance = form.save(commit=False)
+            if not instance.pk:
+                instance.set_by = request.user
+            instance.save()
+            CompanyAnnualTargetLog.objects.create(
+                target=instance,
+                previous_amount=previous_amount,
+                new_amount=instance.amount,
+                changed_by=request.user,
+                notes=f"Updated by {request.user.get_full_name() or request.user.username}"
+            )
+            messages.success(request, 'Company annual target updated.')
+            return redirect('sales_monitoring:executive_dashboard')
+    else:
+        if target:
+            form = CompanyAnnualTargetForm(instance=target)
+        else:
+            form = CompanyAnnualTargetForm(initial={'year': current_year})
+    logs = CompanyAnnualTargetLog.objects.filter(target__year=current_year)[:10]
+    return render(request, 'teams/update_company_target.html', {'form': form, 'logs': logs, 'title': f'Update Company Annual Target ({current_year})'})

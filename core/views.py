@@ -84,7 +84,7 @@ def home(request):
             'funnel_stats': funnel_stats,
             'recent_funnel_entries': recent_entries,
             'show_funnel': True,
-            'can_add_funnel': user.role == 'salesperson',
+            'can_add_funnel': user.role in ['salesperson', 'supervisor', 'asm', 'avp'],
         })
     
     return render(request, 'core/home.html', context)
@@ -93,4 +93,3 @@ def logout_view(request):
     logout(request)
     messages.success(request, 'You have been successfully logged out.')
     return redirect('login')
-

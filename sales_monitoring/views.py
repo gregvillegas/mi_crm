@@ -337,6 +337,39 @@ def avp_dashboard(request):
             'supervisor_id': supervisor.id if supervisor else None,
         })
     
+    # Supervisor-only achievements: progress against supervisor's own quota
+    supervisor_achievements = []
+    for group in groups:
+        supervisor = group.get_manager()
+        if not supervisor:
+            continue
+        sup_quota_obj = RoleMonthlyQuota.objects.filter(user=supervisor, month=month_start).first()
+        sup_quota = sup_quota_obj.amount if sup_quota_obj else 0
+        group_salespeople = User.objects.filter(
+            team_membership__group=group,
+            role='salesperson',
+            is_active=True
+        )
+        profit_data = SalesFunnel.objects.filter(
+            salesperson__in=group_salespeople,
+            deal_outcome='won',
+            closed_date__gte=month_start,
+            closed_date__lte=month_end
+        ).aggregate(total_profit=Sum(F('retail') - F('cost')))
+        actual_profit = profit_data['total_profit'] or 0
+        sup_progress_pct = (actual_profit / sup_quota * 100) if sup_quota and sup_quota > 0 else 0
+        sup_status_color = 'success' if sup_progress_pct >= 80 else 'warning' if sup_progress_pct >= 60 else 'danger'
+        supervisor_achievements.append({
+            'group': group,
+            'team_name': group.team.name,
+            'supervisor_name': supervisor.get_full_name(),
+            'supervisor_quota': sup_quota,
+            'actual_profit': actual_profit,
+            'progress_pct': sup_progress_pct,
+            'status_color': sup_status_color,
+            'supervisor_id': supervisor.id,
+        })
+    
     # Build team cards with ASM/AVP monthly quotas
     team_cards = []
     for team in user_teams:
@@ -356,6 +389,7 @@ def avp_dashboard(request):
         'team_cards': team_cards,
         'groups': groups,
         'group_achievements': group_achievements,
+        'supervisor_achievements': supervisor_achievements,
     }
     
     return render(request, 'sales_monitoring/avp_dashboard.html', context)
@@ -1245,6 +1279,8 @@ def executive_dashboard(request):
         'individual_performance': dashboard_data['individual_performance'],
         'insights': dashboard_data['insights'],
         'group_achievements': dashboard_data['group_achievements'],
+        'supervisor_achievements': dashboard_data['supervisor_achievements'],
+        'company_target': dashboard_data['company_target'],
         'last_updated': timezone.now(),
     }
     
@@ -1345,6 +1381,26 @@ def get_executive_dashboard_data():
             asm_quota = asm_q.amount if asm_q else 0
         avp_q = RoleMonthlyQuota.objects.filter(user=team.avp, month=month_start).first()
         avp_quota = avp_q.amount if avp_q else 0
+        # Personal revenues for ASM/AVP (if they own deals)
+        asm_revenue_this_month = Decimal('0')
+        avp_revenue_this_month = Decimal('0')
+        if team.asm:
+            asm_revenue_this_month = won_deals.filter(
+                salesperson=team.asm,
+                closed_date__gte=month_start,
+                closed_date__lte=today
+            ).aggregate(total=Sum('retail'))['total'] or Decimal('0')
+        if team.avp:
+            avp_revenue_this_month = won_deals.filter(
+                salesperson=team.avp,
+                closed_date__gte=month_start,
+                closed_date__lte=today
+            ).aggregate(total=Sum('retail'))['total'] or Decimal('0')
+        # Progress calculation similar to group achievements
+        asm_progress_pct = float((asm_revenue_this_month / asm_quota * 100) if asm_quota and asm_quota > 0 else 0)
+        avp_progress_pct = float((avp_revenue_this_month / avp_quota * 100) if avp_quota and avp_quota > 0 else 0)
+        asm_status_color = 'success' if asm_progress_pct >= 80 else 'warning' if asm_progress_pct >= 60 else 'danger'
+        avp_status_color = 'success' if avp_progress_pct >= 80 else 'warning' if avp_progress_pct >= 60 else 'danger'
         return {
             'name': team.name,
             'current_month_revenue': team_current_revenue,
@@ -1361,6 +1417,10 @@ def get_executive_dashboard_data():
             'avp_id': team.avp.id if team.avp else None,
             'asm_quota': asm_quota,
             'avp_quota': avp_quota,
+            'asm_progress_pct': asm_progress_pct,
+            'avp_progress_pct': avp_progress_pct,
+            'asm_status_color': asm_status_color,
+            'avp_status_color': avp_status_color,
         }
     
     team_kpis = {
@@ -1520,6 +1580,49 @@ def get_executive_dashboard_data():
         team_kpis, group_performance, funnel_overview, individual_performance
     )
     
+    # Company annual target set by GM/VP
+    from teams.models import CompanyAnnualTarget
+    company_target_obj = CompanyAnnualTarget.objects.filter(year=today.year).first()
+    company_quota = company_target_obj.amount if company_target_obj else Decimal('0')
+    company_actual_profit = won_deals.filter(
+        closed_date__gte=year_start,
+        closed_date__lte=today
+    ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or Decimal('0')
+    company_progress_pct = float((company_actual_profit / company_quota * 100) if company_quota and company_quota > 0 else 0)
+    company_status_color = 'success' if company_progress_pct >= 80 else 'warning' if company_progress_pct >= 60 else 'danger'
+    company_deficit = float((company_quota - company_actual_profit) if company_quota > company_actual_profit else 0)
+    
+    # Supervisor-only achievements for executive view
+    supervisor_achievements = []
+    for group in Group.objects.all():
+        supervisor = group.get_manager()
+        if not supervisor:
+            continue
+        sup_quota_obj = RoleMonthlyQuota.objects.filter(user=supervisor, month=month_start).first()
+        sup_quota = sup_quota_obj.amount if sup_quota_obj else Decimal('0')
+        group_salespeople = User.objects.filter(
+            team_membership__group=group,
+            role='salesperson',
+            is_active=True
+        )
+        actual_profit = won_deals.filter(
+            salesperson__in=group_salespeople,
+            closed_date__gte=month_start,
+            closed_date__lte=today
+        ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or Decimal('0')
+        sup_progress_pct = float((actual_profit / sup_quota * 100) if sup_quota and sup_quota > 0 else 0)
+        sup_status_color = 'success' if sup_progress_pct >= 80 else 'warning' if sup_progress_pct >= 60 else 'danger'
+        supervisor_achievements.append({
+            'group_name': group.name,
+            'team_name': group.team.name,
+            'supervisor_name': supervisor.get_full_name(),
+            'supervisor_quota': float(sup_quota),
+            'actual_profit': float(actual_profit),
+            'progress_pct': sup_progress_pct,
+            'status_color': sup_status_color,
+            'supervisor_id': supervisor.id,
+        })
+    
     return {
         'team_kpis': team_kpis,
         'group_performance': group_performance,
@@ -1527,6 +1630,14 @@ def get_executive_dashboard_data():
         'individual_performance': individual_performance,
         'insights': insights,
         'group_achievements': group_achievements,
+        'supervisor_achievements': supervisor_achievements,
+        'company_target': {
+            'quota': float(company_quota),
+            'actual_profit': float(company_actual_profit),
+            'progress_pct': company_progress_pct,
+            'deficit': company_deficit,
+            'status_color': company_status_color,
+        },
     }
 
 def generate_executive_insights(team_kpis, group_performance, funnel_overview, individual_performance):

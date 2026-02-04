@@ -8,7 +8,7 @@ from .models import SalesFunnel
 from .forms import SalesFunnelForm, FunnelFilterForm, BulkUpdateStageForm
 from users.models import User
 from teams.models import Team, Group, TeamMembership
-from customers.models import Customer
+from customers.models import Customer, CustomerHistory
 import csv
 from io import TextIOWrapper, StringIO
 from decimal import Decimal
@@ -28,6 +28,8 @@ def is_manager(user):
 def is_exec_admin(user):
     return user.role in ['admin', 'president', 'gm', 'vp']
 
+def can_add_entry(user):
+    return user.role in ['salesperson', 'supervisor', 'asm', 'avp']
 
 @login_required
 @user_passes_test(can_access_funnel)
@@ -198,7 +200,7 @@ def funnel_dashboard(request):
         'stats': stats,
         'stage_totals': stage_totals,
         'filter_form': filter_form,
-        'can_add': user.role == 'salesperson',
+        'can_add': can_add_entry(user),
         'can_edit_all': user.role in ['admin', 'supervisor', 'asm', 'avp'],
         'view_mode': view_mode,
         'show_actions': view_mode != 'table',
@@ -278,7 +280,7 @@ def export_funnel_report(request):
 
 
 @login_required
-@user_passes_test(is_salesperson)
+@user_passes_test(can_add_entry)
 def add_funnel_entry(request):
     """Add a new funnel entry (salesperson only)"""
     if request.method == 'POST':
@@ -394,11 +396,42 @@ def close_entry(request, entry_id):
     
     if request.method == 'POST':
         won = request.POST.get('won') == 'true'
+        old_outcome = entry.deal_outcome
         entry.is_closed = True
         entry.deal_outcome = 'won' if won else 'lost'
         entry.closed_date = timezone.now().date()
         entry.notes = f"{entry.notes}\n\nClosed on {entry.closed_date} - {'WON' if won else 'LOST'}".strip()
         entry.save()
+        
+        # Log purchase to customer history
+        if entry.customer:
+            action = 'deal_won' if won else 'deal_lost'
+            profit = (entry.retail or Decimal('0')) - (entry.cost or Decimal('0'))
+            description = f"Deal {('WON' if won else 'LOST')} for {entry.company_name} (Retail ₱{entry.retail}, Cost ₱{entry.cost}, Profit ₱{profit})."
+            try:
+                CustomerHistory.objects.create(
+                    customer=entry.customer,
+                    action=action,
+                    description=description,
+                    changed_by=request.user,
+                    salesperson_at_time=entry.salesperson,
+                    old_value={
+                        'deal_outcome': old_outcome,
+                        'is_closed': False,
+                    },
+                    new_value={
+                        'deal_outcome': entry.deal_outcome,
+                        'is_closed': True,
+                        'closed_date': str(entry.closed_date),
+                        'retail': float(entry.retail or 0),
+                        'cost': float(entry.cost or 0),
+                        'profit': float(profit),
+                    },
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT', '')[:500]
+                )
+            except Exception:
+                pass
         
         status = 'won' if won else 'lost'
         messages.success(request, f'Deal for "{entry.company_name}" marked as {status}!')

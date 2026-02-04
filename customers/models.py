@@ -180,6 +180,8 @@ class CustomerHistory(models.Model):
         ('restored', 'Restored from Backup'),
         ('imported', 'Imported from CSV'),
         ('field_updated', 'Field Updated'),
+        ('deal_won', 'Deal Marked Won'),
+        ('deal_lost', 'Deal Marked Lost'),
     ]
     
     customer = models.ForeignKey(

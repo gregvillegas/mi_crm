@@ -1,5 +1,5 @@
 from django import forms
-from .models import Team, Group, TeamMembership, SupervisorCommitment, PersonalContribution, AsmPersonalTarget, RoleMonthlyQuota
+from .models import Team, Group, TeamMembership, SupervisorCommitment, PersonalContribution, AsmPersonalTarget, RoleMonthlyQuota, CompanyAnnualTarget
 from users.models import User
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Submit, HTML, Field
@@ -201,4 +201,25 @@ class RoleMonthlyQuotaForm(forms.ModelForm):
             Field('amount', wrapper_class='mb-3'),
             Field('notes', wrapper_class='mb-3'),
             Submit('submit', 'Save Quota', css_class='btn btn-primary')
+        )
+
+class CompanyAnnualTargetForm(forms.ModelForm):
+    class Meta:
+        model = CompanyAnnualTarget
+        fields = ['year', 'amount', 'notes']
+        widgets = {
+            'year': forms.NumberInput(attrs={'class': 'form-control', 'min': 2000, 'step': 1}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2})
+        }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Row(
+                Column('year', css_class='form-group col-md-4 mb-3'),
+                Column('amount', css_class='form-group col-md-8 mb-3'),
+            ),
+            Field('notes', wrapper_class='mb-3'),
+            Submit('submit', 'Save Annual Target', css_class='btn btn-primary')
         )

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Team, Group, TeamMembership, SupervisorCommitment, SupervisorCommitmentLog, PersonalContribution, AsmPersonalTarget, RoleMonthlyQuota
+from .models import Team, Group, TeamMembership, SupervisorCommitment, SupervisorCommitmentLog, PersonalContribution, AsmPersonalTarget, RoleMonthlyQuota, CompanyAnnualTarget, CompanyAnnualTargetLog
 
 
 @admin.register(Team)
@@ -95,3 +95,15 @@ class RoleMonthlyQuotaAdmin(admin.ModelAdmin):
     list_display = ('user', 'month', 'amount')
     list_filter = ('user__role', 'month')
     search_fields = ('user__username', 'user__first_name', 'user__last_name')
+
+@admin.register(CompanyAnnualTarget)
+class CompanyAnnualTargetAdmin(admin.ModelAdmin):
+    list_display = ('year', 'amount', 'set_by', 'updated_at')
+    list_filter = ('year',)
+    search_fields = ('set_by__username',)
+
+@admin.register(CompanyAnnualTargetLog)
+class CompanyAnnualTargetLogAdmin(admin.ModelAdmin):
+    list_display = ('target', 'previous_amount', 'new_amount', 'changed_by', 'changed_at')
+    list_filter = ('target__year',)
+    search_fields = ('changed_by__username',)
