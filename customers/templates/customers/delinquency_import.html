@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Import Delinquency Records{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-file-import"></i> {{ title }}</h2>
+    <div>
+        <a href="{% url 'delinquent_list' %}" class="btn btn-outline-secondary">Back</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <p class="text-muted">Upload a CSV file exported from Excel with columns: <code>company_name,email,contact_person,amount_due,due_date,status,notes,salesperson_username</code></p>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">CSV File</label>
+                <input type="file" name="csv_file" accept=".csv" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary"><i class="fas fa-upload"></i> Import</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <!-- Warning Card -->
+        <div class="card border-warning mb-4">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="card-title mb-0">
+                    <i class="fas fa-exclamation-triangle"></i> Confirm Customer Restoration
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <strong>Warning:</strong> This action will overwrite all current customer data with the data from the selected backup.
+                    A backup of the current state will be created automatically before restoration.
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6>Customer to Restore:</h6>
+                        <p class="mb-1"><strong>{{ customer.full_name }}</strong></p>
+                        <p class="text-muted small">ID: {{ customer.pk }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Backup Information:</h6>
+                        <p class="mb-1"><strong>{{ backup.created_at|date:"M d, Y H:i:s" }}</strong></p>
+                        <p class="text-muted small">{{ backup.reason }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-exchange-alt"></i> Data Comparison</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Current Data -->
+                    <div class="col-md-6">
+                        <h6 class="text-primary border-bottom pb-2">
+                            <i class="fas fa-clock"></i> Current Data (will be overwritten)
+                        </h6>
+                        <div class="mb-3">
+                            <p><strong>Company:</strong> {{ customer.company_name }}</p>
+                            <p><strong>Contact Person:</strong> {{ customer.contact_person_name }}</p>
+                            <p><strong>Email:</strong> {{ customer.email }}</p>
+                            <p><strong>Phone:</strong> {{ customer.phone_number|default:"N/A" }}</p>
+                            <p><strong>Industry:</strong> {{ customer.get_industry_display|default:"N/A" }}</p>
+                            <p><strong>Territory:</strong> {{ customer.get_territory_display|default:"N/A" }}</p>
+                            <p><strong>VIP Status:</strong> 
+                                <span class="badge {% if customer.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {% if customer.is_vip %}VIP{% else %}Regular{% endif %}
+                                </span>
+                            </p>
+                            <p><strong>Active Status:</strong> 
+                                <span class="badge {% if customer.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if customer.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </p>
+                            <p><strong>Salesperson:</strong> {{ customer.salesperson.get_full_name|default:"Not assigned" }}</p>
+                            {% if customer.address %}
+                            <p><strong>Address:</strong> {{ customer.address|truncatewords:10 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Backup Data -->
+                    <div class="col-md-6">
+                        <h6 class="text-success border-bottom pb-2">
+                            <i class="fas fa-history"></i> Backup Data (will be restored)
+                        </h6>
+                        <div class="mb-3">
+                            <p><strong>Company:</strong> {{ backup_data.company_name|default:"N/A" }}</p>
+                            <p><strong>Contact Person:</strong> {{ backup_data.contact_person_name|default:"N/A" }}</p>
+                            <p><strong>Email:</strong> {{ backup_data.email|default:"N/A" }}</p>
+                            <p><strong>Phone:</strong> {{ backup_data.phone_number|default:"N/A" }}</p>
+                            <p><strong>Industry:</strong> {{ backup_data.industry|default:"N/A" }}</p>
+                            <p><strong>Territory:</strong> {{ backup_data.territory|default:"N/A" }}</p>
+                            <p><strong>VIP Status:</strong> 
+                                <span class="badge {% if backup_data.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {% if backup_data.is_vip %}VIP{% else %}Regular{% endif %}
+                                </span>
+                            </p>
+                            <p><strong>Active Status:</strong> 
+                                <span class="badge {% if backup_data.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if backup_data.is_active %}Active{% else %}Inactive{% endif %}
+                                </span>
+                            </p>
+                            <p><strong>Salesperson:</strong> {{ backup_data.salesperson_username|default:"Not assigned" }}</p>
+                            {% if backup_data.address %}
+                            <p><strong>Address:</strong> {{ backup_data.address|truncatewords:10 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Card -->
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6>Ready to proceed?</h6>
+                        <p class="text-muted mb-0">This action cannot be undone, but a new backup will be created.</p>
+                    </div>
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'customer_backups' customer.pk %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <form method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-warning" 
+                                    onclick="return confirm('Are you absolutely sure? This will overwrite all current customer data.')">
+                                <i class="fas fa-undo"></i> Confirm Restoration
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

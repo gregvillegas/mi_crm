@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-fire text-danger"></i> Hot Leads</h2>
+            <div>
+                <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-primary me-2">
+                    <i class="fas fa-plus"></i> Add New Lead
+                </a>
+                <a href="{% url 'lead_generation:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-chart-pie"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card text-white bg-danger">
+            <div class="card-body">
+                <h5 class="card-title">{{ total_count }}</h5>
+                <p class="card-text">Hot Leads</p>
+                <small>Priority: Hot or Score ≥ 80</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </h5>
+                <p class="card-text">High Priority</p>
+                <small>Requires immediate attention</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hot Leads List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-fire"></i> Hot Leads Pipeline</h5>
+                <small>High-priority leads and leads with scores ≥ 80 points</small>
+            </div>
+            <div class="card-body">
+                {% if hot_leads %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Lead Name</th>
+                                    <th>Company</th>
+                                    <th>Email/Phone</th>
+                                    <th>Assigned To</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Score</th>
+                                    <th>Source</th>
+                                    <th>Next Follow-up</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lead in hot_leads %}
+                                    <tr class="{% if lead.priority == 'hot' %}table-danger{% elif lead.lead_score >= 80 %}table-warning{% endif %}">
+                                        <td>
+                                            <strong>{{ lead.full_name }}</strong>
+                                            {% if lead.job_title %}
+                                                <br><small class="text-muted">{{ lead.job_title }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ lead.company_name|default:"-" }}</td>
+                                        <td>
+                                            {{ lead.email }}
+                                            {% if lead.phone_number %}
+                                                <br><small class="text-muted">{{ lead.phone_number }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if lead.assigned_to %}
+                                                <span class="badge bg-info">{{ lead.assigned_to.get_full_name }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Unassigned</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><span class="badge bg-{{ lead.status_color }}">{{ lead.get_status_display }}</span></td>
+                                        <td>
+                                            <span class="badge bg-{{ lead.priority_color }}">
+                                                {% if lead.priority == 'hot' %}<i class="fas fa-fire"></i> {% endif %}{{ lead.get_priority_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="width: 60px; height: 20px;">
+                                                <div class="progress-bar bg-{% if lead.lead_score >= 80 %}danger{% elif lead.lead_score >= 60 %}warning{% elif lead.lead_score >= 40 %}info{% else %}secondary{% endif %}" 
+                                                     role="progressbar" style="width: {{ lead.lead_score }}%">
+                                                    {{ lead.lead_score }}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ lead.source.name }}</td>
+                                        <td>
+                                            {% if lead.next_follow_up_date %}
+                                                {{ lead.next_follow_up_date|date:"M d, Y" }}
+                                                {% if lead.next_follow_up_date <= now %}
+                                                    <span class="badge bg-danger ms-1">Overdue</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'lead_generation:lead_detail' lead.id %}" class="btn btn-outline-primary" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if lead.status in 'qualified,proposal_sent,negotiating' and not lead.converted_to_customer %}
+                                                    <a href="{% url 'lead_generation:convert_lead' lead.id %}" class="btn btn-outline-success" title="Convert">
+                                                        <i class="fas fa-exchange-alt"></i>
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Alert for urgent follow-ups -->
+                    {% with overdue_count=hot_leads|length %}
+                        {% if overdue_count > 0 %}
+                            <div class="alert alert-warning mt-3">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Attention:</strong> You have {{ total_count }} hot lead{{ total_count|pluralize }} that require immediate attention.
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                    
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-fire fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No hot leads at the moment</h4>
+                        <p class="text-muted">
+                            Hot leads are those with "Hot" priority or a lead score of 80 or higher.<br>
+                            Keep nurturing your leads to make them hot!
+                        </p>
+                        <div class="mt-3">
+                            <a href="{% url 'lead_generation:lead_list' %}" class="btn btn-primary me-2">
+                                <i class="fas fa-list"></i> View All Leads
+                            </a>
+                            <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-outline-primary">
+                                <i class="fas fa-plus"></i> Add New Lead
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add some interactivity for hot leads
+document.addEventListener('DOMContentLoaded', function() {
+    // Highlight overdue follow-ups
+    const now = new Date();
+    document.querySelectorAll('tr').forEach(row => {
+        const followUpCell = row.querySelector('td:nth-child(9)');
+        if (followUpCell && followUpCell.textContent.includes('Overdue')) {
+            row.classList.add('table-danger');
+        }
+    });
+    
+    console.log('Hot Leads page loaded - {{ total_count }} hot leads displayed');
+});
+</script>
+{% endblock %}

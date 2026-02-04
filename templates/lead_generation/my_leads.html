@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-user-tie text-primary"></i> My Leads</h2>
+            <div>
+                <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-primary me-2">
+                    <i class="fas fa-plus"></i> Add New Lead
+                </a>
+                <a href="{% url 'lead_generation:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-chart-pie"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <h5 class="card-title">{{ total_leads }}</h5>
+                <p class="card-text">Total Leads</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <h5 class="card-title">{{ qualified_leads }}</h5>
+                <p class="card-text">Qualified</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <h5 class="card-title">{{ converted_leads }}</h5>
+                <p class="card-text">Converted</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <h5 class="card-title">{{ conversion_rate|floatformat:1 }}%</h5>
+                <p class="card-text">Conversion Rate</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leads List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-list"></i> My Lead Pipeline</h5>
+            </div>
+            <div class="card-body">
+                {% if leads %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Lead Name</th>
+                                    <th>Company</th>
+                                    <th>Email/Phone</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Score</th>
+                                    <th>Source</th>
+                                    <th>Next Follow-up</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lead in leads %}
+                                    <tr class="{% if lead.is_hot_lead %}table-warning{% endif %}">
+                                        <td>
+                                            <strong>{{ lead.full_name }}</strong>
+                                            {% if lead.job_title %}
+                                                <br><small class="text-muted">{{ lead.job_title }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ lead.company_name|default:"-" }}</td>
+                                        <td>
+                                            {{ lead.email }}
+                                            {% if lead.phone_number %}
+                                                <br><small class="text-muted">{{ lead.phone_number }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td><span class="badge bg-{{ lead.status_color }}">{{ lead.get_status_display }}</span></td>
+                                        <td><span class="badge bg-{{ lead.priority_color }}">{{ lead.get_priority_display }}</span></td>
+                                        <td>
+                                            <div class="progress" style="width: 60px; height: 20px;">
+                                                <div class="progress-bar bg-{% if lead.lead_score >= 80 %}danger{% elif lead.lead_score >= 60 %}warning{% elif lead.lead_score >= 40 %}info{% else %}secondary{% endif %}" 
+                                                     role="progressbar" style="width: {{ lead.lead_score }}%">
+                                                    {{ lead.lead_score }}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ lead.source.name }}</td>
+                                        <td>
+                                            {% if lead.next_follow_up_date %}
+                                                {{ lead.next_follow_up_date|date:"M d, Y" }}
+                                                {% if lead.next_follow_up_date <= now %}
+                                                    <span class="badge bg-danger ms-1">Overdue</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="text-muted">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'lead_generation:lead_detail' lead.id %}" class="btn btn-outline-primary" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if lead.status in 'qualified,proposal_sent,negotiating' and not lead.converted_to_customer %}
+                                                    <a href="{% url 'lead_generation:convert_lead' lead.id %}" class="btn btn-outline-success" title="Convert">
+                                                        <i class="fas fa-exchange-alt"></i>
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-user-plus fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No leads assigned yet</h4>
+                        <p class="text-muted">Start building your pipeline by adding your first lead!</p>
+                        <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Add Your First Lead
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add some interactivity for lead status updates
+document.addEventListener('DOMContentLoaded', function() {
+    // You can add AJAX calls here for quick status updates
+    console.log('My Leads page loaded');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>👤 {{ title }}</h2>
+        <p class="text-muted mb-0">
+            <small>{{ total_files }} file{{ total_files|pluralize }} uploaded by you</small>
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'all_files' %}" class="btn btn-outline-primary">
+            <i class="fas fa-folder"></i> All Files
+        </a>
+    </div>
+</div>
+
+<!-- Filter Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-6">
+                {{ filter_form.search }}
+            </div>
+            <div class="col-md-4">
+                {{ filter_form.category }}
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if files %}
+    <!-- Files Table -->
+    <div class="card">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>File</th>
+                        <th>Group</th>
+                        <th>Category</th>
+                        <th>Size</th>
+                        <th>Uploaded</th>
+                        <th>Downloads</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for file_share in files %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <span class="me-2">{{ file_share.get_category_icon }}</span>
+                                <div>
+                                    <strong>{{ file_share.title }}</strong>
+                                    {% if file_share.description %}
+                                        <br><small class="text-muted">{{ file_share.description|truncatewords:10 }}</small>
+                                    {% endif %}
+                                    {% if not file_share.is_active %}
+                                        <br><span class="badge bg-warning">Inactive</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <a href="{% url 'group_files' file_share.group.id %}" class="text-decoration-none">
+                                {{ file_share.group.name }}
+                            </a>
+                            <br><small class="text-muted">{{ file_share.group.team.name }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ file_share.get_category_display }}</span>
+                        </td>
+                        <td>{{ file_share.get_file_size_display }}</td>
+                        <td>
+                            {{ file_share.uploaded_at|date:"M d, Y" }}
+                            <br><small class="text-muted">{{ file_share.uploaded_at|naturaltime }}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">{{ file_share.download_count }}</span>
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{% url 'view_file' file_share.id %}" class="btn btn-outline-success btn-sm" target="_blank" title="Open File">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'download_file' file_share.id %}" class="btn btn-outline-primary btn-sm" title="Download">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <a href="{% url 'file_details' file_share.id %}" class="btn btn-outline-info btn-sm" title="Details">
+                                    <i class="fas fa-info-circle"></i>
+                                </a>
+                                <a href="{% url 'edit_file' file_share.id %}" class="btn btn-outline-secondary btn-sm" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if files.has_other_pages %}
+    <nav aria-label="Files pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if files.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ files.previous_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Previous</a>
+                </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">Page {{ files.number }} of {{ files.paginator.num_pages }}</span>
+            </li>
+            
+            {% if files.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ files.next_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Next</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+{% else %}
+    <div class="text-center py-5">
+        <div class="mb-3">
+            <i class="fas fa-file-upload fa-3x text-muted"></i>
+        </div>
+        <h4 class="text-muted">No files uploaded yet</h4>
+        <p class="text-muted">
+            {% if request.GET.search or request.GET.category %}
+                No files match your search criteria. <a href="{% url 'my_files' %}">View all your files</a>
+            {% else %}
+                You haven't uploaded any files yet. Start sharing by uploading files to your groups.
+            {% endif %}
+        </p>
+    </div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Update Monthly Quota{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ title }}</h2>
+    <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+    </div>
+<div class="card">
+    <div class="card-body">
+        <p class="text-muted mb-2">
+            User: <strong>{{ target_user.get_full_name|default:target_user.username }}</strong> ({{ target_user.get_role_display }})
+        </p>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {{ form|crispy }}
+        </form>
+    </div>
+</div>
+{% endblock %}

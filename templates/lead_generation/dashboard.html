@@ -1,0 +1,252 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-user-plus text-primary"></i> Lead Generation Dashboard</h2>
+            {% if user.role == 'salesperson' %}
+                <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add New Lead
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Leads</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ total_leads|default:0 }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Qualified Leads</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ qualified_leads|default:0 }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-danger shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Hot Leads</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ hot_leads|default:0 }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-fire fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Conversion Rate</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ conversion_rate|floatformat:1 }}%</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bolt text-warning"></i> Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if user.role == 'salesperson' %}
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-primary w-100">
+                                <i class="fas fa-plus"></i> Add New Lead
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'lead_generation:my_leads' %}" class="btn btn-info w-100">
+                                <i class="fas fa-list"></i> My Leads
+                            </a>
+                        </div>
+                    {% endif %}
+                    <div class="col-md-3 mb-2">
+                        <a href="{% url 'lead_generation:hot_leads' %}" class="btn btn-danger w-100">
+                            <i class="fas fa-fire"></i> Hot Leads
+                        </a>
+                    </div>
+                    {% if user.role in 'supervisor,asm,avp,admin,president,gm,vp' %}
+                        <div class="col-md-3 mb-2">
+                            <a href="{% url 'lead_generation:analytics' %}" class="btn btn-success w-100">
+                                <i class="fas fa-chart-bar"></i> Analytics
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Follow-up Required -->
+    {% if follow_up_leads %}
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-clock text-warning"></i> Follow-up Required</h5>
+            </div>
+            <div class="card-body">
+                {% for lead in follow_up_leads %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                        <div>
+                            <strong>{{ lead.full_name }}</strong>
+                            {% if lead.company_name %}
+                                <small class="text-muted">({{ lead.company_name }})</small>
+                            {% endif %}
+                            <br>
+                            <small class="text-muted">Due: {{ lead.next_follow_up_date|date:"M d, Y H:i" }}</small>
+                        </div>
+                        <div>
+                            <span class="badge bg-{{ lead.status_color }}">{{ lead.get_status_display }}</span>
+                            <span class="badge bg-{{ lead.priority_color }}">{{ lead.get_priority_display }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'lead_generation:lead_list' %}?status=contacted&status=qualified&status=proposal_sent" class="btn btn-outline-primary btn-sm">View All</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history text-info"></i> Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_activities %}
+                    {% for activity in recent_activities %}
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 border-bottom">
+                            <div>
+                                <strong>{{ activity.lead.full_name }}</strong> - {{ activity.title }}
+                                <br>
+                                <small class="text-muted">{{ activity.created_at|timesince }} ago by {{ activity.performed_by.username }}</small>
+                            </div>
+                            <div>
+                                <span class="badge bg-secondary">{{ activity.get_activity_type_display }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center">No recent activity</p>
+                {% endif %}
+                <div class="text-center mt-3">
+                    <a href="{% url 'lead_generation:lead_list' %}" class="btn btn-outline-info btn-sm">View All Leads</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lead Sources Performance -->
+{% if source_stats %}
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bullhorn text-success"></i> Top Performing Lead Sources</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Source</th>
+                                <th>Type</th>
+                                <th>Total Leads</th>
+                                <th>Conversions</th>
+                                <th>Conversion Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for source in source_stats %}
+                                <tr>
+                                    <td><strong>{{ source.name }}</strong></td>
+                                    <td>{{ source.get_source_type_display }}</td>
+                                    <td>{{ source.lead_count }}</td>
+                                    <td>{{ source.conversion_count }}</td>
+                                    <td>
+                                        {% if source.lead_count > 0 %}
+                                            {% widthratio source.conversion_count source.lead_count 100 %}%
+                                        {% else %}
+                                            0%
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if user.role in 'supervisor,asm,avp,admin,president,gm,vp' %}
+                    <div class="text-center mt-3">
+                        <a href="{% url 'lead_generation:lead_sources' %}" class="btn btn-outline-success btn-sm">Manage Lead Sources</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-danger {
+    border-left: 0.25rem solid #e74a3b !important;
+}
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+</style>
+{% endblock %}

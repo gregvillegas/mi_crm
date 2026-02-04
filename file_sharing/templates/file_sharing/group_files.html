@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}{{ group.name }} - Shared Files{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>📁 {{ group.name }} - Shared Files</h2>
+        <p class="text-muted mb-0">
+            <small>{{ group.team.name }} Team • {{ total_files }} file{{ total_files|pluralize }}</small>
+        </p>
+    </div>
+    {% if can_upload %}
+    <a href="{% url 'upload_file' group.id %}" class="btn btn-primary">
+        <i class="fas fa-upload"></i> Upload File
+    </a>
+    {% endif %}
+</div>
+
+<!-- Filter Form -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-6">
+                {{ filter_form.search }}
+            </div>
+            <div class="col-md-4">
+                {{ filter_form.category }}
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">Filter</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if files %}
+    <!-- Files Grid -->
+    <div class="row">
+        {% for file_share in files %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex align-items-start mb-2">
+                        <span class="fs-3 me-2">{{ file_share.get_category_icon }}</span>
+                        <div class="flex-grow-1">
+                            <h6 class="card-title mb-1">
+                                <a href="{% url 'file_details' file_share.id %}" class="text-decoration-none">
+                                    {{ file_share.title }}
+                                </a>
+                            </h6>
+                            <small class="text-muted">{{ file_share.get_category_display }}</small>
+                        </div>
+                    </div>
+                    
+                    {% if file_share.description %}
+                    <p class="card-text small text-muted">{{ file_share.description|truncatewords:15 }}</p>
+                    {% endif %}
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-auto">
+                        <small class="text-muted">
+                            {{ file_share.get_file_size_display }}
+                        </small>
+                        <div class="btn-group btn-group-sm">
+                            <a href="{% url 'view_file' file_share.id %}" class="btn btn-outline-success btn-sm" target="_blank" title="Open File">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{% url 'download_file' file_share.id %}" class="btn btn-outline-primary btn-sm" title="Download">
+                                <i class="fas fa-download"></i>
+                            </a>
+                            <a href="{% url 'file_details' file_share.id %}" class="btn btn-outline-info btn-sm" title="Details">
+                                <i class="fas fa-info-circle"></i>
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-2 pt-2 border-top">
+                        <small class="text-muted d-block">
+                            <i class="fas fa-user"></i> {{ file_share.uploaded_by.get_full_name|default:file_share.uploaded_by.username }}
+                        </small>
+                        <small class="text-muted d-block">
+                            <i class="fas fa-clock"></i> {{ file_share.uploaded_at|naturaltime }}
+                        </small>
+                        {% if file_share.download_count > 0 %}
+                        <small class="text-muted d-block">
+                            <i class="fas fa-download"></i> {{ file_share.download_count }} download{{ file_share.download_count|pluralize }}
+                        </small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if files.has_other_pages %}
+    <nav aria-label="Files pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if files.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ files.previous_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Previous</a>
+                </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">Page {{ files.number }} of {{ files.paginator.num_pages }}</span>
+            </li>
+            
+            {% if files.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ files.next_page_number }}{% if request.GET.category %}&category={{ request.GET.category }}{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">Next</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+{% else %}
+    <div class="text-center py-5">
+        <div class="mb-3">
+            <i class="fas fa-folder-open fa-3x text-muted"></i>
+        </div>
+        <h4 class="text-muted">No files found</h4>
+        <p class="text-muted">
+            {% if can_upload %}
+                This group doesn't have any shared files yet. <a href="{% url 'upload_file' group.id %}">Upload the first file</a>
+            {% else %}
+                This group doesn't have any shared files yet.
+            {% endif %}
+        </p>
+    </div>
+{% endif %}
+
+<div class="mt-4">
+    <a href="{% url 'group_members' group.id %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Group Members
+    </a>
+</div>
+{% endblock %}

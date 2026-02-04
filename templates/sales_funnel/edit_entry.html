@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-edit"></i> Edit Funnel Entry</h3>
+                <small class="text-muted">{{ entry.company_name }}</small>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.date_created|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.stage|as_crispy_field }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.company_name|as_crispy_field }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.customer|as_crispy_field }}
+                        <div class="form-text">
+                            <i class="fas fa-info-circle"></i> Optional - Link to an existing customer in your database
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.requirement_description|as_crispy_field }}
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.cost|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                {{ form.retail|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label">Profit (₱)</label>
+                                <input type="text" class="form-control bg-light" id="profit-display" readonly>
+                                <div class="form-text">Automatically calculated: Retail - Cost</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.expected_close_date|as_crispy_field }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.probability|as_crispy_field }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ form.notes|as_crispy_field }}
+                    </div>
+                    
+                    <!-- Entry Status Information -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6><i class="fas fa-info-circle"></i> Entry Information</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small><strong>Created:</strong> {{ entry.created_at|date:"M d, Y H:i" }}</small><br>
+                                    <small><strong>Updated:</strong> {{ entry.updated_at|date:"M d, Y H:i" }}</small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small><strong>Current Stage:</strong> 
+                                        <span class="badge bg-{{ entry.stage_color }}">
+                                            <i class="{{ entry.stage_icon }}"></i> {{ entry.get_stage_display }}
+                                        </span>
+                                    </small><br>
+                                    <small><strong>Status:</strong> 
+                                        {% if entry.is_closed %}
+                                            <span class="badge bg-secondary">Closed</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Active</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Update Entry
+                        </button>
+                        <a href="{% url 'sales_funnel:dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        
+                        <!-- Additional Actions -->
+                        {% if not entry.is_closed %}
+                            <div class="ms-auto">
+                                {% if entry.stage == 'closable' %}
+                                    <button type="button" class="btn btn-success btn-sm" onclick="closeEntry({{ entry.id }}, true)">
+                                        <i class="fas fa-check"></i> Mark Won
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="closeEntry({{ entry.id }}, false)">
+                                        <i class="fas fa-times"></i> Mark Lost
+                                    </button>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-calculate profit
+function calculateProfit() {
+    const cost = parseFloat(document.getElementById('id_cost').value) || 0;
+    const retail = parseFloat(document.getElementById('id_retail').value) || 0;
+    const profit = retail - cost;
+    
+    const profitDisplay = document.getElementById('profit-display');
+    profitDisplay.value = '₱' + profit.toLocaleString('en-US', {minimumFractionDigits: 2});
+    
+    // Color code the profit
+    if (profit > 0) {
+        profitDisplay.className = 'form-control bg-light text-success';
+    } else if (profit < 0) {
+        profitDisplay.className = 'form-control bg-light text-danger';
+    } else {
+        profitDisplay.className = 'form-control bg-light';
+    }
+}
+
+// Add event listeners
+document.getElementById('id_cost').addEventListener('input', calculateProfit);
+document.getElementById('id_retail').addEventListener('input', calculateProfit);
+
+// Calculate on page load
+document.addEventListener('DOMContentLoaded', calculateProfit);
+
+// Close entry function
+function closeEntry(entryId, won) {
+    const status = won ? 'won' : 'lost';
+    if (confirm(`Mark this deal as ${status}? This will close the entry.`)) {
+        fetch(`/funnel/close/${entryId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `won=${won}`
+        })
+        .then(response => {
+            if (response.redirected) {
+                window.location.href = '{% url "sales_funnel:dashboard" %}';
+            }
+        })
+        .catch(error => {
+            alert('An error occurred while closing the entry.');
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="row">
+    <!-- Main Form -->
+    <div class="col-md-{% if is_edit %}8{% else %}8 mx-auto{% endif %}">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="card-title mb-0">
+                    {% if is_edit %}
+                        Edit Customer: {{ customer.full_name }}
+                    {% elif is_salesperson_form %}
+                        {{ title }}
+                    {% else %}
+                        {{ title|default:"Create New Customer" }}
+                    {% endif %}
+                </h3>
+                {% if is_edit and user.role == 'admin' %}
+                    <div class="btn-group" role="group">
+                        <a href="{% url 'customer_backups' customer.pk %}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-history"></i> View All Backups
+                        </a>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#manualBackupModal">
+                            <i class="fas fa-save"></i> Create Backup
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if is_edit %}
+                    <div class="alert alert-info d-flex align-items-center mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <div>
+                            <strong>Auto-Backup:</strong> A backup will be created automatically before saving changes to preserve the current state.
+                        </div>
+                    </div>
+                {% elif is_salesperson_form %}
+                    <div class="alert alert-success d-flex align-items-center mb-3">
+                        <i class="fas fa-user-plus me-2"></i>
+                        <div>
+                            <strong>New Customer:</strong> You're adding a new customer and will be automatically assigned as their salesperson. You can add customer details but cannot edit assignments or status fields.
+                        </div>
+                    </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    {% crispy form %}
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Backups Sidebar (only for edit mode) -->
+    {% if is_edit and user.role == 'admin' and recent_backups %}
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clock"></i> Recent Backups
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for backup in recent_backups %}
+                        <div class="list-group-item px-0 py-2 border-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1 text-truncate">
+                                        {{ backup.created_at|date:"M d, Y H:i" }}
+                                    </h6>
+                                    <p class="mb-1 small text-muted">{{ backup.reason }}</p>
+                                    {% if backup.changed_by %}
+                                        <small class="text-muted">by {{ backup.changed_by.get_full_name|default:backup.changed_by.username }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="ms-2">
+                                    <a href="{% url 'restore_customer' customer.pk backup.pk %}" 
+                                       class="btn btn-outline-primary btn-sm"
+                                       onclick="return confirm('Are you sure you want to restore from this backup? This will overwrite current data.')">
+                                        <i class="fas fa-undo"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% if not forloop.last %}<hr class="my-1">{% endif %}
+                    {% endfor %}
+                </div>
+                
+                <div class="mt-3">
+                    <a href="{% url 'customer_backups' customer.pk %}" class="btn btn-outline-info btn-sm w-100">
+                        <i class="fas fa-history"></i> View All Backups ({{ customer.backups.count }})
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Manual Backup Modal -->
+{% if is_edit and user.role == 'admin' %}
+<div class="modal fade" id="manualBackupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Manual Backup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'create_manual_backup' customer.pk %}">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="reason" class="form-label">Backup Reason</label>
+                        <textarea name="reason" id="reason" class="form-control" rows="3" 
+                                  placeholder="Enter reason for creating this backup (optional)">Manual backup before making changes</textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        This will create a snapshot of the current customer data that can be restored later if needed.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Create Backup
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

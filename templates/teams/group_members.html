@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>
+        {{ group.name }} - Members
+        {% if group.is_tsg %}
+            <span class="badge bg-warning ms-2">TSG</span>
+        {% endif %}
+    </h2>
+    <div>
+        <a href="{% url 'group_files' group.id %}" class="btn btn-success me-2">
+            <i class="fas fa-file-alt"></i> Group Files
+        </a>
+        <a href="{% url 'edit_group' group.pk %}" class="btn btn-primary">Edit Group</a>
+        <a href="{% url 'group_list' %}" class="btn btn-outline-secondary">Back to Groups</a>
+        <a href="{% url 'team_groups' group.team.pk %}" class="btn btn-outline-secondary">Back to {{ group.team.name }}</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Group Information</h5>
+        <div class="row">
+            <div class="col-md-6">
+                <p class="card-text">
+                    <strong>Team:</strong> {{ group.team.name }}<br>
+                    <strong>Type:</strong> {{ group.get_group_type_display }}<br>
+                    {% if group.is_tsg %}
+                        <strong>Managed by:</strong> {{ group.get_manager.get_full_name|default:group.get_manager.username }} ({{ group.get_manager_role }})<br>
+                    {% else %}
+                        <strong>Supervisor:</strong> {{ group.supervisor.get_full_name|default:group.supervisor.username }}<br>
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p class="card-text">
+                    {% if group.teamlead %}
+                        <strong>Team Lead:</strong> {{ group.teamlead.get_full_name|default:group.teamlead.username }}<br>
+                    {% endif %}
+                    <strong>Total Members:</strong> {{ members.count }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Group Members</h5>
+    </div>
+    <div class="card-body">
+        {% if members %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Quota</th>
+                            <th>Email</th>
+                            <th>Phone</th>
+                            <th>Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td>
+                                {{ member.get_full_name|default:"—" }}
+                            </td>
+                            <td>{{ member.username }}</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ member.get_role_display }}</span>
+                            </td>
+                            <td>
+                                ₱{{ member.team_membership.quota|floatformat:2|intcomma }}
+                            </td>
+                            <td>{{ member.email|default:"—" }}</td>
+                            <td>{{ member.phone|default:"—" }}</td>
+                            <td>
+                                {% if member.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if can_edit %}
+                                    <a href="{% url 'update_member_quota' member.team_membership.id %}" class="btn btn-sm btn-outline-primary">
+                                        Update Quota
+                                    </a>
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info text-center">
+                <h4>No members found</h4>
+                <p class="mb-0">This group currently has no assigned members.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

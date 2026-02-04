@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Activity Reports - Sales Monitoring{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-chart-bar"></i> Activity Reports</h1>
+                <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Report Generation Form -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-plus-circle"></i> Generate New Report</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {% crispy form %}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Reports -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history"></i> Recent Reports</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_reports %}
+                    <div class="list-group">
+                        {% for report in recent_reports %}
+                        <div class="list-group-item d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ report.get_report_type_display }}</h6>
+                                <p class="mb-1">{{ report.group.name }}</p>
+                                <small class="text-muted">
+                                    {{ report.period_start|date:"M j" }} - {{ report.period_end|date:"M j, Y" }}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-primary">{{ report.total_activities }} activities</span>
+                                <br>
+                                <small class="text-muted">{{ report.created_at|date:"M j, Y" }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-file-alt" style="font-size: 2rem;"></i>
+                        <p class="mt-2">No reports generated yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Instructions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> Report Types</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center p-3">
+                                <i class="fas fa-calendar-day text-primary" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2">Daily Report</h6>
+                                <p class="text-muted small">Activities for today</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3">
+                                <i class="fas fa-calendar-week text-success" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2">Weekly Report</h6>
+                                <p class="text-muted small">Current week activities</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3">
+                                <i class="fas fa-calendar-alt text-warning" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2">Monthly Report</h6>
+                                <p class="text-muted small">Current month activities</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center p-3">
+                                <i class="fas fa-calendar text-info" style="font-size: 2rem;"></i>
+                                <h6 class="mt-2">Custom Report</h6>
+                                <p class="text-muted small">Select custom date range</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide custom date fields based on report type selection
+document.addEventListener('DOMContentLoaded', function() {
+    const reportTypeField = document.querySelector('#id_report_type');
+    const customFields = document.querySelectorAll('#div_id_period_start, #div_id_period_end');
+    
+    function toggleCustomFields() {
+        const isCustom = reportTypeField.value === 'custom';
+        customFields.forEach(field => {
+            field.style.display = isCustom ? 'block' : 'none';
+        });
+    }
+    
+    if (reportTypeField) {
+        reportTypeField.addEventListener('change', toggleCustomFields);
+        toggleCustomFields(); // Initial state
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,193 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load static %}
+{% load file_filters %}
+{% block title %}{{ file_share.title }} - File Details{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <!-- File Information Card -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <span class="me-2">{{ file_share.get_category_icon }}</span>
+                    {{ file_share.title }}
+                </h4>
+                {% if not file_share.is_active %}
+                <span class="badge bg-warning">Inactive</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if file_share.description %}
+                <p class="card-text">{{ file_share.description }}</p>
+                {% endif %}
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>File Information</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>File Name:</strong> {{ file_share.file.name|basename }}</li>
+                            <li><strong>File Size:</strong> {{ file_share.get_file_size_display }}</li>
+                            <li><strong>Category:</strong> {{ file_share.get_category_display }}</li>
+                            <li><strong>Downloads:</strong> {{ file_share.download_count }} time{{ file_share.download_count|pluralize }}</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Group & Upload Info</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Group:</strong> 
+                                <a href="{% url 'group_files' file_share.group.id %}" class="text-decoration-none">
+                                    {{ file_share.group.name }}
+                                </a>
+                            </li>
+                            <li><strong>Team:</strong> {{ file_share.group.team.name }}</li>
+                            <li><strong>Uploaded by:</strong> {{ file_share.uploaded_by.get_full_name|default:file_share.uploaded_by.username }}</li>
+                            <li><strong>Upload Date:</strong> {{ file_share.uploaded_at|date:"M d, Y" }} ({{ file_share.uploaded_at|naturaltime }})</li>
+                            {% if file_share.updated_at != file_share.uploaded_at %}
+                            <li><strong>Last Updated:</strong> {{ file_share.updated_at|date:"M d, Y" }} ({{ file_share.updated_at|naturaltime }})</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="btn-group">
+                        <a href="{% url 'download_file' file_share.id %}" class="btn btn-primary">
+                            <i class="fas fa-download"></i> Download File
+                        </a>
+                        {% if can_edit %}
+                        <a href="{% url 'edit_file' file_share.id %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-edit"></i> Edit Details
+                        </a>
+                        {% endif %}
+                    </div>
+                    
+                    {% if can_delete %}
+                    <form method="post" action="{% url 'delete_file' file_share.id %}" style="display: inline;" 
+                          onsubmit="return confirm('Are you sure you want to delete this file? This action cannot be undone.')">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger">
+                            <i class="fas fa-trash"></i> Delete File
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activity -->
+        {% if recent_logs %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-history"></i> Recent Activity</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Action</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in recent_logs %}
+                            <tr>
+                                <td>{{ log.user.get_full_name|default:log.user.username }}</td>
+                                <td>
+                                    {% if log.action == 'download' %}
+                                        <span class="badge bg-primary"><i class="fas fa-download"></i> Downloaded</span>
+                                    {% elif log.action == 'view' %}
+                                        <span class="badge bg-info"><i class="fas fa-eye"></i> Viewed</span>
+                                    {% elif log.action == 'upload' %}
+                                        <span class="badge bg-success"><i class="fas fa-upload"></i> Uploaded</span>
+                                    {% elif log.action == 'delete' %}
+                                        <span class="badge bg-danger"><i class="fas fa-trash"></i> Deleted</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {{ log.timestamp|naturaltime }}
+                                    <br><small class="text-muted">{{ log.timestamp|date:"M d, Y H:i" }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <!-- File Preview Card -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-file"></i> File Preview</h6>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <span style="font-size: 4rem;">{{ file_share.get_category_icon }}</span>
+                </div>
+                <h6>{{ file_share.file.name|basename }}</h6>
+                <p class="text-muted mb-3">{{ file_share.get_file_size_display }}</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'view_file' file_share.id %}" class="btn btn-primary" target="_blank">
+                        <i class="fas fa-eye"></i> Open File
+                    </a>
+                    <a href="{% url 'download_file' file_share.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-download"></i> Download File
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Group Information -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-users"></i> Group Information</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled mb-0">
+                    <li><strong>Group:</strong> 
+                        <a href="{% url 'group_files' file_share.group.id %}" class="text-decoration-none">
+                            {{ file_share.group.name }}
+                        </a>
+                    </li>
+                    <li><strong>Team:</strong> {{ file_share.group.team.name }}</li>
+                    <li><strong>Group Type:</strong> 
+                        {% if file_share.group.is_tsg %}
+                            <span class="badge bg-info">TSG</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Regular</span>
+                        {% endif %}
+                    </li>
+                    <li><strong>Manager:</strong> {{ file_share.group.get_manager.get_full_name|default:file_share.group.get_manager.username }}</li>
+                    {% if file_share.group.teamlead %}
+                    <li><strong>Team Lead:</strong> {{ file_share.group.teamlead.get_full_name|default:file_share.group.teamlead.username }}</li>
+                    {% endif %}
+                </ul>
+                <div class="mt-3">
+                    <a href="{% url 'group_members' file_share.group.id %}" class="btn btn-outline-primary btn-sm w-100">
+                        <i class="fas fa-users"></i> View Group Members
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'group_files' file_share.group.id %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Group Files
+    </a>
+</div>
+{% endblock %}
+</function_results>
+
+<function_calls>
+<invoke name="mark_todo_as_done">
+<parameter name="todo_ids">["21210ad7-79fb-4fce-b452-0bf21ac62411"]

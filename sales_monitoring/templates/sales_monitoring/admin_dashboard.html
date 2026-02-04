@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Sales Activity Monitoring - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-chart-bar"></i> Sales Activity Analytics</h1>
+                <div class="btn-group">
+                    <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-primary">
+                        <i class="fas fa-file-alt"></i> Generate Reports
+                    </a>
+                    <a href="{% url 'sales_monitoring:team_performance' %}" class="btn btn-success">
+                        <i class="fas fa-users"></i> Team Performance
+                    </a>
+                    <a href="{% url 'sales_monitoring:export_activities' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-download"></i> Export Data
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System-wide Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card border-primary text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ stats.total_activities }}</h3>
+                    <p class="card-text">Total Activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-info text-center">
+                <div class="card-body">
+                    <h3 class="text-info">{{ stats.total_salespeople }}</h3>
+                    <p class="card-text">Active Salespeople</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ stats.activities_today }}</h3>
+                    <p class="card-text">Today's Activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ stats.completed_today }}</h3>
+                    <p class="card-text">Completed Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <a href="{% url 'sales_monitoring:activity_calendar' %}?view=week" class="text-decoration-none">
+                <div class="card border-warning text-center">
+                    <div class="card-body">
+                        <h3 class="text-warning">{{ stats.activities_this_week }}</h3>
+                        <p class="card-text">This Week</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-2">
+            <a href="{% url 'sales_monitoring:activity_calendar' %}?view=month" class="text-decoration-none">
+                <div class="card border-danger text-center">
+                    <div class="card-body">
+                        <h3 class="text-danger">{{ stats.overdue_activities }}</h3>
+                        <p class="card-text">Overdue</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Activity Type Breakdown -->
+    {% if activity_breakdown %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-pie-chart"></i> Activity Type Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for item in activity_breakdown %}
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <div class="me-3">
+                                    <i class="{{ item.activity_type__icon }} text-{{ item.activity_type__color }}" style="font-size: 2rem;"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0">{{ item.count }}</h5>
+                                    <small class="text-muted">{{ item.activity_type__name }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Team Performance Overview -->
+    {% if team_performance %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-users"></i> Team Performance Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Team/Group</th>
+                                    <th>Salespeople</th>
+                                    <th>Total Activities</th>
+                                    <th>Completed</th>
+                                    <th>Completion Rate</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for team in team_performance %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ team.group.name }}</strong>
+                                        <br><small class="text-muted">{{ team.group.team.name }}</small>
+                                    </td>
+                                    <td>{{ team.salespeople_count }}</td>
+                                    <td>{{ team.total_activities }}</td>
+                                    <td>{{ team.completed_activities }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if team.completion_rate >= 80 %}success{% elif team.completion_rate >= 60 %}warning{% else %}danger{% endif %}">
+                                            {{ team.completion_rate|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-{% if team.completion_rate >= 80 %}success{% elif team.completion_rate >= 60 %}warning{% else %}danger{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ team.completion_rate }}%"
+                                                 aria-valuenow="{{ team.completion_rate }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="100">
+                                                {{ team.completion_rate|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-users text-muted" style="font-size: 3rem;"></i>
+                    <h4 class="mt-3 text-muted">No Team Data Available</h4>
+                    <p class="text-muted">No sales teams or activities found in the system.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

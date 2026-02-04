@@ -1,0 +1,830 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <div class="d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-chart-line"></i> Sales Funnel Dashboard</h2>
+            {% if can_add %}
+                <div class="btn-group">
+                    <a href="{% url 'sales_funnel:add_entry' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add New Entry
+                    </a>
+                    <a href="{% url 'sales_funnel:import_entries' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-file-import"></i> Import Entries
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<style>
+.kpi-card{min-height:130px}
+</style>
+<div class="row mb-4">
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+        <div class="card bg-info text-white kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Active Entries</h6>
+                        <h3>{{ stats.total_entries }}</h3>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-list-alt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+        <div class="card bg-success text-white kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Won Deals</h6>
+                        <h3>{{ stats.won_count }}</h3>
+                        <small>₱{{ stats.won_value|floatformat:0|intcomma }}</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-trophy fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+        <div class="card bg-danger text-white kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Lost Deals</h6>
+                        <h3>{{ stats.lost_count }}</h3>
+                        <small>₱{{ stats.lost_value|floatformat:0|intcomma }}</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-times-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+        <div class="card bg-primary text-white kpi-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Win Rate</h6>
+                        <h3>{{ stats.win_rate|floatformat:1 }}%</h3>
+                        <small>{{ stats.total_closed }} closed</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-percentage fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<!--
+    <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Active Value</h6>
+                        <h4>₱{{ stats.total_value|floatformat:0|intcomma }}</h4>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-money-bill-wave fa-1x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+-->
+    <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
+        <div class="card bg-dark text-white kpi-card">
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-12">
+                        <small>Pipeline Stages</small>
+                    </div>
+                    <div class="col-3">
+                        <small>Quoted</small><br>
+                        <strong>{{ stats.quoted_count }}</strong>
+                    </div>
+                    <div class="col-3">
+                        <small>Closable</small><br>
+                        <strong>{{ stats.closable_count }}</strong>
+                    </div>
+                    <div class="col-3">
+                        <small>Project</small><br>
+                        <strong>{{ stats.project_count }}</strong>
+                    </div>
+                    <div class="col-3">
+                        <small>Services</small><br>
+                        <strong>{{ stats.services_count }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex gap-2 justify-content-end align-items-center">
+            <div class="btn-group me-2" role="group" aria-label="View mode">
+                <button type="button" class="btn btn-outline-secondary {% if view_mode == 'card' %}active{% endif %}" onclick="setViewMode('card')">
+                    <i class="fas fa-grip-horizontal"></i> Card
+                </button>
+                <button type="button" class="btn btn-outline-secondary {% if view_mode == 'table' %}active{% endif %}" onclick="setViewMode('table')">
+                    <i class="fas fa-table"></i> Table
+                </button>
+            </div>
+            <a href="{% url 'sales_funnel:deals_history' %}" class="btn btn-outline-primary">
+                <i class="fas fa-chart-line"></i> View Deals History
+            </a>
+            {% if user.role in 'admin,president,gm,vp' %}
+            <a href="{% url 'sales_funnel:normalize_stages' %}" class="btn btn-danger" onclick="return confirm('Normalize active entries to the Project/Services rule now?')">
+                <i class="fas fa-broom"></i> Normalize Stages
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Filter Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form id="funnelFilterForm" method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Stage</label>
+                {{ filter_form.stage }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Salesperson</label>
+                {{ filter_form.salesperson }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Min Amount (₱)</label>
+                {{ filter_form.min_amount }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Date From</label>
+                {{ filter_form.date_from }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Date To</label>
+                {{ filter_form.date_to }}
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <a href="{% url 'sales_funnel:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-times"></i> Clear
+                </a>
+                {% if not can_add %}
+                <button type="button" class="btn btn-outline-success" onclick="exportFunnel()">
+                    <i class="fas fa-file-export"></i> Export CSV
+                </button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Funnel Entries - Row Layout -->
+
+<!-- Pink Funnel: Newly Quoted -->
+<div class="mb-4">
+    <div class="card border-primary">
+        <div class="card-header bg-pink text-white d-flex justify-content-between align-items-center" style="background-color: #e91e63 !important;">
+            <h5 class="mb-0">
+                <i class="fas fa-quote-left"></i> PINK
+            </h5>
+            <span class="badge bg-white text-danger">{{ quoted_entries.count }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if view_mode == 'table' %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Date</th>
+                            <th>Company</th>
+                            <th class="text-center" style="width: 140px;">Retail</th>
+                            <th class="text-center" style="width: 140px;">Profit</th>
+                            {% if not can_add %}
+                            <th class="text-center" style="width: 160px;">Salesperson</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in quoted_entries %}
+                        <tr>
+                            <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
+                            <td>
+                                <div class="fw-semibold text-primary">{{ entry.company_name }}</div>
+                                <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
+                            </td>
+                            <td class="text-center"><strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}
+                            <td class="text-center">
+                                {% if entry.salesperson.initials %}
+                                    <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                {% endif %}
+                                <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-3">No quoted entries</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td></td>
+                            <td><strong>Total</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.quoted.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.quoted.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}<td></td>{% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            {% if quoted_entries %}
+                {% for entry in quoted_entries %}
+                    <div class="card mb-2 mx-3 mt-3 border-0 shadow-sm" id="entry-card-{{ entry.id }}">
+                        <div class="card-body py-3">
+                            <div class="row align-items-center">
+                                <div class="col-lg-1 col-md-1">
+                                    <div class="text-center">
+                                        <small class="text-muted d-block">Date</small>
+                                        <strong class="small">{{ entry.date_created|date:"M d" }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3">
+                                    <h6 class="mb-1 text-primary">{{ entry.company_name }}</h6>
+                                    <p class="mb-1 text-muted small">{{ entry.requirement_description|truncatechars:50 }}</p>
+                                    {% if entry.customer %}
+                                        <small class="text-success"><i class="fas fa-user"></i> {{ entry.customer.get_full_name }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Retail</small>
+                                    <strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Profit</small>
+                                    <strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong>
+                                </div>
+                                {% if not can_add %}
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Salesperson</small>
+                                    {% if entry.salesperson.initials %}
+                                        <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                    {% endif %}
+                                    <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-end">
+                                {% else %}
+                                <div class="col-lg-4 col-md-4 text-end">
+                                {% endif %}
+                                    {% if show_actions %}
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-warning btn-sm" onclick="moveEntry({{ entry.id }}, 'closable')" title="Move to Closable">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </button>
+                                        <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% if can_add or can_edit_all %}
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry({{ entry.id }})" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i><br>
+                    <h6>No quoted entries</h6>
+                    <p>New quotes will appear here</p>
+                </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Yellow Funnel: Closable This Month -->
+<div class="mb-4">
+    <div class="card border-warning">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-handshake"></i> YELLOW
+            </h5>
+            <span class="badge bg-dark">{{ closable_entries.count }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if view_mode == 'table' %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Date</th>
+                            <th>Company</th>
+                            <th class="text-center" style="width: 140px;">Retail</th>
+                            <th class="text-center" style="width: 140px;">Profit</th>
+                            {% if not can_add %}<th class="text-center" style="width: 160px;">Salesperson</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in closable_entries %}
+                        <tr>
+                            <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
+                            <td>
+                                <div class="fw-semibold text-warning">{{ entry.company_name }}</div>
+                                <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
+                            </td>
+                            <td class="text-center"><strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}
+                            <td class="text-center">
+                                {% if entry.salesperson.initials %}
+                                    <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                {% endif %}
+                                <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">No closable entries</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td></td>
+                            <td><strong>Total</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.closable.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.closable.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}<td></td>{% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            {% if closable_entries %}
+                {% for entry in closable_entries %}
+                    <div class="card mb-2 mx-3 mt-3 border-0 shadow-sm" id="entry-card-{{ entry.id }}">
+                        <div class="card-body py-3">
+                            <div class="row align-items-center">
+                                <div class="col-lg-1 col-md-1">
+                                    <div class="text-center">
+                                        <small class="text-muted d-block">Date</small>
+                                        <strong class="small">{{ entry.date_created|date:"M d" }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3">
+                                    <h6 class="mb-1 text-warning">{{ entry.company_name }}</h6>
+                                    <p class="mb-1 text-muted small">{{ entry.requirement_description|truncatechars:50 }}</p>
+                                    {% if entry.customer %}
+                                        <small class="text-success"><i class="fas fa-user"></i> {{ entry.customer.get_full_name }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Retail</small>
+                                    <strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Profit</small>
+                                    <strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong>
+                                </div>
+                                {% if not can_add %}
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Salesperson</small>
+                                    {% if entry.salesperson.initials %}
+                                        <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                    {% endif %}
+                                    <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-end">
+                                {% else %}
+                                <div class="col-lg-4 col-md-4 text-end">
+                                {% endif %}
+                                    {% if show_actions %}
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-success btn-sm" onclick="closeEntry({{ entry.id }}, true)" title="Mark as Won">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="closeEntry({{ entry.id }}, false)" title="Mark as Lost">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                        <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i><br>
+                    <h6>No closable entries</h6>
+                    <p>Deals ready to close will appear here</p>
+                </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Green Funnel: Project Based -->
+<div class="mb-4">
+    <div class="card border-success">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-project-diagram"></i> GREEN
+            </h5>
+            <span class="badge bg-white text-success">{{ project_entries.count }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if view_mode == 'table' %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Date</th>
+                            <th>Company</th>
+                            <th class="text-center" style="width: 140px;">Retail</th>
+                            <th class="text-center" style="width: 140px;">Profit</th>
+                            {% if not can_add %}<th class="text-center" style="width: 160px;">Salesperson</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in project_entries %}
+                        <tr>
+                            <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
+                            <td>
+                                <div class="fw-semibold text-success">{{ entry.company_name }}</div>
+                                <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
+                            </td>
+                            <td class="text-center"><strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}
+                            <td class="text-center">
+                                {% if entry.salesperson.initials %}
+                                    <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                {% endif %}
+                                <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">No project entries</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td></td>
+                            <td><strong>Total</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.project.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.project.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}<td></td>{% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            {% if project_entries %}
+                {% for entry in project_entries %}
+                    <div class="card mb-2 mx-3 mt-3 border-0 shadow-sm" id="entry-card-{{ entry.id }}">
+                        <div class="card-body py-3">
+                            <div class="row align-items-center">
+                                <div class="col-lg-1 col-md-1">
+                                    <div class="text-center">
+                                        <small class="text-muted d-block">Date</small>
+                                        <strong class="small">{{ entry.date_created|date:"M d" }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3">
+                                    <h6 class="mb-1 text-success">{{ entry.company_name }}</h6>
+                                    <p class="mb-1 text-muted small">{{ entry.requirement_description|truncatechars:50 }}</p>
+                                    {% if entry.customer %}
+                                        <small class="text-success"><i class="fas fa-user"></i> {{ entry.customer.get_full_name }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Retail</small>
+                                    <strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Profit</small>
+                                    <strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong>
+                                </div>
+                                {% if not can_add %}
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Salesperson</small>
+                                    {% if entry.salesperson.initials %}
+                                        <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                    {% endif %}
+                                    <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-end">
+                                {% else %}
+                                <div class="col-lg-4 col-md-4 text-end">
+                                {% endif %}
+                                    {% if show_actions %}
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-warning btn-sm" onclick="moveEntry({{ entry.id }}, 'closable')" title="Move to Closable">
+                                            <i class="fas fa-arrow-left"></i>
+                                        </button>
+                                        <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% if can_add or can_edit_all %}
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry({{ entry.id }})" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i><br>
+                    <h6>No project entries</h6>
+                    <p>Project-based deals will appear here</p>
+                </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Blue Funnel: Services -->
+<div class="mb-4">
+    <div class="card border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-screwdriver-wrench"></i> BLUE
+            </h5>
+            <span class="badge bg-white text-primary">{{ services_entries.count }}</span>
+        </div>
+        <div class="card-body p-0">
+            {% if view_mode == 'table' %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Date</th>
+                            <th>Company</th>
+                            <th class="text-center" style="width: 140px;">Retail</th>
+                            <th class="text-center" style="width: 140px;">Profit</th>
+                            {% if not can_add %}<th class="text-center" style="width: 160px;">Salesperson</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in services_entries %}
+                        <tr>
+                            <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
+                            <td>
+                                <div class="fw-semibold text-primary">{{ entry.company_name }}</div>
+                                <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
+                            </td>
+                            <td class="text-center"><strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}
+                            <td class="text-center">
+                                {% if entry.salesperson.initials %}
+                                    <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                {% endif %}
+                                <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" class="text-center text-muted py-3">No service entries</td></tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td></td>
+                            <td><strong>Total</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.services.retail|floatformat:2|intcomma }}</strong></td>
+                            <td class="text-center"><strong>₱{{ stage_totals.services.profit|floatformat:2|intcomma }}</strong></td>
+                            {% if not can_add %}<td></td>{% endif %}
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% else %}
+            {% if services_entries %}
+                {% for entry in services_entries %}
+                    <div class="card mb-2 mx-3 mt-3 border-0 shadow-sm" id="entry-card-{{ entry.id }}">
+                        <div class="card-body py-3">
+                            <div class="row align-items-center">
+                                <div class="col-lg-1 col-md-1">
+                                    <div class="text-center">
+                                        <small class="text-muted d-block">Date</small>
+                                        <strong class="small">{{ entry.date_created|date:"M d" }}</strong>
+                                    </div>
+                                </div>
+                                <div class="col-lg-3 col-md-3">
+                                    <h6 class="mb-1 text-primary">{{ entry.company_name }}</h6>
+                                    <p class="mb-1 text-muted small">{{ entry.requirement_description|truncatechars:50 }}</p>
+                                    {% if entry.customer %}
+                                        <small class="text-success"><i class="fas fa-user"></i> {{ entry.customer.get_full_name }}</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Retail</small>
+                                    <strong class="text-success small">₱{{ entry.retail|floatformat:2|intcomma }}</strong>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Profit</small>
+                                    <strong class="{% if entry.profit > 0 %}text-success{% else %}text-danger{% endif %} small">₱{{ entry.profit|floatformat:2|intcomma }}</strong>
+                                </div>
+                                {% if not can_add %}
+                                <div class="col-lg-2 col-md-2 text-center">
+                                    <small class="text-muted d-block">Salesperson</small>
+                                    {% if entry.salesperson.initials %}
+                                        <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary fs-6 px-3 py-2">{{ entry.salesperson.first_name|first|upper }}{{ entry.salesperson.last_name|first|upper }}{{ entry.salesperson.username|first|upper }}</span>
+                                    {% endif %}
+                                    <br><small class="text-muted">@{{ entry.salesperson.username }}</small>
+                                </div>
+                                <div class="col-lg-2 col-md-2 text-end">
+                                {% else %}
+                                <div class="col-lg-4 col-md-4 text-end">
+                                {% endif %}
+                                    {% if show_actions %}
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <button class="btn btn-warning btn-sm" onclick="moveEntry({{ entry.id }}, 'closable')" title="Move to Closable">
+                                            <i class="fas fa-arrow-right"></i>
+                                        </button>
+                                        <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        {% if can_add or can_edit_all %}
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry({{ entry.id }})" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="fas fa-inbox fa-3x mb-3"></i><br>
+                    <h6>No service entries</h6>
+                    <p>Service engagements will appear here</p>
+                </div>
+            {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for dynamic actions -->
+<script>
+function moveEntry(entryId, newStage) {
+    if (confirm('Move this entry to ' + newStage + ' stage?')) {
+        fetch(`/funnel/update-stage/${entryId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `stage=${newStage}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                location.reload(); // Refresh to show in new column
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'An error occurred while updating the entry.');
+        });
+    }
+}
+
+function closeEntry(entryId, won) {
+    const status = won ? 'won' : 'lost';
+    if (confirm(`Mark this deal as ${status}?`)) {
+        fetch(`/funnel/close/${entryId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `won=${won}`
+        })
+        .then(response => {
+            if (response.redirected) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'An error occurred while closing the entry.');
+        });
+    }
+}
+
+function deleteEntry(entryId) {
+    if (confirm('Are you sure you want to delete this funnel entry? This action cannot be undone.')) {
+        fetch(`/funnel/delete/${entryId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+            }
+        })
+        .then(response => {
+            if (response.redirected) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'An error occurred while deleting the entry.');
+        });
+    }
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px;';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(alertDiv);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+
+function exportFunnel() {
+    const form = document.getElementById('funnelFilterForm');
+    const params = new URLSearchParams(new FormData(form));
+    window.location = `{% url 'sales_funnel:export' %}?` + params.toString();
+}
+
+function setViewMode(mode) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', mode);
+    window.location.href = url.toString();
+}
+</script>
+
+{% csrf_token %}
+{% endblock %}

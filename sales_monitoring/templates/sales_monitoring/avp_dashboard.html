@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Sales Activity Monitoring - AVP Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-chart-bar"></i> Team Sales Analytics</h1>
+                <div class="btn-group">
+                    <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-primary">
+                        <i class="fas fa-file-alt"></i> Generate Reports
+                    </a>
+                    <a href="{% url 'sales_monitoring:team_performance' %}" class="btn btn-success">
+                        <i class="fas fa-users"></i> Team Performance
+                    </a>
+                    <a href="{% url 'sales_monitoring:export_activities' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-download"></i> Export Data
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Overview Statistics ---->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card border-primary text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ stats.total_teams }}</h3>
+                    <p class="card-text">My Teams</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-info text-center">
+                <div class="card-body">
+                    <h3 class="text-info">{{ stats.total_groups }}</h3>
+                    <p class="card-text">Groups</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-info text-center">
+                <div class="card-body">
+                    <h3 class="text-info">{{ stats.total_salespeople }}</h3>
+                    <p class="card-text">Salespeople</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ stats.total_activities }}</h3>
+                    <p class="card-text">Total Activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ stats.completed_today }}</h3>
+                    <p class="card-text">Completed Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-danger text-center">
+                <div class="card-body">
+                    <h3 class="text-danger">{{ stats.overdue_activities }}</h3>
+                    <p class="card-text">Overdue</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Additional Statistics Row -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <a href="{% url 'sales_monitoring:activity_calendar' %}?view=week" class="text-decoration-none">
+                <div class="card border-warning text-center">
+                    <div class="card-body">
+                        <h3 class="text-warning">{{ stats.activities_this_week }}</h3>
+                        <p class="card-text">This Week's Activities</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="{% url 'sales_monitoring:activity_calendar' %}?view=month" class="text-decoration-none">
+                <div class="card border-primary text-center">
+                    <div class="card-body">
+                        <h3 class="text-primary">{{ stats.activities_this_month }}</h3>
+                        <p class="card-text">This Month's Activities</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info text-center">
+                <div class="card-body">
+                    <h3 class="text-info">
+                        {% if stats.total_activities > 0 %}
+                            {{ stats.completed_today|floatformat:0|default:0 }}/{{ stats.total_activities }}
+                        {% else %}
+                            0/0
+                        {% endif %}
+                    </h3>
+                    <p class="card-text">Today's Progress</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Type Breakdown -->
+    {% if activity_breakdown %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-pie-chart"></i> Activity Type Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for item in activity_breakdown %}
+                        <div class="col-md-3 mb-3">
+                            <div class="d-flex align-items-center p-3 border rounded">
+                                <div class="me-3">
+                                    <i class="{{ item.activity_type__icon }} text-{{ item.activity_type__color }}" style="font-size: 2rem;"></i>
+                                </div>
+                                <div>
+                                    <h5 class="mb-0">{{ item.count }}</h5>
+                                    <small class="text-muted">{{ item.activity_type__name }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- My Teams Overview -->
+    {% if team_cards %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-sitemap"></i> My Teams</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for card in team_cards %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card border-left-primary">
+                                <div class="card-body">
+                                    <h6 class="text-primary"><i class="fas fa-users"></i> {{ card.team.name }}</h6>
+                                    <p class="text-muted mb-1">
+                                        <i class="fas fa-user-tie"></i> 
+                                        ASM: {% if card.team.asm %}{{ card.team.asm.get_full_name|default:card.team.asm.username }}{% else %}Not Assigned{% endif %}
+                                    </p>
+                                    <p class="text-muted mb-0">
+                                        <i class="fas fa-layer-group"></i>
+                                        Groups: {{ card.team.groups.count }}
+                                    </p>
+                                    {% if card.team.asm %}
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <div>
+                                            <small class="text-muted">ASM Monthly Quota</small><br>
+                                            <strong>₱{{ card.asm_quota|floatformat:2|intcomma }}</strong>
+                                        </div>
+                                        <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' card.team.asm.id %}">Edit</a>
+                                    </div>
+                                    {% endif %}
+                                    <div class="d-flex justify-content-between align-items-center mt-2">
+                                        <div>
+                                            <small class="text-muted">AVP Monthly Quota</small><br>
+                                            <strong>₱{{ card.avp_quota|floatformat:2|intcomma }}</strong>
+                                        </div>
+                                        <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' user.id %}">Edit</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if group_achievements %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-bar"></i> Group Achievement (Monthly)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Supervisor</th>
+                                    <th>Team</th>
+                                    <th>Group</th>
+                                    <th>Total Quota</th>
+                                    <th>Actual Profit</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in group_achievements %}
+                                <tr>
+                                    <td>{{ item.supervisor_name }}</td>
+                                    <td>{{ item.team_name }}</td>
+                                    <td>{{ item.group.name }}</td>
+                                    <td>₱{{ item.total_quota|floatformat:2|intcomma }}</td>
+                                    <td>₱{{ item.actual_profit|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="flex-grow-1">
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-{{ item.status_color }}" role="progressbar" style="width: {{ item.progress_pct }}%" aria-valuenow="{{ item.progress_pct }}" aria-valuemin="0" aria-valuemax="100">
+                                                        {{ item.progress_pct|floatformat:1 }}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% if item.supervisor_id and user.role in 'admin,avp' %}
+                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' item.supervisor_id %}">Edit Quota</a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Group Performance Overview -->
+    {% if group_performance %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-line"></i> Group Performance Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Group</th>
+                                    <th>Team</th>
+                                    <th>Type</th>
+                                    <th>Salespeople</th>
+                                    <th>Total Activities</th>
+                                    <th>Completed</th>
+                                    <th>Completion Rate</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for group in group_performance %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ group.group.name }}</strong>
+                                        {% if group.group.is_tsg %}
+                                            <span class="badge bg-info ms-2">TSG</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ group.group.team.name }}</small>
+                                    </td>
+                                    <td>
+                                        {% if group.group.is_tsg %}
+                                            <span class="text-info">Technical Sales</span>
+                                        {% else %}
+                                            <span class="text-primary">Regular</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ group.salespeople_count }}</td>
+                                    <td>{{ group.total_activities }}</td>
+                                    <td>{{ group.completed_activities }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ group.performance_color }}">
+                                            {{ group.completion_rate|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="flex-grow-1">
+                                                <div class="progress" style="height: 20px;">
+                                                    <div class="progress-bar bg-{{ group.performance_color }}" 
+                                                         role="progressbar" 
+                                                         style="width: {{ group.completion_rate }}%"
+                                                         aria-valuenow="{{ group.completion_rate }}" 
+                                                         aria-valuemin="0" 
+                                                         aria-valuemax="100">
+                                                        {{ group.completion_rate|floatformat:1 }}%
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <a class="btn btn-sm btn-outline-primary" href="{% url 'sales_monitoring:avp_group_activities' group.group.id %}">
+                                                View Activities
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-users text-muted" style="font-size: 3rem;"></i>
+                    <h4 class="mt-3 text-muted">No Team Data Available</h4>
+                    <p class="text-muted">No sales groups or activities found for your teams.</p>
+                    <a href="{% url 'group_list' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Manage Teams
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #007bff !important;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3>Import Customers from CSV</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>CSV Format Instructions:</strong>
+                    <ul>
+                        <li><strong>Required columns:</strong> Company Name, Contact Person Name, Email</li>
+                        <li><strong>Optional columns:</strong> Phone Number, Address, Industry, Territory, VIP Status, Active Status, Salesperson Username</li>
+                        <li><strong>Industry values:</strong> Technology, Finance & Banking, Healthcare, Manufacturing, etc.</li>
+                        <li><strong>Territory values:</strong> Makati City, Ortigas, Pasig City, Alabang, etc.</li>
+                        <li><strong>VIP/Active Status:</strong> Use "Yes"/"No" or "True"/"False"</li>
+                        <li><strong>Salesperson Username:</strong> Must exist and have role 'salesperson' (leave blank if none)</li>
+                        <li><strong>Created/Updated At:</strong> Will be auto-generated (can be left blank)</li>
+                        <li>Email addresses must be unique across all customers</li>
+                        <li><a href="{% url 'download_sample_csv' %}" class="alert-link"><i class="fas fa-download"></i> Download sample CSV</a> for the complete format reference</li>
+                    </ul>
+                </div>
+                
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="csv_file" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Import Customers</button>
+                        <a href="{% url 'customer_list' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

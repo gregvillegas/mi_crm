@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-history"></i> Backup History</h2>
+        <p class="text-muted mb-0">Customer: <strong>{{ customer.full_name }}</strong></p>
+    </div>
+    <div class="btn-group" role="group">
+        <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Customers
+        </a>
+        <a href="{% url 'edit_customer' customer.pk %}" class="btn btn-outline-primary">
+            <i class="fas fa-edit"></i> Edit Customer
+        </a>
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#manualBackupModal">
+            <i class="fas fa-save"></i> Create Backup
+        </button>
+    </div>
+</div>
+
+<!-- Customer Summary Card -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fas fa-user"></i> Current Customer Information</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <p><strong>Company:</strong> {{ customer.company_name }}</p>
+                <p><strong>Contact Person:</strong> {{ customer.contact_person_name }}</p>
+                <p><strong>Email:</strong> {{ customer.email }}</p>
+            </div>
+            <div class="col-md-6">
+                <p><strong>Status:</strong> 
+                    <span class="badge {% if customer.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                        {{ customer.display_status }}
+                    </span>
+                </p>
+                <p><strong>Salesperson:</strong> {{ customer.salesperson.get_full_name|default:"Not assigned" }}</p>
+                <p><strong>Last Updated:</strong> {{ customer.updated_at|date:"M d, Y H:i" }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backup Statistics -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-3">
+                <h3 class="text-primary">{{ backups.count }}</h3>
+                <p class="text-muted mb-0">Total Backups</p>
+            </div>
+            <div class="col-md-3">
+                <h3 class="text-info">
+                    {% if backups %}{{ backups.first.created_at|date:"M d" }}{% else %}N/A{% endif %}
+                </h3>
+                <p class="text-muted mb-0">Latest Backup</p>
+            </div>
+            <div class="col-md-3">
+                <h3 class="text-warning">
+                    {% if backups %}{{ backups.last.created_at|date:"M d" }}{% else %}N/A{% endif %}
+                </h3>
+                <p class="text-muted mb-0">First Backup</p>
+            </div>
+            <div class="col-md-3">
+                <h3 class="text-success">
+                    {{ backups|length|add:"0" }}
+                </h3>
+                <p class="text-muted mb-0">Available Restores</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Backups List -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fas fa-list"></i> All Backups</h5>
+    </div>
+    <div class="card-body">
+        {% if backups %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-calendar"></i> Date & Time</th>
+                            <th><i class="fas fa-user"></i> Changed By</th>
+                            <th><i class="fas fa-comment"></i> Reason</th>
+                            <th><i class="fas fa-eye"></i> Preview</th>
+                            <th><i class="fas fa-cogs"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for backup in backups %}
+                        <tr>
+                            <td>
+                                <strong>{{ backup.created_at|date:"M d, Y" }}</strong><br>
+                                <small class="text-muted">{{ backup.created_at|date:"H:i:s" }}</small>
+                            </td>
+                            <td>
+                                {% if backup.changed_by %}
+                                    {{ backup.changed_by.get_full_name|default:backup.changed_by.username }}
+                                    <br><small class="text-muted">{{ backup.changed_by.role|title }}</small>
+                                {% else %}
+                                    <span class="text-muted">System</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {{ backup.reason }}
+                            </td>
+                            <td>
+                                {% with backup_data=backup.get_backup_data %}
+                                <button class="btn btn-outline-info btn-sm" data-bs-toggle="modal" data-bs-target="#previewModal{{ backup.pk }}">
+                                    <i class="fas fa-eye"></i> Preview
+                                </button>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'restore_customer' customer.pk backup.pk %}" 
+                                       class="btn btn-outline-success btn-sm"
+                                       onclick="return confirm('Are you sure you want to restore from this backup? This will overwrite all current customer data.')">
+                                        <i class="fas fa-undo"></i> Restore
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h5>No Backups Available</h5>
+                <p class="text-muted">No backup history exists for this customer yet.</p>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#manualBackupModal">
+                    <i class="fas fa-save"></i> Create First Backup
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Manual Backup Modal -->
+<div class="modal fade" id="manualBackupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Manual Backup</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'create_manual_backup' customer.pk %}">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="reason" class="form-label">Backup Reason</label>
+                        <textarea name="reason" id="reason" class="form-control" rows="3" 
+                                  placeholder="Enter reason for creating this backup (optional)">Manual backup of {{ customer.full_name }}</textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        This will create a snapshot of the current customer data that can be restored later if needed.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Create Backup
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Preview Modals -->
+{% for backup in backups %}
+{% with backup_data=backup.get_backup_data %}
+<div class="modal fade" id="previewModal{{ backup.pk }}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Backup Preview - {{ backup.created_at|date:"M d, Y H:i" }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Basic Information</h6>
+                        <p><strong>Company:</strong> {{ backup_data.company_name|default:"N/A" }}</p>
+                        <p><strong>Contact Person:</strong> {{ backup_data.contact_person_name|default:"N/A" }}</p>
+                        <p><strong>Email:</strong> {{ backup_data.email|default:"N/A" }}</p>
+                        <p><strong>Phone:</strong> {{ backup_data.phone_number|default:"N/A" }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Business Information</h6>
+                        <p><strong>Industry:</strong> {{ backup_data.industry|default:"N/A" }}</p>
+                        <p><strong>Territory:</strong> {{ backup_data.territory|default:"N/A" }}</p>
+                        <p><strong>VIP Status:</strong> 
+                            <span class="badge {% if backup_data.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {% if backup_data.is_vip %}VIP{% else %}Regular{% endif %}
+                            </span>
+                        </p>
+                        <p><strong>Active Status:</strong> 
+                            <span class="badge {% if backup_data.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                {% if backup_data.is_active %}Active{% else %}Inactive{% endif %}
+                            </span>
+                        </p>
+                        <p><strong>Salesperson:</strong> {{ backup_data.salesperson_username|default:"Not assigned" }}</p>
+                    </div>
+                </div>
+                {% if backup_data.address %}
+                <hr>
+                <h6>Address</h6>
+                <p>{{ backup_data.address }}</p>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <a href="{% url 'restore_customer' customer.pk backup.pk %}" 
+                   class="btn btn-success"
+                   onclick="return confirm('Are you sure you want to restore from this backup? This will overwrite all current customer data.')">
+                    <i class="fas fa-undo"></i> Restore from this Backup
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endwith %}
+{% endfor %}
+
+{% endblock %}

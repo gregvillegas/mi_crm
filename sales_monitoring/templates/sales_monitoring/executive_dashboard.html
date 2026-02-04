@@ -1,0 +1,677 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Executive CRM Dashboard{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+<link href="https://cdn.datatables.net/1.13.4/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<style>
+    .dashboard-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease-in-out;
+    }
+    
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    .kpi-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        min-height: 200px;
+    }
+    
+    .kpi-card.revenue {
+        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    }
+    
+    .kpi-card.deals {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .kpi-value {
+        font-size: 3rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    
+    .kpi-label {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 0.5rem;
+    }
+    
+    .kpi-change {
+        font-size: 1rem;
+        margin-top: 0.5rem;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 400px;
+        width: 100%;
+    }
+    
+    .funnel-stage {
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border-radius: 10px;
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+    }
+    
+    .funnel-stage.quoted {
+        border-left-color: #e83e8c;
+        background: linear-gradient(90deg, rgba(232, 62, 140, 0.1) 0%, rgba(248, 249, 250, 1) 100%);
+    }
+    
+    .funnel-stage.closable {
+        border-left-color: #ffc107;
+        background: linear-gradient(90deg, rgba(255, 193, 7, 0.1) 0%, rgba(248, 249, 250, 1) 100%);
+    }
+    
+    .funnel-stage.project {
+        border-left-color: #28a745;
+        background: linear-gradient(90deg, rgba(40, 167, 69, 0.1) 0%, rgba(248, 249, 250, 1) 100%);
+    }
+    
+    .insight-card {
+        border-left: 4px solid #007bff;
+        background: #f8f9fa;
+        margin-bottom: 1rem;
+    }
+    
+    .insight-card.success {
+        border-left-color: #28a745;
+        background: linear-gradient(90deg, rgba(40, 167, 69, 0.1) 0%, rgba(248, 249, 250, 1) 100%);
+    }
+    
+    .insight-card.warning {
+        border-left-color: #ffc107;
+        background: linear-gradient(90deg, rgba(255, 193, 7, 0.1) 0%, rgba(248, 249, 250, 1) 100%);
+    }
+    
+    .insight-card.danger {
+        border-left-color: #dc3545;
+        background: linear-gradient(90deg, rgba(220, 53, 69, 0.1) 0%, rgba(248, 249, 250, 1) 100%);
+    }
+    
+    .insight-card.info {
+        border-left-color: #17a2b8;
+        background: linear-gradient(90deg, rgba(23, 162, 184, 0.1) 0%, rgba(248, 249, 250, 1) 100%);
+    }
+    
+    .performance-table {
+        font-size: 0.9rem;
+    }
+    
+    .performance-badge {
+        font-size: 0.8rem;
+        padding: 0.3rem 0.6rem;
+    }
+    
+    .last-updated {
+        font-size: 0.85rem;
+        color: #6c757d;
+        text-align: right;
+        margin-top: 1rem;
+    }
+    
+    .section-header {
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .aging-indicator {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    
+    .aging-indicator.success {
+        background-color: #28a745;
+    }
+    
+    .aging-indicator.warning {
+        background-color: #ffc107;
+    }
+    
+    .aging-indicator.danger {
+        background-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-3">
+                <i class="fas fa-chart-line text-primary me-2"></i>
+                Executive CRM Dashboard
+            </h1>
+            <p class="text-muted">Comprehensive view of team performance, pipeline, and key metrics</p>
+        </div>
+    </div>
+
+    <!-- 1. Top-Level: Team A vs Team B Performance Comparison -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h3 class="section-header">
+                <i class="fas fa-trophy text-warning me-2"></i>
+                Team A and Team B Performance
+            </h3>
+        </div>
+        
+        <!-- Team A -->
+        <div class="col-md-6 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0"><i class="fas fa-users me-2"></i>{{ team_kpis.team_a.name }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <h5 class="text-muted">Monthly Revenue</h5>
+                            <h3 class="text-success">₱{{ team_kpis.team_a.current_month_revenue|floatformat:2|intcomma }}</h3>
+                            <small>
+                                {% if team_kpis.team_a.revenue_growth > 0 %}
+                                    <i class="fas fa-arrow-up text-success"></i> +{{ team_kpis.team_a.revenue_growth|floatformat:1 }}%
+                                {% elif team_kpis.team_a.revenue_growth < 0 %}
+                                    <i class="fas fa-arrow-down text-danger"></i> {{ team_kpis.team_a.revenue_growth|floatformat:1 }}%
+                                {% else %}
+                                    <i class="fas fa-minus text-muted"></i> No change
+                                {% endif %}
+                                vs last month
+                            </small>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-muted">Deals Closed</h5>
+                            <h3 class="text-primary">{{ team_kpis.team_a.current_month_deals }}</h3>
+                            <small>
+                                {% if team_kpis.team_a.deals_growth > 0 %}
+                                    <i class="fas fa-arrow-up text-success"></i> +{{ team_kpis.team_a.deals_growth|floatformat:1 }}%
+                                {% elif team_kpis.team_a.deals_growth < 0 %}
+                                    <i class="fas fa-arrow-down text-danger"></i> {{ team_kpis.team_a.deals_growth|floatformat:1 }}%
+                                {% else %}
+                                    <i class="fas fa-minus text-muted"></i> No change
+                                {% endif %}
+                                vs last month
+                            </small>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <h5 class="text-muted">Pipeline Value</h5>
+                            <h3 class="text-info">₱{{ team_kpis.team_a.pipeline_value|floatformat:2|intcomma }}</h3>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-muted">Active Deals</h5>
+                            <h3 class="text-warning">{{ team_kpis.team_a.active_deals }}</h3>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">ASM Monthly Quota</h6>
+                                <strong>₱{{ team_kpis.team_a.asm_quota|floatformat:2|intcomma }}</strong>
+                            </div>
+                            {% if user.role in 'admin,avp' and team_kpis.team_a.asm_id %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_a.asm_id %}">Edit</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">AVP Monthly Quota</h6>
+                                <strong>₱{{ team_kpis.team_a.avp_quota|floatformat:2|intcomma }}</strong>
+                            </div>
+                            {% if user.role in 'admin,avp' and team_kpis.team_a.avp_id %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_a.avp_id %}">Edit</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end mt-3">
+                        <span class="badge bg-secondary">{{ team_kpis.team_a.salesperson_count }} Salespeople</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Team B -->
+        <div class="col-md-6 mb-4">
+            <div class="card dashboard-card h-100">
+                <div class="card-header bg-purple text-white" style="background-color: #6f42c1;">
+                    <h4 class="mb-0"><i class="fas fa-users me-2"></i>{{ team_kpis.team_b.name }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <h5 class="text-muted">Monthly Revenue</h5>
+                            <h3 class="text-success">₱{{ team_kpis.team_b.current_month_revenue|floatformat:2|intcomma }}</h3>
+                            <small>
+                                {% if team_kpis.team_b.revenue_growth > 0 %}
+                                    <i class="fas fa-arrow-up text-success"></i> +{{ team_kpis.team_b.revenue_growth|floatformat:1 }}%
+                                {% elif team_kpis.team_b.revenue_growth < 0 %}
+                                    <i class="fas fa-arrow-down text-danger"></i> {{ team_kpis.team_b.revenue_growth|floatformat:1 }}%
+                                {% else %}
+                                    <i class="fas fa-minus text-muted"></i> No change
+                                {% endif %}
+                                vs last month
+                            </small>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-muted">Deals Closed</h5>
+                            <h3 class="text-primary">{{ team_kpis.team_b.current_month_deals }}</h3>
+                            <small>
+                                {% if team_kpis.team_b.deals_growth > 0 %}
+                                    <i class="fas fa-arrow-up text-success"></i> +{{ team_kpis.team_b.deals_growth|floatformat:1 }}%
+                                {% elif team_kpis.team_b.deals_growth < 0 %}
+                                    <i class="fas fa-arrow-down text-danger"></i> {{ team_kpis.team_b.deals_growth|floatformat:1 }}%
+                                {% else %}
+                                    <i class="fas fa-minus text-muted"></i> No change
+                                {% endif %}
+                                vs last month
+                            </small>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-6">
+                            <h5 class="text-muted">Pipeline Value</h5>
+                            <h3 class="text-info">₱{{ team_kpis.team_b.pipeline_value|floatformat:2|intcomma }}</h3>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-muted">Active Deals</h5>
+                            <h3 class="text-warning">{{ team_kpis.team_b.active_deals }}</h3>
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">ASM Monthly Quota</h6>
+                                <strong>₱{{ team_kpis.team_b.asm_quota|floatformat:2|intcomma }}</strong>
+                            </div>
+                            {% if user.role in 'admin,avp' and team_kpis.team_b.asm_id %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_b.asm_id %}">Edit</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="row mt-2">
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-muted mb-1">AVP Monthly Quota</h6>
+                                <strong>₱{{ team_kpis.team_b.avp_quota|floatformat:2|intcomma }}</strong>
+                            </div>
+                            {% if user.role in 'admin,avp' and team_kpis.team_b.avp_id %}
+                            <a class="btn btn-sm btn-outline-primary" href="{% url 'update_role_quota' team_kpis.team_b.avp_id %}">Edit</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="text-end mt-3">
+                        <span class="badge bg-secondary">{{ team_kpis.team_b.salesperson_count }} Salespeople</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- 2. Middle-Level: Group Performance Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-bar text-primary me-2"></i>
+                        Group Performance - Revenue & Pipeline
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="groupPerformanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Funnel Overview -->
+        <div class="col-lg-4 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-filter text-primary me-2"></i>
+                        Sales Funnel Overview
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% for stage in funnel_overview %}
+                    <div class="funnel-stage {{ stage.stage_code }}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">
+                                    {% if stage.stage_code == 'quoted' %}PINK
+                                    {% elif stage.stage_code == 'closable' %}YELLOW
+                                    {% elif stage.stage_code == 'project' %}GREEN
+                                    {% elif stage.stage_code == 'services' %}BLUE
+                                    {% else %}{{ stage.stage_name }}{% endif %}
+                                </h6>
+                                <small class="text-muted">{{ stage.deal_count }} deals</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="h5 mb-0">₱{{ stage.total_value|floatformat:2|intcomma }}</div>
+                                <small>{{ stage.percentage|floatformat:1 }}% of pipeline</small>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <span class="aging-indicator {{ stage.aging_status }}"></span>
+                            <small class="text-muted">Avg age: {{ stage.avg_age_days }} days</small>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center">No active deals in pipeline</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-chart-bar text-primary me-2"></i>
+                        Group Achievements (This Month)
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped performance-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Supervisor</th>
+                                    <th>Team</th>
+                                    <th>Group</th>
+                                    <th>Total Quota</th>
+                                    <th>Actual Profit</th>
+                                    <th>Progress</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in group_achievements %}
+                                <tr>
+                                    <td>{{ item.supervisor_name }}</td>
+                                    <td>{{ item.team_name }}</td>
+                                    <td>{{ item.group_name }}</td>
+                                    <td>₱{{ item.total_quota|floatformat:2|intcomma }}</td>
+                                    <td>₱{{ item.actual_profit|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 16px;">
+                                            <div class="progress-bar bg-{{ item.status_color }}" role="progressbar" style="width: {{ item.progress_pct }}%" aria-valuenow="{{ item.progress_pct }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                        </div>
+                                        <small class="text-muted">{{ item.progress_pct|floatformat:1 }}%</small>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">No group achievements available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- 4. Individual Performance Table -->
+        <div class="col-12 mb-4">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-users text-primary me-2"></i>
+                        Individual Performance Rankings
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="performanceTable" class="table table-striped performance-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Salesperson</th>
+                                    <th>Team</th>
+                                    <th>Group</th>
+                                    <th>Total Revenue</th>
+                                    <th>Pipeline Value</th>
+                                    <th>Active Deals</th>
+                                    <th>Won Deals</th>
+                                    <th>Activity Rate</th>
+                                    <th>Avg Deal Size</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for performer in individual_performance %}
+                                <tr>
+                                    <td>
+                                        {% if forloop.counter <= 3 %}
+                                            <span class="badge bg-warning">#{{ forloop.counter }}</span>
+                                        {% else %}
+                                            {{ forloop.counter }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong>{{ performer.name }}</strong><br>
+                                        <small class="text-muted">{{ performer.salesperson.username }}</small>
+                                    </td>
+                                    <td>{{ performer.team_name }}</td>
+                                    <td>{{ performer.group_name }}</td>
+                                    <td>
+                                        <strong>₱{{ performer.total_revenue|floatformat:2|intcomma }}</strong>
+                                    </td>
+                                    <td>₱{{ performer.pipeline_value|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ performer.active_deals }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ performer.won_deals }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <small>{{ performer.activities_this_month }} activities</small><br>
+                                            <div class="progress mt-1" style="height: 4px; width: 60px;">
+                                                <div class="progress-bar" role="progressbar" 
+                                                     style="width: {{ performer.activity_completion_rate }}%"
+                                                     aria-valuenow="{{ performer.activity_completion_rate }}" 
+                                                     aria-valuemin="0" aria-valuemax="100"></div>
+                                            </div>
+                                            <small class="ms-1">{{ performer.activity_completion_rate|floatformat:0 }}%</small>
+                                        </div>
+                                    </td>
+                                    <td>₱{{ performer.avg_deal_size|floatformat:0|intcomma }}</td>
+                                    <td>
+                                        {% if performer.total_revenue > 500000 %}
+                                            <span class="badge performance-badge bg-success">Excellent</span>
+                                        {% elif performer.total_revenue > 200000 %}
+                                            <span class="badge performance-badge bg-primary">Good</span>
+                                        {% elif performer.total_revenue > 50000 %}
+                                            <span class="badge performance-badge bg-warning">Average</span>
+                                        {% else %}
+                                            <span class="badge performance-badge bg-danger">Needs Attention</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="11" class="text-center text-muted">No salespeople data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- 5. Quick Insights Panel -->
+        <div class="col-12">
+            <div class="card dashboard-card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-lightbulb text-primary me-2"></i>
+                        Quick Insights & Recommendations
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% for insight in insights %}
+                    <div class="insight-card {{ insight.type }} card">
+                        <div class="card-body">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    {% if insight.type == 'success' %}
+                                        <i class="fas fa-check-circle text-success fs-4"></i>
+                                    {% elif insight.type == 'warning' %}
+                                        <i class="fas fa-exclamation-triangle text-warning fs-4"></i>
+                                    {% elif insight.type == 'danger' %}
+                                        <i class="fas fa-exclamation-circle text-danger fs-4"></i>
+                                    {% else %}
+                                        <i class="fas fa-info-circle text-info fs-4"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ insight.title }}</h6>
+                                    <p class="mb-2">{{ insight.message }}</p>
+                                    <small class="text-muted">
+                                        <strong>Recommended Action:</strong> {{ insight.action }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-chart-line fs-1 mb-3"></i>
+                        <p>All metrics are performing within normal ranges.</p>
+                        <small>No immediate actions required.</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="last-updated">
+        <i class="fas fa-clock me-1"></i>
+        Last updated: {{ last_updated|date:"M j, Y g:i A" }}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.4/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+// Group Performance Chart
+const groupData = {{ group_performance_json|safe }};
+const groupNames = groupData.map(item => item.group_name);
+const groupRevenue = groupData.map(item => item.revenue);
+const groupPipeline = groupData.map(item => item.pipeline_value);
+
+const groupCtx = document.getElementById('groupPerformanceChart').getContext('2d');
+new Chart(groupCtx, {
+    type: 'bar',
+    data: {
+        labels: groupNames,
+        datasets: [
+            {
+                label: 'Closed Revenue',
+                data: groupRevenue,
+                backgroundColor: 'rgba(40, 167, 69, 0.8)',
+                borderColor: 'rgba(40, 167, 69, 1)',
+                borderWidth: 1
+            },
+            {
+                label: 'Pipeline Value',
+                data: groupPipeline,
+                backgroundColor: 'rgba(0, 123, 255, 0.8)',
+                borderColor: 'rgba(0, 123, 255, 1)',
+                borderWidth: 1
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: function(value, index, values) {
+                        return '₱' + value.toLocaleString();
+                    }
+                }
+            }
+        },
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            tooltip: {
+                callbacks: {
+                    label: function(context) {
+                        return context.dataset.label + ': ₱' + context.parsed.y.toLocaleString();
+                    }
+                }
+            }
+        }
+    }
+});
+
+// Initialize DataTable for Individual Performance
+$(document).ready(function() {
+    $('#performanceTable').DataTable({
+        "pageLength": 25,
+        "order": [[ 4, "desc" ]], // Sort by revenue by default
+        "columnDefs": [
+            { "orderable": false, "targets": 10 }, // Performance badge column
+            { "type": "num-fmt", "targets": [4, 5, 9] } // Numeric columns
+        ],
+        "language": {
+            "search": "Search salespeople:",
+            "lengthMenu": "Show _MENU_ salespeople per page",
+            "info": "Showing _START_ to _END_ of _TOTAL_ salespeople",
+            "infoEmpty": "No salespeople data available",
+            "infoFiltered": "(filtered from _MAX_ total salespeople)"
+        }
+    });
+});
+
+// Auto-refresh dashboard every 5 minutes
+setInterval(function() {
+    location.reload();
+}, 300000);
+
+// Add click handlers for insights
+document.querySelectorAll('.insight-card').forEach(card => {
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', function() {
+        // Could expand to show more details or actions
+        console.log('Insight clicked:', this.querySelector('h6').textContent);
+    });
+});
+</script>
+{% endblock %}

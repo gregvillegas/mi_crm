@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-history text-primary"></i> Customer History</h2>
+        <h4 class="text-muted">{{ customer.company_name }}</h4>
+        <p class="mb-0">
+            <small class="text-muted">Contact: {{ customer.contact_person_name }} • {{ customer.email }}</small>
+        </p>
+    </div>
+    <div>
+        <a href="{% url 'customer_list' %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Customers
+        </a>
+    </div>
+</div>
+
+<!-- Customer Overview Card -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="fas fa-info-circle"></i> Customer Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Company:</strong> {{ customer.company_name }}</p>
+                        <p><strong>Contact Person:</strong> {{ customer.contact_person_name }}</p>
+                        <p><strong>Email:</strong> {{ customer.email }}</p>
+                        {% if customer.phone_number %}
+                            <p><strong>Phone:</strong> {{ customer.phone_number }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ customer.is_active|yesno:'success,danger' }}">
+                                {{ customer.is_active|yesno:"Active,Inactive" }}
+                            </span>
+                        </p>
+                        <p><strong>VIP:</strong> 
+                            <span class="badge bg-{{ customer.is_vip|yesno:'warning,secondary' }}">
+                                {{ customer.is_vip|yesno:"VIP Customer,Regular Customer" }}
+                            </span>
+                        </p>
+                        <p><strong>Current Salesperson:</strong>
+                            {% if customer.salesperson %}
+                                <span class="badge bg-primary">
+                                    {{ customer.salesperson.initials|default:customer.salesperson.username }}
+                                </span>
+                                {{ customer.salesperson.get_full_name|default:customer.salesperson.username }}
+                            {% else %}
+                                <span class="text-muted">Unassigned</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Created:</strong> {{ customer.created_at|date:"M d, Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <!-- History Statistics -->
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> History Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Total Changes:</span>
+                    <span class="badge bg-primary">{{ history_stats.total_changes }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>VIP Changes:</span>
+                    <span class="badge bg-warning">{{ history_stats.vip_changes }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Status Changes:</span>
+                    <span class="badge bg-success">{{ history_stats.status_changes }}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-2">
+                    <span>Salesperson Changes:</span>
+                    <span class="badge bg-info">{{ history_stats.salesperson_changes }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Other Updates:</span>
+                    <span class="badge bg-secondary">{{ history_stats.field_updates }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Salespeople who handled this customer -->
+{% if salespeople_history %}
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="fas fa-users"></i> Salespeople Attribution</h5>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">All salespeople who have handled this customer:</p>
+        <div class="row">
+            {% for username, first_name, last_name, initials in salespeople_history %}
+                <div class="col-md-3 mb-2">
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-primary me-2">{{ initials|default:username|slice:":3" }}</span>
+                        <span>{{ first_name }} {{ last_name }}{% if not first_name %}{{ username }}{% endif %}</span>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- History Timeline -->
+<div class="card">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0"><i class="fas fa-timeline"></i> Complete History Timeline</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if history %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="140">Date & Time</th>
+                            <th width="120">Action</th>
+                            <th>Description</th>
+                            <th width="100">Changed By</th>
+                            <th width="120">Salesperson</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in history %}
+                            <tr>
+                                <td>
+                                    <small>
+                                        {{ entry.timestamp|date:"M d, Y" }}<br>
+                                        <span class="text-muted">{{ entry.timestamp|date:"H:i:s" }}</span>
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ entry.action_color }}">
+                                        <i class="{{ entry.action_icon }}"></i>
+                                        {{ entry.get_action_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div>{{ entry.description }}</div>
+                                    {% if entry.old_value or entry.new_value %}
+                                        <small class="text-muted">
+                                            {% if entry.old_value %}
+                                                <strong>From:</strong> 
+                                                {% for key, value in entry.old_value.items %}
+                                                    {{ key }}: {{ value|yesno:"Yes,No" }}{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            {% endif %}
+                                            {% if entry.new_value %}
+                                                {% if entry.old_value %} → {% endif %}
+                                                <strong>To:</strong> 
+                                                {% for key, value in entry.new_value.items %}
+                                                    {{ key }}: {{ value|yesno:"Yes,No" }}{% if not forloop.last %}, {% endif %}
+                                                {% endfor %}
+                                            {% endif %}
+                                        </small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if entry.changed_by %}
+                                        <div class="text-center">
+                                            {% if entry.changed_by.initials %}
+                                                <span class="badge bg-secondary">{{ entry.changed_by.initials }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ entry.changed_by.username|slice:":3" }}</span>
+                                            {% endif %}
+                                            <br><small class="text-muted">{{ entry.changed_by.username }}</small>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">System</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if entry.salesperson_at_time %}
+                                        <div class="text-center">
+                                            {% if entry.salesperson_at_time.initials %}
+                                                <span class="badge bg-primary">{{ entry.salesperson_at_time.initials }}</span>
+                                            {% else %}
+                                                <span class="badge bg-primary">{{ entry.salesperson_at_time.username|slice:":3" }}</span>
+                                            {% endif %}
+                                            <br><small class="text-muted">{{ entry.salesperson_at_time.username }}</small>
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h5>No History Found</h5>
+                <p class="text-muted">No changes have been recorded for this customer yet.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div class="row mt-4">
+    <div class="col-12 text-center">
+        <a href="{% url 'customer_list' %}" class="btn btn-secondary me-2">
+            <i class="fas fa-arrow-left"></i> Back to Customer List
+        </a>
+        {% if user.role == 'admin' %}
+            <a href="{% url 'edit_customer' customer.id %}" class="btn btn-primary me-2">
+                <i class="fas fa-edit"></i> Edit Customer
+            </a>
+            <a href="{% url 'customer_backups' customer.id %}" class="btn btn-info">
+                <i class="fas fa-database"></i> View Backups
+            </a>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+/* Custom timeline styling */
+.badge {
+    font-size: 0.75em;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.card-header {
+    font-weight: 600;
+}
+
+/* Action color classes for better visibility */
+.bg-pink {
+    background-color: #e91e63 !important;
+    color: white !important;
+}
+
+/* Timeline entry hover effect */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+}
+
+/* Status badges */
+.badge.bg-warning {
+    color: #000 !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.9em;
+    }
+    
+    .badge {
+        font-size: 0.7em;
+    }
+}
+</style>
+
+{% endblock %}

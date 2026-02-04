@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Team Performance - Sales Monitoring{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-users"></i> Team Performance</h1>
+                <div class="btn-group">
+                    <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-primary">
+                        <i class="fas fa-chart-bar"></i> Generate Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if performance_data %}
+    {% for group_data in performance_data %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5>
+                            {{ group_data.group.name }}
+                            <small class="text-muted">- {{ group_data.group.team.name }}</small>
+                        </h5>
+                        <div>
+                            <span class="badge bg-{% if group_data.group_achievement >= 100 %}success{% elif group_data.group_achievement >= 80 %}warning{% else %}danger{% endif %} me-2">
+                                {{ group_data.group_achievement|floatformat:1 }}% Achievement
+                            </span>
+                            <span class="badge bg-info">{{ group_data.salespeople_count }} Members</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Group Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="text-center p-3 border rounded">
+                                <h3 class="text-primary">₱{{ group_data.group_quota|floatformat:2|intcomma }}</h3>
+                                <p class="text-muted mb-0">Total Quota</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3 border rounded">
+                                <h3 class="text-success">₱{{ group_data.group_profit|floatformat:2|intcomma }}</h3>
+                                <p class="text-muted mb-0">Total Profit</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center p-3 border rounded">
+                                <div class="progress mb-2" style="height: 25px;">
+                                    <div class="progress-bar bg-{% if group_data.group_achievement >= 100 %}success{% elif group_data.group_achievement >= 80 %}warning{% else %}danger{% endif %}" 
+                                         role="progressbar" 
+                                         style="width: {{ group_data.group_achievement }}%">
+                                        {{ group_data.group_achievement|floatformat:1 }}%
+                                    </div>
+                                </div>
+                                <p class="text-muted mb-0">Quota Achievement</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Individual Performance -->
+                    {% if group_data.salesperson_performance %}
+                    <h6><i class="fas fa-user"></i> Individual Performance</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Salesperson</th>
+                                    <th>Quota</th>
+                                    <th>Profit</th>
+                                    <th>Achievement</th>
+                                    <th>This Week Activities</th>
+                                    <th>Overdue Activities</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sp_data in group_data.salesperson_performance %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ sp_data.salesperson.get_full_name|default:sp_data.salesperson.username }}</strong>
+                                        <br><small class="text-muted">{{ sp_data.salesperson.initials }}</small>
+                                    </td>
+                                    <td>₱{{ sp_data.quota|floatformat:2 }}</td>
+                                    <td>₱{{ sp_data.total_profit|floatformat:2|intcomma }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if sp_data.quota_achievement >= 100 %}success{% elif sp_data.quota_achievement >= 80 %}warning{% else %}danger{% endif %}">
+                                            {{ sp_data.quota_achievement|floatformat:2|intcomma }}%
+                                        </span>
+                                    </td>
+                                    <td>{{ sp_data.this_week_activities }}</td>
+                                    <td>
+                                        {% if sp_data.overdue_activities > 0 %}
+                                        <span class="badge bg-danger">{{ sp_data.overdue_activities }}</span>
+                                        {% else %}
+                                        <span class="text-success">✓</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 15px; width: 100px;">
+                                            <div class="progress-bar bg-{% if sp_data.completion_rate >= 80 %}success{% elif sp_data.completion_rate >= 60 %}warning{% else %}danger{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ sp_data.completion_rate }}%">
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-chart-line text-muted" style="font-size: 4rem;"></i>
+                    <h3 class="mt-4 text-muted">No Performance Data Available</h3>
+                    <p class="text-muted">No sales activities have been recorded yet.</p>
+                    <a href="{% url 'sales_monitoring:create_activity' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Create First Activity
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

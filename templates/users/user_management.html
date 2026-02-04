@@ -1,0 +1,345 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>User Management</h2>
+    <div class="d-flex gap-2">
+        {% if user.role == 'admin' %}
+            <div class="dropdown">
+                <button class="btn btn-success dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-download me-2"></i>Export Users
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="exportDropdown">
+                    <li>
+                        <h6 class="dropdown-header">Standard Exports</h6>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'export_users_json' %}" title="Export all users with standard security (no passwords)">
+                            <i class="fas fa-file-export me-2"></i>Standard Export
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{% url 'export_users_json' %}?include_inactive=false" title="Export only active users (no passwords)">
+                            <i class="fas fa-user-check me-2"></i>Active Users Only
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <h6 class="dropdown-header">Production Deployment</h6>
+                    </li>
+                    <li>
+                        <a class="dropdown-item text-warning" href="{% url 'export_users_json' %}?include_passwords=true" title="Export with passwords for production deployment">
+                            <i class="fas fa-key me-2"></i>With Passwords
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item text-warning" href="{% url 'export_users_json' %}?include_passwords=true&include_inactive=false" title="Export active users with passwords for production">
+                            <i class="fas fa-shield-alt me-2"></i>Production Ready
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <small class="dropdown-item-text text-muted">
+                            <i class="fas fa-info-circle me-1"></i>Exports include users, teams, groups, and memberships
+                        </small>
+                    </li>
+                </ul>
+            </div>
+        {% endif %}
+        <a href="{% url 'create_user' %}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Create New User
+        </a>
+    </div>
+</div>
+
+<!-- Search and Filter Section -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <form method="get" class="d-flex gap-2">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" name="search" class="form-control" placeholder="Search users by username, name, email, or initials..." value="{{ search_query }}">
+            </div>
+            <button type="submit" class="btn btn-outline-primary">Search</button>
+            {% if search_query %}
+                <a href="{% url 'user_management' %}" class="btn btn-outline-secondary">Clear</a>
+            {% endif %}
+            <!-- Hidden field to preserve page_size when searching -->
+            <input type="hidden" name="page_size" value="{{ page_size }}">
+        </form>
+    </div>
+    <div class="col-md-4">
+        <form method="get" class="d-flex gap-2 justify-content-end">
+            <label class="form-label mb-0 align-self-center">Show:</label>
+            <select name="page_size" class="form-select" style="width: auto;" onchange="this.form.submit()">
+                <option value="10" {% if page_size == 10 %}selected{% endif %}>10</option>
+                <option value="20" {% if page_size == 20 %}selected{% endif %}>20</option>
+                <option value="50" {% if page_size == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if page_size == 100 %}selected{% endif %}>100</option>
+            </select>
+            <span class="align-self-center">per page</span>
+            <!-- Hidden field to preserve search query when changing page size -->
+            {% if search_query %}<input type="hidden" name="search" value="{{ search_query }}">{% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Results Info -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <small class="text-muted">
+            Showing {{ users.start_index }} to {{ users.end_index }} of {{ total_users }} user{{ total_users|pluralize }}
+            {% if search_query %}(filtered from search: "{{ search_query }}"){% endif %}
+        </small>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped">
+        <thead class="table-dark">
+            <tr>
+                <th>Username</th>
+                <th>Full Name</th>
+                <th>Initials</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for u in users %}
+                <tr id="user-row-{{ u.id }}">
+                    <td>{{ u.username }}</td>
+                    <td>{{ u.first_name }} {{ u.last_name }}</td>
+                    <td>
+                        {% if u.initials %}
+                            <span class="badge bg-secondary">{{ u.initials }}</span>
+                        {% else %}
+                            <small class="text-muted">-</small>
+                        {% endif %}
+                    </td>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        <span class="badge bg-{% if u.role == 'admin' %}danger{% elif u.role == 'president' %}dark{% elif u.role == 'gm' %}primary{% elif u.role == 'vp' %}success{% elif u.role == 'avp' %}warning{% elif u.role == 'asm' %}info{% elif u.role == 'supervisor' %}info{% elif u.role == 'teamlead' %}secondary{% else %}secondary{% endif %}">
+                            {{ u.get_role_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-{% if u.is_active %}success{% else %}danger{% endif %}" id="status-badge-{{ u.id }}">
+                            {% if u.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>{{ u.last_login|date:"M d, Y H:i"|default:"Never" }}</td>
+                    <td>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" title="Actions">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'edit_user' u.id %}">
+                                        <i class="fas fa-edit me-2"></i>Edit User
+                                    </a>
+                                </li>
+                                
+                                {% if u.role == 'salesperson' %}
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'transfer_salesperson' u.id %}">
+                                            <i class="fas fa-exchange-alt me-2"></i>Transfer to Group
+                                        </a>
+                                    </li>
+                                {% elif u.role == 'teamlead' %}
+                                    <li>
+                                        <a class="dropdown-item" href="{% url 'assign_teamlead' u.id %}">
+                                            <i class="fas fa-user-cog me-2"></i>Assign to Group
+                                        </a>
+                                    </li>
+                                {% endif %}
+                                
+                                <li><hr class="dropdown-divider"></li>
+                                
+                                <li>
+                                    <button 
+                                        class="dropdown-item {% if u == user %}disabled{% endif %} toggle-active-btn" 
+                                        data-user-id="{{ u.id }}"
+                                        id="toggle-btn-{{ u.id }}"
+                                        {% if u == user %}disabled title="Cannot deactivate your own account"{% else %}title="{% if u.is_active %}Deactivate{% else %}Activate{% endif %} User"{% endif %}
+                                        style="border: none; background: none;"
+                                    >
+                                        {% if u.is_active %}
+                                            <i class="fas fa-user-slash me-2 text-warning"></i>Deactivate
+                                        {% else %}
+                                            <i class="fas fa-user-check me-2 text-success"></i>Activate
+                                        {% endif %}
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center">No users found.</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if users.has_other_pages %}
+<nav aria-label="User pagination" class="mt-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <small class="text-muted">
+                Page {{ users.number }} of {{ users.paginator.num_pages }}
+            </small>
+        </div>
+        <ul class="pagination mb-0">
+            {% if users.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}page_size={{ page_size }}&page=1" aria-label="First">
+                        <span aria-hidden="true">&laquo;&laquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}page_size={{ page_size }}&page={{ users.previous_page_number }}" aria-label="Previous">
+                        <span aria-hidden="true">&laquo;</span>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">&laquo;&laquo;</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">&laquo;</span>
+                </li>
+            {% endif %}
+            
+            {% for page_num in users.paginator.page_range %}
+                {% if page_num == users.number %}
+                    <li class="page-item active" aria-current="page">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                {% elif page_num > users.number|add:'-3' and page_num < users.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}page_size={{ page_size }}&page={{ page_num }}">{{ page_num }}</a>
+                    </li>
+                {% elif page_num == 1 or page_num == users.paginator.num_pages %}
+                    <li class="page-item">
+                        <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}page_size={{ page_size }}&page={{ page_num }}">{{ page_num }}</a>
+                    </li>
+                {% elif page_num == users.number|add:'-4' or page_num == users.number|add:'4' %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if users.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}page_size={{ page_size }}&page={{ users.next_page_number }}" aria-label="Next">
+                        <span aria-hidden="true">&raquo;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?{% if search_query %}search={{ search_query }}&{% endif %}page_size={{ page_size }}&page={{ users.paginator.num_pages }}" aria-label="Last">
+                        <span aria-hidden="true">&raquo;&raquo;</span>
+                    </a>
+                </li>
+            {% else %}
+                <li class="page-item disabled">
+                    <span class="page-link">&raquo;</span>
+                </li>
+                <li class="page-item disabled">
+                    <span class="page-link">&raquo;&raquo;</span>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+</nav>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleButtons = document.querySelectorAll('.toggle-active-btn');
+    
+    toggleButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.userId;
+            toggleUserActive(userId, this);
+        });
+    });
+    
+    function toggleUserActive(userId, buttonElement) {
+        // Disable button during request
+        buttonElement.disabled = true;
+        
+        fetch(`/users/toggle-active/${userId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                'Content-Type': 'application/json',
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update status badge
+                const statusBadge = document.getElementById(`status-badge-${userId}`);
+                const toggleBtn = document.getElementById(`toggle-btn-${userId}`);
+                
+                if (data.is_active) {
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.textContent = 'Active';
+                    toggleBtn.className = 'dropdown-item toggle-active-btn';
+                    toggleBtn.innerHTML = '<i class="fas fa-user-slash me-2 text-warning"></i>Deactivate';
+                    toggleBtn.title = 'Deactivate User';
+                } else {
+                    statusBadge.className = 'badge bg-danger';
+                    statusBadge.textContent = 'Inactive';
+                    toggleBtn.className = 'dropdown-item toggle-active-btn';
+                    toggleBtn.innerHTML = '<i class="fas fa-user-check me-2 text-success"></i>Activate';
+                    toggleBtn.title = 'Activate User';
+                }
+                
+                // Show success message
+                showAlert('success', data.message);
+            } else {
+                showAlert('danger', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred while updating user status.');
+        })
+        .finally(() => {
+            buttonElement.disabled = false;
+        });
+    }
+    
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Insert at the top of the content
+        const contentDiv = document.querySelector('.d-flex.justify-content-between');
+        contentDiv.parentNode.insertBefore(alertDiv, contentDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+
+{% csrf_token %}
+{% endblock %}

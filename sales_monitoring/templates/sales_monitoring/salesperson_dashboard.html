@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}My Activities Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-user-clock"></i> My Activities</h1>
+                <div class="btn-group">
+                    <a href="{% url 'sales_monitoring:create_activity' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> New Activity
+                    </a>
+                    <a href="{% url 'sales_monitoring:quick_log_activity' %}" class="btn btn-success">
+                        <i class="fas fa-bolt"></i> Quick Log
+                    </a>
+                    <a href="{% url 'sales_monitoring:activity_calendar' %}" class="btn btn-info">
+                        <i class="fas fa-calendar"></i> Calendar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quota Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card {% if stats.quota_achievement >= 100 %}border-success{% else %}border-warning{% endif %}">
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-3">
+                            <h5 class="card-title mb-0">Quota Progress</h5>
+                            <small class="text-muted">Target: ₱{{ stats.quota|floatformat:2|intcomma }}</small>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="progress" style="height: 25px;">
+                                <div class="progress-bar bg-{% if stats.quota_achievement >= 100 %}success{% else %}warning{% endif %}" 
+                                     role="progressbar" 
+                                     style="width: {{ stats.quota_achievement }}%">
+                                    {{ stats.quota_achievement|floatformat:1 }}%
+                                </div>
+                            </div>
+                            <small class="text-muted">Current Profit: ₱{{ stats.total_profit|floatformat:2|intcomma }}</small>
+                        </div>
+                        <div class="col-md-3 text-end">
+                            {% if stats.quota_achievement >= 100 %}
+                            <span class="badge bg-success p-2">
+                                <i class="fas fa-check-circle"></i> Quota Achieved!
+                            </span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark p-2">
+                                <i class="fas fa-chart-line"></i> In Progress
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-tasks"></i><br>
+                        {{ stats.total_activities }}
+                    </h5>
+                    <p class="card-text small">Total Activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-success">
+                        <i class="fas fa-calendar-day"></i><br>
+                        {{ stats.today_activities }}
+                    </h5>
+                    <p class="card-text small">Today's Activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-success">
+                        <i class="fas fa-check-circle"></i><br>
+                        {{ stats.completed_today }}
+                    </h5>
+                    <p class="card-text small">Completed Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-info">
+                        <i class="fas fa-clock"></i><br>
+                        {{ stats.upcoming_activities }}
+                    </h5>
+                    <p class="card-text small">Upcoming</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-danger">
+                        <i class="fas fa-exclamation-triangle"></i><br>
+                        {{ stats.overdue_activities }}
+                    </h5>
+                    <p class="card-text small">Overdue</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-warning">
+                        <i class="fas fa-calendar-week"></i><br>
+                        {{ stats.this_week_completed }}
+                    </h5>
+                    <p class="card-text small">Week Completed</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Today's Activities -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-calendar-day"></i> Today's Activities</h5>
+                </div>
+                <div class="card-body">
+                    {% if today_activities %}
+                    {% for activity in today_activities %}
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <div>
+                            <strong>{{ activity.title }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                <i class="{{ activity.activity_type.icon }}"></i> {{ activity.activity_type.name }}
+                                {% if activity.scheduled_start %}
+                                - {{ activity.scheduled_start|time:"g:i A" }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-{% if activity.status == 'completed' %}success{% elif activity.status == 'in_progress' %}primary{% else %}warning{% endif %}">
+                                {{ activity.get_status_display }}
+                            </span>
+                            <br>
+                            <a href="{% url 'sales_monitoring:activity_detail' activity.pk %}" class="btn btn-sm btn-outline-primary mt-1">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-calendar-alt" style="font-size: 2rem;"></i>
+                        <p class="mt-2">No activities scheduled for today</p>
+                        <a href="{% url 'sales_monitoring:create_activity' %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Create Activity
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Activities -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-clock"></i> Upcoming Activities (Next 7 Days)</h5>
+                </div>
+                <div class="card-body">
+                    {% if upcoming_activities %}
+                    {% for activity in upcoming_activities %}
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <div>
+                            <strong>{{ activity.title }}</strong>
+                            <br>
+                            <small class="text-muted">
+                                <i class="{{ activity.activity_type.icon }}"></i> {{ activity.activity_type.name }}
+                                - {{ activity.scheduled_start|date:"M j" }}
+                                {% if activity.scheduled_start %}
+                                {{ activity.scheduled_start|time:"g:i A" }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-{% if activity.priority == 'urgent' %}danger{% elif activity.priority == 'high' %}warning{% else %}info{% endif %}">
+                                {{ activity.get_priority_display }}
+                            </span>
+                            <br>
+                            <a href="{% url 'sales_monitoring:activity_detail' activity.pk %}" class="btn btn-sm btn-outline-primary mt-1">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-clock" style="font-size: 2rem;"></i>
+                        <p class="mt-2">No upcoming activities</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Activities -->
+    {% if overdue_activities %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5><i class="fas fa-exclamation-triangle"></i> Overdue Activities</h5>
+                </div>
+                <div class="card-body">
+                    {% for activity in overdue_activities %}
+                    <div class="alert alert-danger d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ activity.title }}</strong>
+                            <br>
+                            <small>
+                                Due: {{ activity.scheduled_end|date:"M j, Y g:i A" }}
+                                {% if activity.customer %}
+                                | Customer: {{ activity.customer.company_name }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div>
+                            <a href="{% url 'sales_monitoring:update_activity' activity.pk %}" class="btn btn-warning btn-sm">
+                                <i class="fas fa-edit"></i> Update
+                            </a>
+                            <a href="{% url 'sales_monitoring:activity_detail' activity.pk %}" class="btn btn-danger btn-sm">
+                                <i class="fas fa-eye"></i> View
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Activity Logs -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history"></i> Recent Activity History</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_logs %}
+                    <div class="timeline">
+                        {% for log in recent_logs %}
+                        <div class="d-flex border-bottom py-2">
+                            <div class="me-3">
+                                <i class="fas fa-circle text-{% if log.action == 'completed' %}success{% elif log.action == 'reviewed' %}info{% else %}primary{% endif %}" style="font-size: 0.5rem;"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between">
+                                    <span class="fw-bold">{{ log.activity.title }}</span>
+                                    <small class="text-muted">{{ log.timestamp|naturaltime }}</small>
+                                </div>
+                                <small class="text-muted">{{ log.description }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-3">
+                        <i class="fas fa-history" style="font-size: 2rem;"></i>
+                        <p class="mt-2">No recent activity</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.timeline {
+    max-height: 400px;
+    overflow-y: auto;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+
+{% block title %}Activity Calendar - Sales Monitoring{% endblock %}
+
+{% block extra_head %}
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-calendar"></i> Activity Calendar</h1>
+                <div class="btn-group">
+                    <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                    </a>
+                    <a href="{% url 'sales_monitoring:create_activity' %}" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> New Activity
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Legend -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6>Calendar Legend:</h6>
+                    <div class="d-flex flex-wrap gap-3">
+                        <span><span class="badge" style="background-color: #28a745;">■</span> Completed</span>
+                        <span><span class="badge" style="background-color: #007bff;">■</span> Planned</span>
+                        <span><span class="badge" style="background-color: #ffc107;">■</span> High Priority</span>
+                        <span><span class="badge" style="background-color: #fd7e14;">■</span> Urgent</span>
+                        <span><span class="badge" style="background-color: #dc3545;">■</span> Overdue</span>
+                        <span><span class="badge" style="background-color: #6c757d;">■</span> Cancelled</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Container -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div id="calendar"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+    
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: '{{ initial_view|default:"dayGridMonth" }}',
+        initialDate: '{{ initial_date|default:"" }}',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        height: 'auto',
+        events: {{ calendar_events|safe }},
+        eventClick: function(info) {
+            info.jsEvent.preventDefault();
+            if (info.event.url) {
+                window.open(info.event.url, '_blank');
+            }
+        },
+        eventMouseEnter: function(info) {
+            // Create tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'tooltip bs-tooltip-top show';
+            tooltip.innerHTML = `
+                <div class="tooltip-arrow"></div>
+                <div class="tooltip-inner">
+                    <strong>${info.event.title}</strong><br>
+                    Salesperson: ${info.event.extendedProps.salesperson}<br>
+                    Customer: ${info.event.extendedProps.customer}<br>
+                    Status: ${info.event.extendedProps.status}<br>
+                    Priority: ${info.event.extendedProps.priority}
+                </div>
+            `;
+            
+            document.body.appendChild(tooltip);
+            
+            const rect = info.el.getBoundingClientRect();
+            tooltip.style.position = 'absolute';
+            tooltip.style.left = rect.left + (rect.width / 2) - (tooltip.offsetWidth / 2) + 'px';
+            tooltip.style.top = rect.top - tooltip.offsetHeight - 10 + 'px';
+            tooltip.style.zIndex = '1070';
+            
+            info.el._tooltip = tooltip;
+        },
+        eventMouseLeave: function(info) {
+            if (info.el._tooltip) {
+                document.body.removeChild(info.el._tooltip);
+                delete info.el._tooltip;
+            }
+        }
+    });
+    
+    calendar.render();
+});
+</script>
+{% endblock %}

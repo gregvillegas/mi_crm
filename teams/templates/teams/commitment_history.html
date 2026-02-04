@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Commitment History{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 mb-0">Commitment History - {{ group.name }}</h1>
+        <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-outline-secondary">Back to Dashboard</a>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Changed At</th>
+                            <th>Month</th>
+                            <th>Supervisor</th>
+                            <th>Prev Target</th>
+                            <th>New Target</th>
+                            <th>Change</th>
+                            <th>Changed By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td>{{ log.changed_at }}</td>
+                            <td>{{ log.month|date:"Y-m" }}</td>
+                            <td>{{ log.supervisor.get_full_name|default:log.supervisor.username }}</td>
+                            <td>₱{{ log.previous_target|floatformat:2 }}</td>
+                            <td>₱{{ log.new_target|floatformat:2 }}</td>
+                            <td><span class="badge bg-{% if log.change_type == 'increase' %}success{% elif log.change_type == 'decrease' %}danger{% else %}secondary{% endif %}">{{ log.get_change_type_display }}</span></td>
+                            <td>{{ log.changed_by.get_full_name|default:log.changed_by.username }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">No changes recorded</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

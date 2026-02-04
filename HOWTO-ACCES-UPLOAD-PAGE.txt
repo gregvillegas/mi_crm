@@ -1,0 +1,52 @@
+I see the issue! The user pcruz is in group CSG-B but we're testing with group CSG-A, so they don't have access. This is working correctly. 
+
+To access the file upload page, you need to:
+
+1. Log in to the CRM
+2. Navigate to your group's page:
+•  Go to Teams → All Groups
+•  Find your group in the list
+•  Click on your group name to view group members
+•  Click the "Group Files" button (green button with file icon)
+3. From the group files page:
+•  Click the "Upload File" button in the top-right
+
+Let me show you the direct navigation path. What's your current username and role in the system? You can also try these direct URLs (replace <group_id> with your group's ID):
+
+•  For group files: http://localhost:8000/files/group/<group_id>/files/
+•  For file upload: http://localhost:8000/files/group/<group_id>/upload/
+
+Let me help you find the right group ID for your user:
+Perfect! Now I can give you the exact navigation path. Here's how to access the file upload page:
+
+🎯 Navigation Path to File Upload:
+
+Option 1: Through Group Navigation
+1. Login to the CRM at http://localhost:8000/
+2. Go to Teams → All Groups 
+3. Find your group in the list (depends on your username - see mappings above)
+4. Click on your group name to view group members
+5. Click the green "Group Files" button
+6. Click "Upload File" button in the top-right
+
+Option 2: Direct URLs (replace with your group ID)
+Based on the user mappings above, here are some direct links:
+
+•  CSG-B (Group ID: 4): http://localhost:8000/files/group/4/upload/
+•  CSG-E (Group ID: 2): http://localhost:8000/files/group/2/upload/
+•  CSG-F (Group ID: 1): http://localhost:8000/files/group/1/upload/
+•  TSG-A (Group ID: 5): http://localhost:8000/files/group/5/upload/
+
+Option 3: Through Files Menu
+1. Click "Files" in the main navigation
+2. Select "All Group Files" 
+3. Choose a group from the accessible groups
+4. Click "Upload File"
+
+🔍 To Find Your Specific Group:
+Tell me your username and I can give you the exact URL for your group's file upload page!
+
+🚀 Quick Test:
+Try this URL to see all your accessible files: http://localhost:8000/files/all-files/
+
+The file upload functionality is working - you just need to access it through the correct group that you have permissions for. What's your username in the system?

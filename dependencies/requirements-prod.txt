@@ -1,0 +1,33 @@
+# CRM Project - Production Requirements
+# Core Django and application dependencies
+Django==5.2.5
+django-crispy-forms==2.4
+crispy-bootstrap5==2025.6
+
+# Production web server
+gunicorn==21.2.0
+
+# Database drivers
+psycopg2-binary==2.9.9
+
+# Caching and session management
+redis==5.0.8
+django-redis==5.4.0
+
+# Static file serving
+whitenoise[brotli]==6.7.0
+
+# Environment management
+python-dotenv==1.0.1
+
+# Error tracking (optional)
+sentry-sdk[django]==2.16.0
+
+# Core Python dependencies
+asgiref==3.9.1
+sqlparse==0.5.3
+typing_extensions==4.14.1
+
+# Additional production packages for monitoring and performance
+django-extensions==3.2.3
+django-debug-toolbar==4.4.6  # Only for staging/debugging

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Transfer Customer: {{ customer.company_name }} ({{ customer.contact_person_name }})</h2>
+<form method="post">
+    {% csrf_token %}
+    <div class="mb-3">
+        <label for="salesperson" class="form-label">New Salesperson</label>
+        <select name="salesperson" id="salesperson" class="form-control">
+            {% for person in salespeople %}
+                <option value="{{ person.id }}">{{ person.username }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Transfer</button>
+</form>
+{% endblock %}

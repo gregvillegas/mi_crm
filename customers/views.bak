@@ -1,0 +1,46 @@
+# -----------------------------------------------------------------------------
+# 6. customers/views.py
+# -----------------------------------------------------------------------------
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib.auth.decorators import login_required
+from .models import Customer
+from users.models import User
+from teams.models import Team, Group
+
+@login_required
+def customer_list(request):
+    user = request.user
+    customers = Customer.objects.none()
+
+    if user.role == 'admin':
+        customers = Customer.objects.all()
+    elif user.role == 'avp':
+        teams = Team.objects.filter(avp=user)
+        groups = Group.objects.filter(team__in=teams)
+        salespeople = User.objects.filter(team_membership__group__in=groups)
+        customers = Customer.objects.filter(salesperson__in=salespeople)
+    elif user.role == 'supervisor':
+        groups = Group.objects.filter(supervisor=user)
+        salespeople = User.objects.filter(team_membership__group__in=groups)
+        customers = Customer.objects.filter(salesperson__in=salespeople)
+    elif user.role == 'salesperson':
+        customers = Customer.objects.filter(salesperson=user)
+
+    return render(request, 'customers/customer_list.html', {'customers': customers})
+
+@login_required
+def transfer_customer(request, pk):
+    if not request.user.role == 'admin':
+        return redirect('customer_list')
+
+    customer = get_object_or_404(Customer, pk=pk)
+    if request.method == 'POST':
+        new_salesperson_id = request.POST.get('salesperson')
+        new_salesperson = get_object_or_404(User, id=new_salesperson_id, role='salesperson')
+        customer.salesperson = new_salesperson
+        customer.save()
+        return redirect('customer_list')
+
+    salespeople = User.objects.filter(role='salesperson')
+    return render(request, 'customers/transfer_customer.html', {'customer': customer, 'salespeople': salespeople})
+

@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block title %}Sales Activity Monitoring - Supervisor Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-chart-line"></i> Sales Activity Monitoring</h1>
+                <div class="btn-group">
+                    <a href="{% url 'sales_monitoring:group_performance' %}" class="btn btn-info">
+                        <i class="fas fa-users"></i> Group Performance
+                    </a>
+                    <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-success">
+                        <i class="fas fa-chart-bar"></i> Reports
+                    </a>
+                    <a href="{% url 'sales_monitoring:bulk_update_activities' %}" class="btn btn-warning">
+                        <i class="fas fa-edit"></i> Bulk Update
+                    </a>
+                    <a href="{% url 'sales_monitoring:export_activities' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-download"></i> Export
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-info">
+                        <i class="fas fa-users"></i><br>
+                        {{ stats.total_salespeople }}
+                    </h5>
+                    <p class="card-text small">Team Members</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        <i class="fas fa-tasks"></i><br>
+                        {{ stats.total_activities }}
+                    </h5>
+                    <p class="card-text small">Total Activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-success">
+                        <i class="fas fa-check-circle"></i><br>
+                        {{ stats.completed_today }}
+                    </h5>
+                    <p class="card-text small">Completed Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-danger">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-danger">
+                        <i class="fas fa-exclamation-triangle"></i><br>
+                        {{ stats.overdue_activities }}
+                    </h5>
+                    <p class="card-text small">Overdue</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-warning">
+                        <i class="fas fa-eye"></i><br>
+                        {{ stats.pending_review }}
+                    </h5>
+                    <p class="card-text small">Pending Review</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <a href="{% url 'sales_monitoring:activity_calendar' %}?view=week" class="text-decoration-none">
+                <div class="card border-info">
+                    <div class="card-body text-center">
+                        <h5 class="card-title text-info">
+                            <i class="fas fa-calendar-week"></i><br>
+                            {{ stats.this_week_activities }}
+                        </h5>
+                        <p class="card-text small">This Week</p>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Activity Type Breakdown -->
+    {% if activity_breakdown %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-pie-chart"></i> Activity Type Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for item in activity_breakdown %}
+                        <div class="col-md-3 mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="{{ item.activity_type__icon }} text-{{ item.activity_type__color }} me-2"></i>
+                                <span>{{ item.activity_type__name }}</span>
+                                <span class="badge bg-secondary ms-auto">{{ item.count }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Filters -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-filter"></i> Activity Filters</h6>
+                </div>
+                <div class="card-body">
+                    {% crispy filter_form %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activities List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-list"></i> Sales Activities</h5>
+                    <small class="text-muted">{{ activities.paginator.count }} total activities</small>
+                </div>
+                <div class="card-body">
+                    {% if activities %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Activity</th>
+                                    <th>Type</th>
+                                    <th>Salesperson</th>
+                                    <th>Customer</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Scheduled</th>
+                                    <th>Review Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for activity in activities %}
+                                <tr class="{% if activity.is_overdue %}table-danger{% elif activity.priority == 'urgent' %}table-warning{% endif %}">
+                                    <td>
+                                        <strong>{{ activity.title }}</strong>
+                                        {% if activity.is_overdue %}
+                                        <i class="fas fa-exclamation-triangle text-danger" title="Overdue"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <i class="{{ activity.activity_type.icon }} text-{{ activity.activity_type.color }}"></i>
+                                        {{ activity.activity_type.name }}
+                                    </td>
+                                    <td>{{ activity.salesperson.get_full_name|default:activity.salesperson.username }}</td>
+                                    <td>
+                                        {% if activity.customer %}
+                                        {{ activity.customer.company_name }}
+                                        {% else %}
+                                        <em class="text-muted">No Customer</em>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if activity.status == 'completed' %}success{% elif activity.status == 'in_progress' %}primary{% elif activity.status == 'cancelled' %}secondary{% else %}warning{% endif %}">
+                                            {{ activity.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{% if activity.priority == 'urgent' %}danger{% elif activity.priority == 'high' %}warning{% elif activity.priority == 'medium' %}info{% else %}secondary{% endif %}">
+                                            {{ activity.get_priority_display }}
+                                        </span>
+                                    </td>
+                                    <td class="small">
+                                        {% if activity.scheduled_start %}
+                                        {{ activity.scheduled_start|date:"M j, Y" }}<br>
+                                        <small class="text-muted">{{ activity.scheduled_start|time:"g:i A" }}</small>
+                                        {% else %}
+                                        <em class="text-muted">Not scheduled</em>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if activity.reviewed_by_supervisor %}
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check"></i> Reviewed
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-warning">
+                                            <i class="fas fa-clock"></i> Pending
+                                        </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="{% url 'sales_monitoring:activity_detail' activity.pk %}" 
+                                               class="btn btn-outline-primary btn-sm" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            {% if not activity.reviewed_by_supervisor %}
+                                            <a href="{% url 'sales_monitoring:activity_detail' activity.pk %}#review" 
+                                               class="btn btn-outline-success btn-sm" title="Review">
+                                                <i class="fas fa-clipboard-check"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if activities.has_other_pages %}
+                    <nav aria-label="Activities pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if activities.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ activities.previous_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">
+                                        <i class="fas fa-chevron-left"></i> Previous
+                                    </a>
+                                </li>
+                            {% endif %}
+                            
+                            {% for num in activities.paginator.page_range %}
+                                {% if activities.number == num %}
+                                    <li class="page-item active">
+                                        <span class="page-link">{{ num }}</span>
+                                    </li>
+                                {% elif num > activities.number|add:'-3' and num < activities.number|add:'3' %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ num }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">{{ num }}</a>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if activities.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ activities.next_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">
+                                        Next <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-inbox text-muted" style="font-size: 3rem;"></i>
+                        <h4 class="text-muted mt-3">No Activities Found</h4>
+                        <p class="text-muted">No activities match your current filters.</p>
+                        <a href="{% url 'sales_monitoring:supervisor_dashboard' %}" class="btn btn-primary">
+                            Clear Filters
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-refresh dashboard every 5 minutes
+setTimeout(function() {
+    window.location.reload();
+}, 300000);
+
+// Add tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltips = [].slice.call(document.querySelectorAll('[title]'));
+    tooltips.map(function(element) {
+        return new bootstrap.Tooltip(element);
+    });
+});
+</script>
+{% endblock %}

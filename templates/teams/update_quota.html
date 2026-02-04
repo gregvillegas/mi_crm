@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ title }}</h2>
+    <div>
+        <a href="{% url 'group_members' group.pk %}" class="btn btn-outline-secondary">Back to Members</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="mb-3">
+            <strong>Salesperson:</strong> {{ membership.user.get_full_name|default:membership.user.username }}<br>
+            <strong>Group:</strong> {{ group.name }} ({{ group.team.name }})
+        </div>
+        <form method="post" novalidate>
+            {% csrf_token %}
+            {{ form|crispy }}
+        </form>
+    </div>
+</div>
+{% endblock %}

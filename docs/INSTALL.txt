@@ -1,0 +1,822 @@
+================================================================================
+                    CRM PROJECT - PRODUCTION INSTALLATION GUIDE
+================================================================================
+
+This guide provides step-by-step instructions for installing and deploying
+the CRM Project to a production server environment.
+
+================================================================================
+TABLE OF CONTENTS
+================================================================================
+
+1. System Requirements
+2. Pre-Installation Setup
+3. Application Installation
+4. Database Configuration
+5. Web Server Configuration (Nginx + Gunicorn)
+6. SSL/TLS Configuration
+7. Service Configuration
+8. Security Hardening
+9. Backup Configuration
+10. Monitoring Setup
+11. Maintenance & Updates
+12. Troubleshooting
+
+================================================================================
+1. SYSTEM REQUIREMENTS
+================================================================================
+
+OPERATING SYSTEM:
+- Ubuntu 20.04 LTS or higher (recommended)
+- CentOS 8 or higher
+- Debian 11 or higher
+- RHEL 8 or higher
+
+MINIMUM HARDWARE REQUIREMENTS:
+- CPU: 2 cores (4+ cores recommended)
+- RAM: 2GB (4GB+ recommended for production)
+- Storage: 20GB (50GB+ recommended)
+- Network: Stable internet connection
+
+SOFTWARE DEPENDENCIES:
+- Python 3.8 or higher (Python 3.10+ recommended)
+- PostgreSQL 12+ or MySQL 8.0+
+- Nginx 1.18+
+- Redis 6.0+ (for caching and sessions)
+- Git 2.25+
+- Supervisor (for process management)
+
+================================================================================
+2. PRE-INSTALLATION SETUP
+================================================================================
+
+2.1 UPDATE SYSTEM
+-----------------
+# Ubuntu/Debian
+sudo apt update && sudo apt upgrade -y
+
+# CentOS/RHEL
+sudo yum update -y
+
+2.2 INSTALL SYSTEM PACKAGES
+---------------------------
+# Ubuntu/Debian
+sudo apt install -y python3 python3-pip python3-venv python3-dev \
+                    postgresql postgresql-contrib postgresql-server-dev-all \
+                    nginx redis-server git supervisor \
+                    build-essential libpq-dev libssl-dev \
+                    certbot python3-certbot-nginx \
+                    htop curl wget unzip
+
+# CentOS/RHEL
+sudo yum install -y python3 python3-pip python3-devel \
+                    postgresql postgresql-server postgresql-contrib postgresql-devel \
+                    nginx redis git supervisor \
+                    gcc gcc-c++ make openssl-devel \
+                    epel-release
+sudo yum install -y certbot python3-certbot-nginx
+
+2.3 CREATE APPLICATION USER
+---------------------------
+sudo adduser --system --group --home /opt/crm crm
+sudo mkdir -p /opt/crm/{app,logs,static,media}
+sudo chown -R crm:crm /opt/crm
+
+================================================================================
+3. APPLICATION INSTALLATION
+================================================================================
+
+3.1 CLONE APPLICATION
+---------------------
+sudo -u crm git clone https://github.com/yourusername/crm_project.git /opt/crm/app
+cd /opt/crm/app
+
+3.2 CREATE VIRTUAL ENVIRONMENT
+------------------------------
+sudo -u crm python3 -m venv /opt/crm/venv
+sudo -u crm /opt/crm/venv/bin/pip install --upgrade pip setuptools wheel
+
+3.3 INSTALL PYTHON DEPENDENCIES
+-------------------------------
+sudo -u crm /opt/crm/venv/bin/pip install -r requirements.txt
+
+# Additional production packages
+sudo -u crm /opt/crm/venv/bin/pip install \
+    gunicorn \
+    psycopg2-binary \
+    redis \
+    django-redis \
+    sentry-sdk[django]
+
+3.4 CREATE PRODUCTION REQUIREMENTS FILE
+---------------------------------------
+cat > requirements-prod.txt << EOF
+Django==5.2.5
+django-crispy-forms==2.3.0
+crispy-bootstrap5==2024.2
+gunicorn==21.2.0
+psycopg2-binary==2.9.7
+redis==5.0.0
+django-redis==5.3.0
+sentry-sdk[django]==1.32.0
+whitenoise[brotli]==6.5.0
+python-dotenv==1.0.0
+EOF
+
+sudo -u crm /opt/crm/venv/bin/pip install -r requirements-prod.txt
+
+================================================================================
+4. DATABASE CONFIGURATION
+================================================================================
+
+4.1 POSTGRESQL SETUP
+--------------------
+# Initialize PostgreSQL (CentOS/RHEL only)
+sudo postgresql-setup --initdb
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+
+# Create database and user
+sudo -u postgres psql << EOF
+CREATE DATABASE crm_production;
+CREATE USER crm_user WITH ENCRYPTED PASSWORD 'your_secure_password_here';
+GRANT ALL PRIVILEGES ON DATABASE crm_production TO crm_user;
+ALTER USER crm_user CREATEDB;
+\q
+EOF
+
+# Configure PostgreSQL for production
+sudo nano /etc/postgresql/*/main/postgresql.conf
+# Add/modify these lines:
+listen_addresses = 'localhost'
+shared_buffers = 256MB
+effective_cache_size = 1GB
+maintenance_work_mem = 64MB
+checkpoint_completion_target = 0.9
+wal_buffers = 16MB
+default_statistics_target = 100
+
+# Configure authentication
+sudo nano /etc/postgresql/*/main/pg_hba.conf
+# Add line:
+local   crm_production    crm_user                     md5
+
+sudo systemctl restart postgresql
+
+4.2 REDIS SETUP
+---------------
+sudo systemctl enable redis-server
+sudo systemctl start redis-server
+
+# Configure Redis
+sudo nano /etc/redis/redis.conf
+# Modify these settings:
+bind 127.0.0.1
+maxmemory 256mb
+maxmemory-policy allkeys-lru
+save 900 1
+save 300 10
+save 60 10000
+
+sudo systemctl restart redis-server
+
+================================================================================
+5. APPLICATION CONFIGURATION
+================================================================================
+
+5.1 CREATE ENVIRONMENT FILE
+---------------------------
+sudo -u crm nano /opt/crm/app/.env
+# Add the following configuration:
+
+# Django Settings
+DEBUG=False
+SECRET_KEY=your_very_long_and_random_secret_key_here_50_chars_minimum
+ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com,your.server.ip
+
+# Database
+DATABASE_URL=postgres://crm_user:your_secure_password_here@localhost:5432/crm_production
+
+# Redis Cache
+REDIS_URL=redis://127.0.0.1:6379/0
+
+# Email Settings (configure according to your email provider)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USE_TLS=True
+EMAIL_HOST_USER=your-email@gmail.com
+EMAIL_HOST_PASSWORD=your-app-password
+
+# Security Settings
+SECURE_SSL_REDIRECT=True
+SECURE_PROXY_SSL_HEADER=('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_HSTS_SECONDS=31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS=True
+SECURE_HSTS_PRELOAD=True
+
+# Static Files
+STATIC_ROOT=/opt/crm/static
+MEDIA_ROOT=/opt/crm/media
+
+# Sentry (Error Tracking) - Optional
+SENTRY_DSN=your_sentry_dsn_here
+
+5.2 UPDATE DJANGO SETTINGS
+---------------------------
+sudo -u crm nano /opt/crm/app/crm_project/settings.py
+
+# Add at the top
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Update settings
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+SECRET_KEY = os.getenv('SECRET_KEY')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
+
+# Database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'crm_production',
+        'USER': 'crm_user',
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': 'localhost',
+        'PORT': '5432',
+        'OPTIONS': {
+            'sslmode': 'prefer',
+        },
+    }
+}
+
+# Cache Configuration
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        }
+    }
+}
+
+# Session Configuration
+SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
+SESSION_CACHE_ALIAS = 'default'
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 3600  # 1 hour
+
+# Security Settings
+SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() == 'true'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '0'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+CSRF_COOKIE_SECURE = True
+CSRF_COOKIE_HTTPONLY = True
+
+# Static Files
+STATIC_URL = '/static/'
+STATIC_ROOT = os.getenv('STATIC_ROOT', '/opt/crm/static')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', '/opt/crm/media')
+
+# Add WhiteNoise for static file serving
+MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/opt/crm/logs/django.log',
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+        'error_file': {
+            'level': 'ERROR',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': '/opt/crm/logs/django_error.log',
+            'maxBytes': 10485760,  # 10MB
+            'backupCount': 5,
+            'formatter': 'verbose',
+        },
+    },
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'root': {
+        'handlers': ['file'],
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'error_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
+
+# Email Configuration
+EMAIL_HOST = os.getenv('EMAIL_HOST')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER', 'noreply@yourdomain.com')
+
+5.3 INITIALIZE APPLICATION
+---------------------------
+cd /opt/crm/app
+
+# Set permissions
+sudo chown -R crm:crm /opt/crm
+sudo chmod +x manage.py
+
+# Run migrations
+sudo -u crm /opt/crm/venv/bin/python manage.py migrate
+
+# Create superuser
+sudo -u crm /opt/crm/venv/bin/python manage.py createsuperuser
+
+# Collect static files
+sudo -u crm /opt/crm/venv/bin/python manage.py collectstatic --noinput
+
+# Test the application
+sudo -u crm /opt/crm/venv/bin/python manage.py check --deploy
+
+================================================================================
+6. WEB SERVER CONFIGURATION (NGINX + GUNICORN)
+================================================================================
+
+6.1 CREATE GUNICORN CONFIGURATION
+----------------------------------
+sudo -u crm nano /opt/crm/app/gunicorn_config.py
+
+bind = "127.0.0.1:8000"
+workers = 3
+worker_class = "sync"
+worker_connections = 1000
+max_requests = 1000
+max_requests_jitter = 100
+timeout = 30
+keepalive = 2
+preload_app = True
+daemon = False
+user = "crm"
+group = "crm"
+pidfile = "/opt/crm/logs/gunicorn.pid"
+accesslog = "/opt/crm/logs/gunicorn_access.log"
+errorlog = "/opt/crm/logs/gunicorn_error.log"
+loglevel = "info"
+access_log_format = '%({X-Real-IP}i)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(D)s'
+
+6.2 CREATE SYSTEMD SERVICE
+---------------------------
+sudo nano /etc/systemd/system/crm-gunicorn.service
+
+[Unit]
+Description=CRM Gunicorn daemon
+Requires=crm-gunicorn.socket
+After=network.target
+
+[Service]
+Type=notify
+User=crm
+Group=crm
+RuntimeDirectory=crm
+WorkingDirectory=/opt/crm/app
+ExecStart=/opt/crm/venv/bin/gunicorn --config /opt/crm/app/gunicorn_config.py crm_project.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
+6.3 CREATE SYSTEMD SOCKET
+--------------------------
+sudo nano /etc/systemd/system/crm-gunicorn.socket
+
+[Unit]
+Description=CRM gunicorn socket
+
+[Socket]
+ListenStream=/run/crm/socket
+
+[Install]
+WantedBy=sockets.target
+
+6.4 NGINX CONFIGURATION
+------------------------
+sudo nano /etc/nginx/sites-available/crm
+
+server {
+    listen 80;
+    server_name yourdomain.com www.yourdomain.com;
+    
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    
+    # Rate limiting
+    limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
+    
+    # Logs
+    access_log /opt/crm/logs/nginx_access.log;
+    error_log /opt/crm/logs/nginx_error.log;
+    
+    # Static files
+    location /static/ {
+        alias /opt/crm/static/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+    
+    # Media files
+    location /media/ {
+        alias /opt/crm/media/;
+        expires 1y;
+        add_header Cache-Control "public";
+    }
+    
+    # Rate limit login pages
+    location ~* ^/(login|admin/login)/ {
+        limit_req zone=login burst=5 nodelay;
+        proxy_pass http://127.0.0.1:8000;
+        include proxy_params;
+    }
+    
+    # Main application
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300;
+        proxy_connect_timeout 300;
+        proxy_send_timeout 300;
+    }
+    
+    # Health check
+    location /health/ {
+        access_log off;
+        return 200 "healthy\n";
+        add_header Content-Type text/plain;
+    }
+}
+
+# Enable the site
+sudo ln -s /etc/nginx/sites-available/crm /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+================================================================================
+7. SSL/TLS CONFIGURATION
+================================================================================
+
+7.1 OBTAIN SSL CERTIFICATE
+---------------------------
+# Using Let's Encrypt (recommended)
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+# Or using manual certificate (if you have one)
+# Copy your certificate files to:
+# /etc/ssl/certs/yourdomain.com.crt
+# /etc/ssl/private/yourdomain.com.key
+
+7.2 CONFIGURE AUTO-RENEWAL
+---------------------------
+# Test renewal
+sudo certbot renew --dry-run
+
+# Add to crontab
+sudo crontab -e
+# Add line:
+0 12 * * * /usr/bin/certbot renew --quiet
+
+================================================================================
+8. SERVICE CONFIGURATION
+================================================================================
+
+8.1 START AND ENABLE SERVICES
+------------------------------
+# Enable and start PostgreSQL
+sudo systemctl enable postgresql
+sudo systemctl start postgresql
+
+# Enable and start Redis
+sudo systemctl enable redis-server
+sudo systemctl start redis-server
+
+# Enable and start Gunicorn
+sudo systemctl daemon-reload
+sudo systemctl enable crm-gunicorn.socket
+sudo systemctl start crm-gunicorn.socket
+sudo systemctl enable crm-gunicorn.service
+sudo systemctl start crm-gunicorn.service
+
+# Enable and start Nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
+
+8.2 VERIFY SERVICES
+--------------------
+sudo systemctl status postgresql
+sudo systemctl status redis-server
+sudo systemctl status crm-gunicorn.service
+sudo systemctl status nginx
+
+# Check application
+curl -I http://localhost
+curl -I https://yourdomain.com
+
+================================================================================
+9. SECURITY HARDENING
+================================================================================
+
+9.1 FIREWALL CONFIGURATION
+---------------------------
+# UFW (Ubuntu/Debian)
+sudo ufw enable
+sudo ufw allow 22/tcp  # SSH
+sudo ufw allow 80/tcp  # HTTP
+sudo ufw allow 443/tcp # HTTPS
+sudo ufw deny 8000/tcp # Block direct access to Gunicorn
+
+# Firewalld (CentOS/RHEL)
+sudo firewall-cmd --permanent --add-service=ssh
+sudo firewall-cmd --permanent --add-service=http
+sudo firewall-cmd --permanent --add-service=https
+sudo firewall-cmd --reload
+
+9.2 FAIL2BAN CONFIGURATION
+---------------------------
+sudo apt install fail2ban  # Ubuntu/Debian
+sudo yum install fail2ban   # CentOS/RHEL
+
+sudo nano /etc/fail2ban/local.conf
+[DEFAULT]
+bantime = 3600
+findtime = 600
+maxretry = 5
+
+[sshd]
+enabled = true
+
+[nginx-http-auth]
+enabled = true
+
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+
+9.3 SECURE FILE PERMISSIONS
+----------------------------
+sudo chown -R crm:crm /opt/crm
+sudo chmod -R 750 /opt/crm
+sudo chmod -R 640 /opt/crm/app
+sudo chmod +x /opt/crm/app/manage.py
+sudo chmod 600 /opt/crm/app/.env
+
+================================================================================
+10. BACKUP CONFIGURATION
+================================================================================
+
+10.1 DATABASE BACKUP SCRIPT
+----------------------------
+sudo nano /opt/crm/backup_db.sh
+
+#!/bin/bash
+BACKUP_DIR="/opt/crm/backups"
+DATE=$(date +%Y%m%d_%H%M%S)
+DB_NAME="crm_production"
+DB_USER="crm_user"
+
+mkdir -p $BACKUP_DIR
+
+# Database backup
+PGPASSWORD="your_secure_password_here" pg_dump -h localhost -U $DB_USER $DB_NAME | gzip > $BACKUP_DIR/db_backup_$DATE.sql.gz
+
+# Media files backup
+tar -czf $BACKUP_DIR/media_backup_$DATE.tar.gz -C /opt/crm media/
+
+# Keep only last 7 days of backups
+find $BACKUP_DIR -name "*.gz" -mtime +7 -delete
+
+echo "Backup completed: $DATE"
+
+sudo chmod +x /opt/crm/backup_db.sh
+sudo chown crm:crm /opt/crm/backup_db.sh
+
+10.2 AUTOMATED BACKUPS
+----------------------
+sudo -u crm crontab -e
+# Add lines:
+0 2 * * * /opt/crm/backup_db.sh >> /opt/crm/logs/backup.log 2>&1
+0 0 * * 0 find /opt/crm/logs -name "*.log" -mtime +30 -delete
+
+================================================================================
+11. MONITORING SETUP
+================================================================================
+
+11.1 SYSTEM MONITORING SCRIPT
+------------------------------
+sudo nano /opt/crm/monitor.sh
+
+#!/bin/bash
+LOG_FILE="/opt/crm/logs/monitor.log"
+DATE=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Check services
+services=("postgresql" "redis-server" "crm-gunicorn" "nginx")
+
+for service in "${services[@]}"; do
+    if ! systemctl is-active --quiet $service; then
+        echo "[$DATE] ERROR: $service is not running" >> $LOG_FILE
+        systemctl restart $service
+        echo "[$DATE] INFO: Attempted to restart $service" >> $LOG_FILE
+    fi
+done
+
+# Check disk space
+DISK_USAGE=$(df /opt/crm | tail -1 | awk '{print $5}' | sed 's/%//')
+if [ $DISK_USAGE -gt 80 ]; then
+    echo "[$DATE] WARNING: Disk usage is at $DISK_USAGE%" >> $LOG_FILE
+fi
+
+# Check application health
+if ! curl -f http://localhost/health/ > /dev/null 2>&1; then
+    echo "[$DATE] ERROR: Application health check failed" >> $LOG_FILE
+fi
+
+sudo chmod +x /opt/crm/monitor.sh
+
+# Add to cron
+sudo crontab -e
+# Add line:
+*/5 * * * * /opt/crm/monitor.sh
+
+11.2 LOG ROTATION
+-----------------
+sudo nano /etc/logrotate.d/crm
+
+/opt/crm/logs/*.log {
+    daily
+    missingok
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    create 644 crm crm
+    postrotate
+        systemctl reload crm-gunicorn
+    endscript
+}
+
+================================================================================
+12. MAINTENANCE & UPDATES
+================================================================================
+
+12.1 REGULAR MAINTENANCE TASKS
+-------------------------------
+# Update system packages (monthly)
+sudo apt update && sudo apt upgrade -y
+
+# Update Python packages (as needed)
+sudo -u crm /opt/crm/venv/bin/pip list --outdated
+sudo -u crm /opt/crm/venv/bin/pip install --upgrade package_name
+
+# Clean old log files
+find /opt/crm/logs -name "*.log" -mtime +90 -delete
+
+# Check database performance
+sudo -u postgres psql crm_production -c "VACUUM ANALYZE;"
+
+12.2 APPLICATION UPDATES
+-------------------------
+# 1. Create backup
+/opt/crm/backup_db.sh
+
+# 2. Pull latest code
+cd /opt/crm/app
+sudo -u crm git pull origin main
+
+# 3. Update dependencies
+sudo -u crm /opt/crm/venv/bin/pip install -r requirements-prod.txt
+
+# 4. Run migrations
+sudo -u crm /opt/crm/venv/bin/python manage.py migrate
+
+# 5. Collect static files
+sudo -u crm /opt/crm/venv/bin/python manage.py collectstatic --noinput
+
+# 6. Restart services
+sudo systemctl restart crm-gunicorn
+sudo systemctl reload nginx
+
+================================================================================
+13. TROUBLESHOOTING
+================================================================================
+
+13.1 COMMON ISSUES
+------------------
+# Application won't start:
+sudo systemctl status crm-gunicorn
+sudo journalctl -u crm-gunicorn -f
+tail -f /opt/crm/logs/gunicorn_error.log
+
+# Database connection issues:
+sudo -u postgres psql crm_production
+sudo systemctl status postgresql
+
+# Permission errors:
+sudo chown -R crm:crm /opt/crm
+sudo chmod -R 750 /opt/crm
+
+# Static files not loading:
+sudo -u crm /opt/crm/venv/bin/python manage.py collectstatic --noinput
+sudo systemctl reload nginx
+
+13.2 LOG LOCATIONS
+------------------
+Application logs:     /opt/crm/logs/
+Nginx logs:          /var/log/nginx/
+PostgreSQL logs:     /var/log/postgresql/
+System logs:         /var/log/syslog
+
+13.3 USEFUL COMMANDS
+--------------------
+# Check all services
+sudo systemctl status postgresql redis-server crm-gunicorn nginx
+
+# Restart application
+sudo systemctl restart crm-gunicorn
+sudo systemctl reload nginx
+
+# View real-time logs
+tail -f /opt/crm/logs/django.log
+tail -f /opt/crm/logs/gunicorn_error.log
+
+# Database console
+sudo -u postgres psql crm_production
+
+# Django management commands
+cd /opt/crm/app
+sudo -u crm /opt/crm/venv/bin/python manage.py shell
+sudo -u crm /opt/crm/venv/bin/python manage.py createsuperuser
+
+================================================================================
+14. POST-INSTALLATION CHECKLIST
+================================================================================
+
+□ System packages installed and updated
+□ PostgreSQL configured and running
+□ Redis configured and running  
+□ Application deployed and configured
+□ Database migrations completed
+□ Superuser account created
+□ Static files collected
+□ Gunicorn service running
+□ Nginx configured and running
+□ SSL certificate installed and working
+□ Firewall configured
+□ Backup system configured
+□ Monitoring scripts configured
+□ Log rotation configured
+□ Application accessible via domain
+□ Admin panel accessible
+□ All functionality tested
+
+================================================================================
+SUPPORT & DOCUMENTATION
+================================================================================
+
+For additional support and documentation:
+- Django Documentation: https://docs.djangoproject.com/
+- PostgreSQL Documentation: https://www.postgresql.org/docs/
+- Nginx Documentation: https://nginx.org/en/docs/
+- Gunicorn Documentation: https://docs.gunicorn.org/
+
+================================================================================
+END OF INSTALLATION GUIDE
+================================================================================

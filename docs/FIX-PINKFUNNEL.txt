@@ -1,0 +1,34 @@
+
+✅ Fixed the Recent Funnel Entries Display Issue
+
+Problem Identified:
+The "newly quoted" entries weren't showing correctly in the recent funnel entries table because Bootstrap 5 doesn't have a built-in bg-pink CSS class, so the badge with bg-{{ entry.stage_color }} wasn't rendering properly when entry.stage_color returned "pink".
+
+Root Cause:
+•  The SalesFunnel model's stage_color property returns "pink" for quoted entries
+•  The template uses <span class="badge bg-{{ entry.stage_color }}"> 
+•  Bootstrap 5 has bg-warning, bg-success, etc., but no bg-pink class
+•  This caused the pink badges to not display with the correct background color
+
+Solution Applied:
+
+1. Added custom CSS for pink badges:
+css
+2. Benefits of the fix:
+•  Now bg-pink class is properly defined and styled
+•  Pink badges will display with the correct pink background (#e91e63)
+•  White text ensures good contrast and readability
+•  Consistent with the pink color used in the dashboard cards
+
+Verification:
+Based on our testing, there is actual data that should show:
+•  Admin users can see all 4 entries including the "Insular Healthcare - Newly Quoted" entry
+•  Salesperson 'jrabe' should see their own "Insular Healthcare - Newly Quoted" entry
+•  Other salespeople see their respective entries
+
+Now when you refresh the page:
+1. The "Newly Quoted" card will show with a beautiful pink background 
+2. The recent funnel entries table will properly display entries with pink badges for "Newly Quoted" items
+3. The badge colors will be consistent across the dashboard
+
+The recent funnel entries should now be visible, with entries that have the "quoted" stage showing as pink badges with "Newly Quoted" text.

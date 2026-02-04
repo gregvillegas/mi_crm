@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-users text-primary"></i> All Leads</h2>
+            <div>
+                <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-primary me-2">
+                    <i class="fas fa-plus"></i> Add New Lead
+                </a>
+                <a href="{% url 'lead_generation:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class=\"fas fa-chart-pie\"></i> Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Form -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-filter"></i> Search & Filter Leads</h5>
+            </div>
+            <div class="card-body">
+                <form method="get" class="mb-3">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="input-group">
+                                <input type="text" name="search" value="{{ search_query }}" class="form-control" 
+                                       placeholder="Search by name, company, email, or phone...">
+                                <button class="btn btn-outline-primary" type="submit">
+                                    <i class="fas fa-search"></i> Search
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" 
+                                    data-bs-target="#advancedFilters">
+                                <i class="fas fa-sliders-h"></i> Advanced Filters
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                
+                <div class="collapse" id="advancedFilters">
+                    <hr>
+                    {% crispy filter_form %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Summary -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <p class="text-muted mb-0">
+                <i class="fas fa-info-circle"></i> 
+                Showing {{ leads|length }} of {{ total_count }} leads
+                {% if search_query %}for "{{ search_query }}"{% endif %}
+            </p>
+            <div class="btn-group btn-group-sm">
+                <a href="{% url 'lead_generation:hot_leads' %}" class="btn btn-outline-danger">
+                    <i class="fas fa-fire"></i> Hot Leads Only
+                </a>
+                <a href="{% url 'lead_generation:lead_export' %}" class="btn btn-outline-success">
+                    <i class="fas fa-download"></i> Export
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leads List -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow">
+            <div class="card-body p-0">
+                {% if leads %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Lead Name</th>
+                                    <th>Company</th>
+                                    <th>Contact Info</th>
+                                    <th>Assigned To</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Score</th>
+                                    <th>Source</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for lead in leads %}
+                                    <tr class="{% if lead.priority == 'hot' or lead.lead_score >= 80 %}table-warning{% endif %}">
+                                        <td>
+                                            <div>
+                                                <strong>{{ lead.full_name }}</strong>
+                                                {% if lead.job_title %}
+                                                    <br><small class="text-muted">{{ lead.job_title }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {{ lead.company_name|default:"-" }}
+                                            {% if lead.industry %}
+                                                <br><small class="text-muted">{{ lead.get_industry_display }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div>
+                                                {{ lead.email }}
+                                                {% if lead.phone_number %}
+                                                    <br><small class="text-muted">{{ lead.phone_number }}</small>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                        <td>
+                                            {% if lead.assigned_to %}
+                                                <span class="badge bg-info">{{ lead.assigned_to.get_full_name }}</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Unassigned</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><span class="badge bg-{{ lead.status_color }}">{{ lead.get_status_display }}</span></td>
+                                        <td>
+                                            <span class="badge bg-{{ lead.priority_color }}">
+                                                {% if lead.priority == 'hot' %}<i class="fas fa-fire"></i> {% endif %}{{ lead.get_priority_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="width: 60px; height: 20px;">
+                                                <div class="progress-bar bg-{% if lead.lead_score >= 80 %}danger{% elif lead.lead_score >= 60 %}warning{% elif lead.lead_score >= 40 %}info{% else %}secondary{% endif %}" 
+                                                     role="progressbar" style="width: {{ lead.lead_score }}%">
+                                                    {{ lead.lead_score }}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-light text-dark">{{ lead.source.name }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ lead.created_at|date:"M d, Y" }}</small>
+                                        </td>
+                                        <td>
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="{% url 'lead_generation:lead_detail' lead.id %}" class="btn btn-outline-primary" title="View Details">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{% url 'lead_generation:lead_edit' lead.id %}" class="btn btn-outline-secondary" title="Edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% if lead.status in 'qualified,proposal_sent,negotiating' and not lead.converted_to_customer %}
+                                                    <a href="{% url 'lead_generation:convert_lead' lead.id %}" class="btn btn-outline-success" title="Convert">
+                                                        <i class="fas fa-exchange-alt"></i>
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    {% if leads.has_other_pages %}
+                        <div class="card-footer">
+                            <nav aria-label="Leads pagination">
+                                <ul class="pagination pagination-sm justify-content-center mb-0">
+                                    {% if leads.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page=1{% if search_query %}&search={{ search_query }}{% endif %}">&laquo; First</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ leads.previous_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Previous</a>
+                                        </li>
+                                    {% endif %}
+                                    
+                                    <li class="page-item active">
+                                        <span class="page-link">
+                                            Page {{ leads.number }} of {{ leads.paginator.num_pages }}
+                                        </span>
+                                    </li>
+                                    
+                                    {% if leads.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ leads.next_page_number }}{% if search_query %}&search={{ search_query }}{% endif %}">Next</a>
+                                        </li>
+                                        <li class="page-item">
+                                            <a class="page-link" href="?page={{ leads.paginator.num_pages }}{% if search_query %}&search={{ search_query }}{% endif %}">Last &raquo;</a>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </nav>
+                        </div>
+                    {% endif %}
+                    
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">
+                            {% if search_query %}
+                                No leads found for "{{ search_query }}"
+                            {% else %}
+                                No leads available
+                            {% endif %}
+                        </h4>
+                        <p class="text-muted">
+                            {% if search_query %}
+                                Try adjusting your search terms or filters.
+                            {% else %}
+                                Start building your pipeline by adding your first lead!
+                            {% endif %}
+                        </p>
+                        <div class="mt-3">
+                            {% if search_query %}
+                                <a href="{% url 'lead_generation:lead_list' %}" class="btn btn-outline-primary me-2">
+                                    <i class="fas fa-times"></i> Clear Search
+                                </a>
+                            {% endif %}
+                            <a href="{% url 'lead_generation:lead_create' %}" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add New Lead
+                            </a>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-collapse advanced filters if no filters are active
+    const filtersCollapse = document.getElementById('advancedFilters');
+    const hasActiveFilters = {{ filter_form.is_bound|yesno:'true,false' }};
+    
+    if (hasActiveFilters) {
+        filtersCollapse.classList.add('show');
+    }
+    
+    console.log('Leads list loaded - {{ total_count }} total leads');
+});
+</script>
+{% endblock %}

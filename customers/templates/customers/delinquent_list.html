@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Delinquent Customers{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-exclamation-triangle text-danger"></i> Delinquent Customers</h2>
+    <div class="d-flex gap-2">
+        {% if user.role == 'admin' %}
+            <a href="{% url 'download_delinquency_sample_csv' %}" class="btn btn-outline-secondary"><i class="fas fa-file-download"></i> Sample CSV</a>
+            <a href="{% url 'import_delinquencies' %}" class="btn btn-outline-primary"><i class="fas fa-file-import"></i> Import CSV</a>
+            <a href="{% url 'export_delinquencies' %}" class="btn btn-outline-success"><i class="fas fa-file-export"></i> Export CSV</a>
+            <a href="{% url 'create_delinquency' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Add Record</a>
+        {% endif %}
+        <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary">Back to Customers</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="open" {% if current_filters.status == 'open' %}selected{% endif %}>Open</option>
+                    <option value="watch" {% if current_filters.status == 'watch' %}selected{% endif %}>Watch</option>
+                    <option value="resolved" {% if current_filters.status == 'resolved' %}selected{% endif %}>Resolved</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Min Amount (₱)</label>
+                <input type="number" step="0.01" name="min_amount" class="form-control" value="{{ current_filters.min_amount }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" class="form-control" placeholder="Company or Contact" value="{{ current_filters.search }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Overdue Only</label>
+                <select name="overdue" class="form-select">
+                    <option value="">No</option>
+                    <option value="yes" {% if current_filters.overdue == 'yes' %}selected{% endif %}>Yes</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary"><i class="fas fa-filter"></i> Filter</button>
+                <a href="{% url 'delinquent_list' %}" class="btn btn-outline-secondary"><i class="fas fa-times"></i> Clear</a>
+            </div>
+        </form>
+    </div>
+    </div>
+
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>Company</th>
+                <th>Contact</th>
+                <th>TIN #</th>
+                <th>Status</th>
+                <th>Amount Due</th>
+                <th>Due Date</th>
+                <th>Assigned AE</th>
+                <th>Remarks</th>
+                <th>Updated</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rec in records %}
+            <tr>
+                <td><strong>{{ rec.customer.company_name }}</strong></td>
+                <td>{{ rec.customer.contact_person_name }}</td>
+                <td>{{ rec.tin_number|default:'—' }}</td>
+                <td>
+                    {% if rec.status == 'open' %}
+                        <span class="badge bg-danger">Open</span>
+                    {% elif rec.status == 'watch' %}
+                        <span class="badge bg-warning text-dark">Watch</span>
+                    {% else %}
+                        <span class="badge bg-success">Resolved</span>
+                    {% endif %}
+                </td>
+                <td>₱{{ rec.amount_due|floatformat:2|intcomma }}</td>
+                <td>{{ rec.due_date|default:'—' }}</td>
+                <td>{{ rec.salesperson.get_full_name|default:rec.customer.salesperson.get_full_name|default:'—' }}</td>
+                <td>{{ rec.remarks|default:'—' }}</td>
+                <td>{{ rec.updated_at|date:"M j, Y" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">
+                    <i class="fas fa-check-circle mb-2"></i><br>
+                    No delinquent customers found
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

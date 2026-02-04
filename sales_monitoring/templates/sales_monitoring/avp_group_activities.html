@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block title %}Group Activities - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-users"></i> {{ group.name }} Activities</h1>
+            <div class="btn-group">
+                <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn.secondary">
+                    <i class="fas fa-arrow-left"></i> Back to AVP Dashboard
+                </a>
+                <a href="{% url 'sales_monitoring:activity_calendar' %}?view=month" class="btn btn-outline-primary">
+                    <i class="fas fa-calendar"></i> Calendar
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary text-center">
+                <div class="card-body">
+                    <h3 class="text-primary">{{ stats.total_activities }}</h3>
+                    <p class="card-text">Total Activities</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success text-center">
+                <div class="card-body">
+                    <h3 class="text-success">{{ stats.completed_today }}</h3>
+                    <p class="card-text">Completed Today</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-danger text-center">
+                <div class="card-body">
+                    <h3 class="text-danger">{{ stats.overdue_activities }}</h3>
+                    <p class="card-text">Overdue</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ stats.this_week_activities }}</h3>
+                    <p class="card-text">This Week</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h6><i class="fas fa-filter"></i> Filters</h6>
+                </div>
+                <div class="card-body">
+                    {% crispy filter_form %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-list"></i> Activities</h5>
+                    <small class="text-muted">{{ activities.paginator.count }} total</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Activity</th>
+                                    <th>Type</th>
+                                    <th>Salesperson</th>
+                                    <th>Customer</th>
+                                    <th>Status</th>
+                                    <th>Priority</th>
+                                    <th>Scheduled</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if activities %}
+                                    {% for activity in activities %}
+                                    <tr class="{% if activity.is_overdue %}table-danger{% elif activity.priority == 'urgent' %}table-warning{% endif %}">
+                                        <td><strong>{{ activity.title }}</strong></td>
+                                        <td>
+                                            <i class="{{ activity.activity_type.icon }} text-{{ activity.activity_type.color }}"></i>
+                                            {{ activity.activity_type.name }}
+                                        </td>
+                                        <td>{{ activity.salesperson.get_full_name|default:activity.salesperson.username }}</td>
+                                        <td>{% if activity.customer %}{{ activity.customer.company_name }}{% else %}<em class="text-muted">No Customer</em>{% endif %}</td>
+                                        <td>
+                                            <span class="badge bg-{% if activity.status == 'completed' %}success{% elif activity.status == 'in_progress' %}primary{% elif activity.status == 'cancelled' %}secondary{% else %}warning{% endif %}">{{ activity.get_status_display }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-{% if activity.priority == 'urgent' %}danger{% elif activity.priority == 'high' %}warning{% elif activity.priority == 'medium' %}info{% else %}secondary{% endif %}">{{ activity.get_priority_display }}</span>
+                                        </td>
+                                        <td class="small">
+                                            {% if activity.scheduled_start %}
+                                            {{ activity.scheduled_start|date:"M j, Y" }}<br>
+                                            <small class="text-muted">{{ activity.scheduled_start|time:"g:i A" }}</small>
+                                            {% else %}
+                                            <em class="text-muted">Not scheduled</em>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'sales_monitoring:activity_detail' activity.pk %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-eye"></i> View</a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted py-4">
+                                            <i class="fas fa-inbox" style="font-size: 3rem;"></i>
+                                            <h4 class="mt-3">No Activities Found</h4>
+                                            <p>No activities match your current filters.</p>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if activities.has_other_pages %}
+                    <nav aria-label="Pagination">
+                        <ul class="pagination justify-content-center">
+                            {% if activities.has_previous %}
+                                <li class="page-item"><a class="page-link" href="?page={{ activities.previous_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">Previous</a></li>
+                            {% endif %}
+                            {% for num in activities.paginator.page_range %}
+                                {% if activities.number == num %}
+                                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                                {% elif num > activities.number|add:'-3' and num < activities.number|add:'3' %}
+                                    <li class="page-item"><a class="page-link" href="?page={{ num }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">{{ num }}</a></li>
+                                {% endif %}
+                            {% endfor %}
+                            {% if activities.has_next %}
+                                <li class="page-item"><a class="page-link" href="?page={{ activities.next_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">Next</a></li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

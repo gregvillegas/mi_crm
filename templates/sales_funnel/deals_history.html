@@ -1,0 +1,324 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Deals History - Sales Funnel{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-chart-line"></i> Deals History & Statistics</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'sales_funnel:dashboard' %}" class="btn btn-primary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+</div>
+
+<!-- Date Filter -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-calendar"></i> Filter by Date Range</h5>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-4">
+                <label for="date_from" class="form-label">From Date</label>
+                <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+            </div>
+            <div class="col-md-4">
+                <label for="date_to" class="form-label">To Date</label>
+                <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <a href="{% url 'sales_funnel:deals_history' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times"></i> Clear
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Overview Statistics -->
+<div class="row mb-4">
+    <!-- Win Rate Card -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-info text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Win Rate</h6>
+                        <h3 class="mb-0">{{ win_rate|floatformat:1 }}%</h3>
+                        <small>{{ total_closed }} total deals</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-percentage fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Won Deals Card -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Won Deals</h6>
+                        <h3 class="mb-0">{{ won_stats.count }}</h3>
+                        <small>₱{{ won_stats.total_value|floatformat:2|intcomma }}</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-trophy fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lost Deals Card -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-danger text-white h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Lost Deals</h6>
+                        <h3 class="mb-0">{{ lost_stats.count }}</h3>
+                        <small>₱{{ lost_stats.total_value|floatformat:2|intcomma }}</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-times-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Won Profit Card -->
+    <div class="col-lg-3 col-md-6 mb-3">
+        <div class="card bg-warning text-dark h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="card-title">Won Profit</h6>
+                        <h3 class="mb-0">₱{{ won_stats.total_profit|floatformat:0|intcomma }}</h3>
+                        <small>from won deals</small>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-coins fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Top Salespeople (if applicable) -->
+{% if can_see_all_salespeople and top_salespeople %}
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-star"></i> Top Performing Salespeople</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Salesperson</th>
+                        <th class="text-center">Won</th>
+                        <th class="text-center">Lost</th>
+                        <th class="text-center">Win Rate</th>
+                        <th class="text-end">Won Value</th>
+                        <th class="text-end">Lost Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sp in top_salespeople %}
+                        {% with total_deals=sp.won_count|add:sp.lost_count %}
+                        <tr>
+                            <td>
+                                <strong>
+                                    {% if sp.salesperson__first_name %}
+                                        {{ sp.salesperson__first_name }} {{ sp.salesperson__last_name }}
+                                    {% else %}
+                                        {{ sp.salesperson__username }}
+                                    {% endif %}
+                                </strong>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-success">{{ sp.won_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge bg-danger">{{ sp.lost_count }}</span>
+                            </td>
+                            <td class="text-center">
+                                {{ sp.win_rate|floatformat:1 }}%
+                            </td>
+                            <td class="text-end">₱{{ sp.total_won_value|default:0|floatformat:0|intcomma }}</td>
+                            <td class="text-end text-muted">₱{{ sp.total_lost_value|default:0|floatformat:0|intcomma }}</td>
+                        </tr>
+                        {% endwith %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Deals Tables -->
+<div class="row">
+    <!-- Recent Won Deals -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-trophy"></i> Recent Won Deals</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_won %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Company</th>
+                                    <th>Value</th>
+                                    <th>Closed Date</th>
+                                    <th>Salesperson</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deal in recent_won %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ deal.company_name }}</strong>
+                                        <br><small class="text-muted">{{ deal.requirement_description|truncatechars:50 }}</small>
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">₱{{ deal.retail|floatformat:0|intcomma }}</strong>
+                                        <br><small class="text-muted">Profit: ₱{{ deal.profit|floatformat:0|intcomma }}</small>
+                                    </td>
+                                    <td>{{ deal.closed_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">
+						<!-- {{ deal.salesperson.first_name|first|upper }}{{ deal.salesperson.last_name|first|upper }} -->
+					    {{ deal.salesperson.initials }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-trophy fa-3x mb-3"></i>
+                        <h5>No Won Deals Yet</h5>
+                        <p>Keep working on those prospects!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Lost Deals -->
+    <div class="col-lg-6 mb-4">
+        <div class="card">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0"><i class="fas fa-times-circle"></i> Recent Lost Deals</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_lost %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Company</th>
+                                    <th>Value</th>
+                                    <th>Closed Date</th>
+                                    <th>Salesperson</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for deal in recent_lost %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ deal.company_name }}</strong>
+                                        <br><small class="text-muted">{{ deal.requirement_description|truncatechars:50 }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="text-muted">₱{{ deal.retail|floatformat:0|intcomma }}</span>
+                                        <br><small class="text-muted">Potential profit: ₱{{ deal.profit|floatformat:0|intcomma }}</small>
+                                    </td>
+                                    <td>{{ deal.closed_date|date:"M d, Y" }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ deal.salesperson.initials }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-times-circle fa-3x mb-3"></i>
+                        <h5>No Lost Deals</h5>
+                        <p>Great work maintaining your prospects!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Additional Insights -->
+{% if won_stats.count > 0 or lost_stats.count > 0 %}
+<div class="row">
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-pie fa-3x text-primary mb-3"></i>
+                <h5>Average Deal Value</h5>
+                <h3 class="text-primary">
+                    ₱{{ average_deal_value|floatformat:0|intcomma }}
+                </h3>
+                <small class="text-muted">Across all closed deals</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-bullseye fa-3x text-success mb-3"></i>
+                <h5>Average Won Deal</h5>
+                <h3 class="text-success">
+                    ₱{{ average_won_deal|floatformat:0|intcomma }}
+                </h3>
+                <small class="text-muted">Average value of won deals</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line fa-3x text-warning mb-3"></i>
+                <h5>Profit Margin</h5>
+                <h3 class="text-warning">
+                    {{ won_stats.profit_margin|floatformat:1 }}%
+                </h3>
+                <small class="text-muted">On won deals</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

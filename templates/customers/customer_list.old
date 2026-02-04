@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Customers</h2>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Salesperson</th>
+            {% if user.role == 'admin' %}
+                <th>Actions</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for customer in customers %}
+            <tr>
+                <td>{{ customer.first_name }} {{ customer.last_name }}</td>
+                <td>{{ customer.email }}</td>
+                <td>{{ customer.salesperson.username|default:"Unassigned" }}</td>
+                {% if user.role == 'admin' %}
+                    <td><a href="{% url 'transfer_customer' customer.pk %}" class="btn btn-sm btn-secondary">Transfer</a></td>
+                {% endif %}
+            </tr>
+        {% empty %}
+            <tr>
+                <td colspan="4">No customers found.</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

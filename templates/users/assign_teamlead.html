@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4>Assign Teamlead: {{ teamlead.first_name }} {{ teamlead.last_name }}</h4>
+            </div>
+            <div class="card-body">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <div class="mb-3">
+                    <strong>Current Assignment:</strong>
+                    {% if current_group %}
+                        {{ current_group.name }} ({{ current_group.team.name }})
+                    {% else %}
+                        <span class="text-warning">Not assigned to any group</span>
+                    {% endif %}
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="new_group" class="form-label">Assign to Group</label>
+                        <select class="form-select" id="new_group" name="new_group">
+                            <option value="">Unassign (remove from current group)</option>
+                            {% for group in groups %}
+                                <option value="{{ group.id }}" 
+                                    {% if current_group and group.id == current_group.id %}disabled{% endif %}>
+                                    {{ group.name }} - {{ group.team.name }} 
+                                    (Supervisor: {{ group.supervisor.first_name }} {{ group.supervisor.last_name }})
+                                    {% if group.teamlead and group != current_group %}
+                                        - Currently has: {{ group.teamlead.first_name }} {{ group.teamlead.last_name }}
+                                    {% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            {% if current_group %}
+                                Current group is disabled in the list. Select another group to reassign or choose "Unassign" to remove from current group.
+                            {% else %}
+                                Select a group to assign the teamlead to, or leave unselected to keep unassigned.
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-user-cog"></i> Update Assignment
+                        </button>
+                        <a href="{% url 'user_management' %}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

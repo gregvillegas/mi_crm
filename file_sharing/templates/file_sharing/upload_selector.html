@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-upload"></i> {{ title }}
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted mb-4">
+                    Select the group where you want to upload your file. You can only upload to groups you have access to.
+                </p>
+                
+                <div class="list-group">
+                    {% for group in groups %}
+                    <a href="{% url 'upload_file' group.id %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">
+                                    {{ group.name }}
+                                    {% if group.is_tsg %}
+                                        <span class="badge bg-info ms-2">TSG</span>
+                                    {% endif %}
+                                </h6>
+                                <small class="text-muted">{{ group.team.name }} Team</small>
+                            </div>
+                            <div>
+                                <i class="fas fa-upload text-primary"></i>
+                            </div>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    You can upload files up to 50MB in supported formats (PDF, Word, Excel, PowerPoint, Images, etc.)
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4 text-center">
+    <a href="{% url 'all_files' %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to All Files
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Activity Report - {{ report_type|title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-file-alt"></i> {{ report_type|title }} Report</h1>
+                <div class="btn-group">
+                    <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Reports
+                    </a>
+                    <button onclick="window.print()" class="btn btn-primary">
+                        <i class="fas fa-print"></i> Print Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Report Period</h5>
+                            <p class="mb-0">
+                                <i class="fas fa-calendar"></i> 
+                                {{ period_start|date:"F j, Y" }} - {{ period_end|date:"F j, Y" }}
+                            </p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <h5>Generated</h5>
+                            <p class="mb-0">
+                                <i class="fas fa-clock"></i> 
+                                {% now "F j, Y g:i A" %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Statistics -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-chart-pie"></i> Summary Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h3 class="text-primary">{{ report_data.summary.total_activities }}</h3>
+                                <p class="text-muted mb-0">Total Activities</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h3 class="text-success">{{ report_data.summary.completed_activities }}</h3>
+                                <p class="text-muted mb-0">Completed Activities</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3">
+                                <h3 class="text-{% if report_data.summary.completion_rate >= 80 %}success{% elif report_data.summary.completion_rate >= 60 %}warning{% else %}danger{% endif %}">
+                                    {{ report_data.summary.completion_rate|floatformat:1 }}%
+                                </h3>
+                                <p class="text-muted mb-0">Completion Rate</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Type Breakdown -->
+    {% if report_data.type_breakdown %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-list"></i> Activity Type Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Activity Type</th>
+                                    <th>Total</th>
+                                    <th>Completed</th>
+                                    <th>Completion Rate</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for type_data in report_data.type_breakdown %}
+                                <tr>
+                                    <td>{{ type_data.activity_type__name }}</td>
+                                    <td>{{ type_data.total }}</td>
+                                    <td>{{ type_data.completed }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if type_data.completion_rate >= 80 %}success{% elif type_data.completion_rate >= 60 %}warning{% else %}danger{% endif %}">
+                                            {{ type_data.completion_rate|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-{% if type_data.completion_rate >= 80 %}success{% elif type_data.completion_rate >= 60 %}warning{% else %}danger{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ type_data.completion_rate }}%">
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Individual Breakdown -->
+    {% if report_data.individual_breakdown %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-user"></i> Individual Performance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Salesperson</th>
+                                    <th>Total Activities</th>
+                                    <th>Completed</th>
+                                    <th>Completion Rate</th>
+                                    <th>Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sp_data in report_data.individual_breakdown %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ sp_data.salesperson.get_full_name|default:sp_data.salesperson.username }}</strong>
+                                        {% if sp_data.salesperson.initials %}
+                                        <br><small class="text-muted">{{ sp_data.salesperson.initials }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ sp_data.total_activities }}</td>
+                                    <td>{{ sp_data.completed_activities }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if sp_data.completion_rate >= 80 %}success{% elif sp_data.completion_rate >= 60 %}warning{% else %}danger{% endif %}">
+                                            {{ sp_data.completion_rate|floatformat:1 }}%
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 20px;">
+                                            <div class="progress-bar bg-{% if sp_data.completion_rate >= 80 %}success{% elif sp_data.completion_rate >= 60 %}warning{% else %}danger{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {{ sp_data.completion_rate }}%">
+                                                {{ sp_data.completion_rate|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+@media print {
+    .btn, .btn-group {
+        display: none !important;
+    }
+    .card {
+        border: 1px solid #dee2e6 !important;
+        page-break-inside: avoid;
+    }
+}
+</style>
+{% endblock %}

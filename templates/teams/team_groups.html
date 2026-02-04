@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ team.name }} - Groups</h2>
+    <div>
+        <a href="{% url 'create_group' %}" class="btn btn-primary">Create New Group</a>
+        <a href="{% url 'team_list' %}" class="btn btn-outline-secondary">Back to Teams</a>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Team Information</h5>
+        <p class="card-text">
+            <strong>AVP:</strong> {% if team.avp %}{{ team.avp.get_full_name|default:team.avp.username }}{% else %}Not assigned{% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    {% for group in groups %}
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{ group.name }}</h5>
+                <p class="card-text">
+                    {% if group.is_tsg %}
+                        <strong>Manager (AVP):</strong> {% if group.team.avp %}{{ group.team.avp.get_full_name|default:group.team.avp.username }}{% else %}Not assigned{% endif %}<br>
+                    {% else %}
+                        {% if group.supervisor %}
+                            {% if group.supervisor.role == 'asm' %}
+                                <strong>Acting Supervisor (ASM):</strong> {{ group.supervisor.get_full_name|default:group.supervisor.username }}
+                                <small class="text-muted">(Temporary)</small><br>
+                            {% else %}
+                                <strong>Supervisor:</strong> {{ group.supervisor.get_full_name|default:group.supervisor.username }}<br>
+                            {% endif %}
+                        {% else %}
+                            <strong>Supervisor:</strong> Not assigned<br>
+                        {% endif %}
+                    {% endif %}
+                    {% if group.teamlead %}
+                        <strong>Team Lead:</strong> {{ group.teamlead.get_full_name|default:group.teamlead.username }}<br>
+                    {% endif %}
+                    <strong>Members:</strong> {{ group.members.count }}
+                </p>
+                <div class="btn-group" role="group">
+                    <a href="{% url 'group_members' group.pk %}" class="btn btn-sm btn-outline-primary">View Members</a>
+                    <a href="{% url 'edit_group' group.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            <h4>No groups found for this team</h4>
+            <p>Create the first group for {{ team.name }}.</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

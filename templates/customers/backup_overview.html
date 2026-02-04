@@ -1,0 +1,260 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-database"></i> Backup System Overview</h2>
+        <p class="text-muted mb-0">Customer data backup and restoration management</p>
+    </div>
+    <div class="btn-group" role="group">
+        <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Customers
+        </a>
+    </div>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title">{{ stats.total_customers }}</h3>
+                        <p class="card-text">Total Customers</p>
+                    </div>
+                    <div>
+                        <i class="fas fa-users fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title">{{ stats.total_backups }}</h3>
+                        <p class="card-text">Total Backups</p>
+                    </div>
+                    <div>
+                        <i class="fas fa-save fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title">{{ stats.customers_with_backups }}</h3>
+                        <p class="card-text">With Backups</p>
+                    </div>
+                    <div>
+                        <i class="fas fa-shield-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h3 class="card-title">{{ stats.customers_without_backups }}</h3>
+                        <p class="card-text">Without Backups</p>
+                    </div>
+                    <div>
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Backups -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-history"></i> Recent Backup Activity</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_backups %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Date & Time</th>
+                                    <th>Changed By</th>
+                                    <th>Reason</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in recent_backups %}
+                                <tr>
+                                    <td>
+                                        <div>
+                                            <strong>{{ backup.customer.company_name }}</strong><br>
+                                            <small class="text-muted">{{ backup.customer.contact_person_name }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div>
+                                            <strong>{{ backup.created_at|date:"M d, Y" }}</strong><br>
+                                            <small class="text-muted">{{ backup.created_at|date:"H:i:s" }}</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if backup.changed_by %}
+                                            {{ backup.changed_by.get_full_name|default:backup.changed_by.username }}
+                                            <br><small class="text-muted">{{ backup.changed_by.role|title }}</small>
+                                        {% else %}
+                                            <span class="text-muted">System</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ backup.reason }}">
+                                            {{ backup.reason }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group" aria-label="Backup actions">
+                                            <a href="{% url 'customer_backups' backup.customer.pk %}" 
+                                               class="btn btn-outline-info btn-sm" title="View all backups">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{% url 'restore_customer' backup.customer.pk backup.pk %}" 
+                                               class="btn btn-outline-success btn-sm" title="Restore from this backup"
+                                               onclick="return confirm('Are you sure you want to restore {{ backup.customer.company_name }} from this backup?')">
+                                                <i class="fas fa-undo"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <h5>No Backup Activity</h5>
+                        <p class="text-muted">No backups have been created yet.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Customers by Backup Count -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-chart-bar"></i> Most Backed Up Customers</h5>
+            </div>
+            <div class="card-body">
+                {% if customers_by_backup_count %}
+                    <div class="list-group list-group-flush">
+                        {% for customer in customers_by_backup_count %}
+                            <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                <div class="flex-grow-1">
+                                    <div class="fw-bold">{{ customer.company_name|truncatechars:20 }}</div>
+                                    <small class="text-muted">{{ customer.contact_person_name }}</small>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-primary rounded-pill">{{ customer.backup_count }}</span>
+                                    <br>
+                                    <a href="{% url 'customer_backups' customer.pk %}" class="btn btn-outline-secondary btn-sm mt-1">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">No backup data available.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- System Status -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0"><i class="fas fa-cog"></i> System Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-12 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <span>Backup System: <strong>Active</strong></span>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-database text-info me-2"></i>
+                            <span>Auto-backup: <strong>Enabled</strong></span>
+                        </div>
+                    </div>
+                    <div class="col-12 mb-3">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-shield-alt text-warning me-2"></i>
+                            <span>Coverage: <strong>{{ stats.customers_with_backups }}/{{ stats.total_customers }}</strong></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Coverage Progress -->
+                <div class="mt-3">
+                    <label class="form-label small">Backup Coverage</label>
+                    <div class="progress">
+                        <div class="progress-bar {% if stats.coverage_percent >= 80 %}bg-success{% elif stats.coverage_percent >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                             role="progressbar" style="width: {{ stats.coverage_percent }}%" 
+                             aria-valuenow="{{ stats.coverage_percent }}" aria-valuemin="0" aria-valuemax="100">
+                            {{ stats.coverage_percent }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Help Section -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h5 class="card-title mb-0"><i class="fas fa-question-circle"></i> How Backup System Works</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4">
+                <h6><i class="fas fa-save text-primary"></i> Automatic Backups</h6>
+                <p class="text-muted">Backups are created automatically before any customer data changes to preserve the previous state.</p>
+            </div>
+            <div class="col-md-4">
+                <h6><i class="fas fa-hand-paper text-warning"></i> Manual Backups</h6>
+                <p class="text-muted">Admins can create manual backups at any time with custom reasons for specific situations.</p>
+            </div>
+            <div class="col-md-4">
+                <h6><i class="fas fa-undo text-success"></i> Restoration</h6>
+                <p class="text-muted">Any backup can be restored, and a new backup is created before restoration for safety.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

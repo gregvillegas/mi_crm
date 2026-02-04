@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3>Import Funnel Entries from CSV</h3>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>CSV Format:</strong>
+                    <ul>
+                        <li><strong>Required:</strong> Date Created, Company Name, Requirement Description, Cost, Retail, Stage</li>
+                        <li><strong>Optional:</strong> Customer, Expected Close Date, Probability, Notes</li>
+                        <li><strong>Date format:</strong> YYYY-MM-DD, MM/DD/YYYY or DD/MM/YYYY</li>
+                        <li><strong>Stage values:</strong> Newly Quoted, Closable This Month, Project Based</li>
+                        <li><strong>Cost/Retail:</strong> numbers; commas and ₱ symbol allowed</li>
+                        <li><a href="{% url 'sales_funnel:download_sample_csv' %}" class="alert-link"><i class="fas fa-download"></i> Download sample CSV</a></li>
+                    </ul>
+                </div>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="csv_file" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Import Entries</button>
+                        <a href="{% url 'sales_funnel:dashboard' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    </div>
+{% endblock %}
