@@ -13,6 +13,8 @@ class User(AbstractUser):
         ('asm', 'ASM'),
         ('sm', 'Sales Manager'),
         ('teamlead', 'Teamlead'),
+        ('techmgr', 'Technical Manager'),
+        ('asst_techmgr', 'Assistant Technical Manager'),
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='salesperson')
     initials = models.CharField(max_length=3, blank=True, help_text='3-letter initials for the user (e.g., JDO for John Doe)')

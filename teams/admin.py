@@ -4,9 +4,9 @@ from .models import Team, Group, TeamMembership, SupervisorCommitment, Superviso
 
 @admin.register(Team)
 class TeamAdmin(admin.ModelAdmin):
-    list_display = ('name', 'avp', 'asm')
-    list_filter = ('avp',)
-    search_fields = ('name', 'avp__username', 'avp__first_name', 'avp__last_name')
+    list_display = ('name', 'avp', 'asm', 'tech_manager')
+    list_filter = ('avp', 'tech_manager')
+    search_fields = ('name', 'avp__username', 'avp__first_name', 'avp__last_name', 'tech_manager__username', 'tech_manager__first_name', 'tech_manager__last_name')
     
 
 @admin.register(Group)
@@ -20,7 +20,7 @@ class GroupAdmin(admin.ModelAdmin):
         }),
         ('Management', {
             'fields': ('supervisor', 'teamlead'),
-            'description': 'For TSG groups, leave supervisor empty - they are managed by the team AVP.'
+            'description': 'For TSG groups, leave supervisor empty - they are managed by the team Technical Manager.'
         }),
     )
     

@@ -3,11 +3,17 @@ from users.models import User
 
 class Team(models.Model):
     name = models.CharField(max_length=100, unique=True)
-    avp = models.ForeignKey(User, on_delete=models.CASCADE, related_name='managed_teams', limit_choices_to={'role__in': ['avp', 'vp', 'gm', 'president']})
+    avp = models.ForeignKey(User, on_delete=models.CASCADE, related_name='managed_teams', blank=True, null=True, limit_choices_to={'role__in': ['avp', 'vp', 'gm', 'president']})
     asm = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='asm_teams', blank=True, null=True, limit_choices_to={'role': 'asm'})
+    tech_manager = models.ForeignKey(User, on_delete=models.SET_NULL, related_name='tsg_managed_teams', blank=True, null=True, limit_choices_to={'role__in': ['techmgr', 'asst_techmgr']})
 
     def __str__(self):
         return self.name
+    
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if not self.avp and not self.tech_manager:
+            raise ValidationError("A team must have either an AVP or a Technical Manager assigned.")
 
 class Group(models.Model):
     # Group type choices
@@ -21,7 +27,7 @@ class Group(models.Model):
     
     # Group type field
     group_type = models.CharField(max_length=20, choices=GROUP_TYPE_CHOICES, default='regular',
-                              help_text='Regular groups have supervisors, TSG groups are managed directly by AVPs')
+                              help_text='Regular groups have supervisors; TSG groups are managed by the Technical Manager/Assistant Technical Manager')
     
     # Supervisor field for regular groups (can be null for TSG groups)
     supervisor = models.ForeignKey(User, on_delete=models.CASCADE, related_name='managed_groups', 
@@ -39,15 +45,17 @@ class Group(models.Model):
         return f"{self.name} ({self.team.name})"
         
     def get_manager(self):
-        """Return the manager of this group - either supervisor (regular) or AVP (TSG)"""
+        """Return the manager of this group - supervisor (regular) or Technical Manager (TSG)"""
         if self.group_type == 'tsg':
-            return self.team.avp  # TSG groups managed by team's AVP
+            return self.team.tech_manager  # TSG groups managed by the team's Technical Manager
         return self.supervisor  # Regular groups managed by supervisor
         
     def get_manager_role(self):
         """Return the role title of the manager"""
         if self.group_type == 'tsg':
-            return 'AVP'  # TSG groups managed by AVP
+            if self.team.tech_manager:
+                return 'Assistant Technical Manager' if self.team.tech_manager.role == 'asst_techmgr' else 'Technical Manager'
+            return 'Technical Manager'
         elif self.supervisor and self.supervisor.role == 'asm':
             return 'ASM (Acting Supervisor)'  # ASM acting as supervisor
         return 'Supervisor'  # Regular groups managed by supervisor

@@ -13,13 +13,25 @@
                         <li><strong>Required:</strong> Date Created, Company Name, Requirement Description, Cost, Retail, Stage</li>
                         <li><strong>Optional:</strong> Customer, Expected Close Date, Probability, Notes</li>
                         <li><strong>Date format:</strong> YYYY-MM-DD, MM/DD/YYYY or DD/MM/YYYY</li>
-                        <li><strong>Stage values:</strong> Newly Quoted, Closable This Month, Project Based</li>
+                        <li><strong>Stage values:</strong> Newly Quoted (Pink), Closable This Month (Yellow), Project Based (Green), Services (Blue)</li>
                         <li><strong>Cost/Retail:</strong> numbers; commas and ₱ symbol allowed</li>
                         <li><a href="{% url 'sales_funnel:download_sample_csv' %}" class="alert-link"><i class="fas fa-download"></i> Download sample CSV</a></li>
                     </ul>
                 </div>
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}
+                    {% if available_salespeople %}
+                    <div class="mb-3">
+                        <label for="salesperson" class="form-label">Assign to Salesperson</label>
+                        <select id="salesperson" name="salesperson" class="form-select" required>
+                            <option value="">Select salesperson...</option>
+                            {% for sp in available_salespeople %}
+                                <option value="{{ sp.id }}">{{ sp.get_full_name|default:sp.username }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Entries will be imported under the selected salesperson.</div>
+                    </div>
+                    {% endif %}
                     <div class="mb-3">
                         <label for="csv_file" class="form-label">Select CSV File</label>
                         <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>

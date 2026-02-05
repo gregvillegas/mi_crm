@@ -7,17 +7,26 @@ from crispy_forms.layout import Layout, Row, Column, Submit, HTML, Field
 class TeamForm(forms.ModelForm):
     class Meta:
         model = Team
-        fields = ['name', 'avp']
+        fields = ['name', 'avp', 'asm', 'tech_manager']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['avp'].queryset = User.objects.filter(role='avp')
+        self.fields['asm'].queryset = User.objects.filter(role='asm')
+        self.fields['tech_manager'].queryset = User.objects.filter(role__in=['techmgr','asst_techmgr'])
+        self.fields['avp'].required = False
+        self.fields['asm'].required = False
+        self.fields['tech_manager'].required = False
         
         self.helper = FormHelper()
         self.helper.layout = Layout(
             Row(
-                Column('name', css_class='form-group col-md-6 mb-3'),
-                Column('avp', css_class='form-group col-md-6 mb-3'),
+                Column('name', css_class='form-group col-md-4 mb-3'),
+                Column('avp', css_class='form-group col-md-4 mb-3'),
+                Column('asm', css_class='form-group col-md-4 mb-3'),
+            ),
+            Row(
+                Column('tech_manager', css_class='form-group col-md-6 mb-3'),
             ),
             HTML('<br>'),
             Submit('submit', 'Save Team', css_class='btn btn-primary')
@@ -32,7 +41,7 @@ class GroupForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         # Allow both supervisors and ASMs to be assigned as supervisors
         self.fields['supervisor'].queryset = User.objects.filter(role__in=['supervisor', 'asm'])
-        self.fields['supervisor'].help_text = 'Select a supervisor or ASM. ASMs can act as temporary supervisors until a permanent supervisor is hired.'
+        self.fields['supervisor'].help_text = 'Select a supervisor or ASM. For TSG groups, leave supervisor empty — they are managed by the team Technical Manager.'
         self.fields['teamlead'].queryset = User.objects.filter(role='teamlead')
         self.fields['teamlead'].required = False
         

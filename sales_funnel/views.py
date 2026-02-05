@@ -577,9 +577,42 @@ def deals_history(request):
 
 
 @login_required
-@user_passes_test(is_salesperson)
+@user_passes_test(can_add_entry)
 def import_funnel_entries(request):
     if request.method == 'POST':
+        # Determine target salesperson
+        target_salesperson = None
+        if request.user.role == 'salesperson':
+            target_salesperson = request.user
+        else:
+            sp_id = request.POST.get('salesperson')
+            if not sp_id:
+                messages.error(request, 'Please select a salesperson to assign imported entries.')
+                return redirect('sales_funnel:import_entries')
+            try:
+                sp = User.objects.get(id=sp_id, role='salesperson', is_active=True)
+            except User.DoesNotExist:
+                messages.error(request, 'Selected salesperson not found or inactive.')
+                return redirect('sales_funnel:import_entries')
+            # Scope validation for supervisor/asm/avp
+            allowed_ids = []
+            if request.user.role == 'supervisor':
+                groups = Group.objects.filter(supervisor=request.user)
+                allowed_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+            elif request.user.role == 'asm':
+                asm_teams = request.user.asm_teams.all()
+                groups = Group.objects.filter(team__in=asm_teams)
+                allowed_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+            elif request.user.role == 'avp':
+                teams = Team.objects.filter(avp=request.user)
+                groups = Group.objects.filter(team__in=teams)
+                allowed_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+            elif request.user.role == 'admin':
+                allowed_ids = [sp.id]
+            if allowed_ids and sp.id not in allowed_ids:
+                messages.error(request, 'You can only import entries for salespeople in your scope.')
+                return redirect('sales_funnel:import_entries')
+            target_salesperson = sp
         file = request.FILES.get('csv_file')
         if not file:
             messages.error(request, 'Please select a CSV file to upload.')
@@ -738,7 +771,7 @@ def import_funnel_entries(request):
                 cost=cost,
                 retail=retail,
                 stage=('project' if stage in ['project','services'] and retail is not None and retail >= Decimal('500000') else ('services' if stage in ['project','services'] else stage)),
-                salesperson=request.user,
+                salesperson=target_salesperson,
                 customer=customer_obj,
                 expected_close_date=exp_close,
                 probability=prob,
@@ -760,7 +793,24 @@ def import_funnel_entries(request):
                 messages.warning(request, f'{failed} rows failed. {preview}')
         return redirect('sales_funnel:dashboard')
 
-    return render(request, 'sales_funnel/import_entries.html')
+    # GET: show form; for managers, provide salesperson selector within scope
+    available_salespeople = None
+    if request.user.role in ['supervisor', 'asm', 'avp', 'admin']:
+        if request.user.role == 'supervisor':
+            groups = Group.objects.filter(supervisor=request.user)
+            sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
+        elif request.user.role == 'asm':
+            asm_teams = request.user.asm_teams.all()
+            groups = Group.objects.filter(team__in=asm_teams)
+            sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
+        elif request.user.role == 'avp':
+            teams = Team.objects.filter(avp=request.user)
+            groups = Group.objects.filter(team__in=teams)
+            sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
+        else:
+            sp_ids = User.objects.filter(role='salesperson', is_active=True).values_list('id', flat=True)
+        available_salespeople = User.objects.filter(id__in=list(sp_ids), is_active=True).order_by('first_name','last_name','username')
+    return render(request, 'sales_funnel/import_entries.html', {'available_salespeople': available_salespeople})
 
 @login_required
 @user_passes_test(is_exec_admin)
@@ -786,7 +836,7 @@ def normalize_funnel_stages(request):
 
 
 @login_required
-@user_passes_test(is_salesperson)
+@user_passes_test(can_add_entry)
 def download_sample_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="funnel_import_sample.csv"'
@@ -806,6 +856,10 @@ def download_sample_csv(request):
     writer.writerow([
         '2025-09-20', 'ABC Engineering', 'Project-based deployment, phased', '300000', '500000', 'Project Based',
         '', '', '40', 'Phase 1 pending approval'
+    ])
+    writer.writerow([
+        '2025-08-05', 'XYZ Medical Center', 'Annual maintenance services package', '120000', '200000', 'Services',
+        'XYZ Medical Center', '2025-09-20', '60', 'Includes on-site support'
     ])
     return response
 

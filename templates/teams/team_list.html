@@ -13,8 +13,9 @@
             <div class="card-body">
                 <h5 class="card-title">{{ team.name }}</h5>
                 <p class="card-text">
-                    <strong>AVP:</strong> {{ team.avp.get_full_name|default:team.avp.username }}<br>
-		    <strong>Manager:</strong> {{ team.asm.get_full_name|default:team.asm.username }}<br>
+                    <strong>AVP:</strong> {% if team.avp %}{{ team.avp.get_full_name|default:team.avp.username }}{% else %}&mdash;{% endif %}<br>
+                    <strong>ASM:</strong> {% if team.asm %}{{ team.asm.get_full_name|default:team.asm.username }}{% else %}&mdash;{% endif %}<br>
+                    <strong>Technical Manager:</strong> {% if team.tech_manager %}{{ team.tech_manager.get_full_name|default:team.tech_manager.username }}{% else %}&mdash;{% endif %}<br>
                     <strong>Groups:</strong> {{ team.groups.count }}
                 </p>
                 <a href="{% url 'team_groups' team.pk %}" class="btn btn-outline-primary btn-sm">View Groups</a>

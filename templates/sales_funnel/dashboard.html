@@ -10,9 +10,11 @@
                     <a href="{% url 'sales_funnel:add_entry' %}" class="btn btn-primary">
                         <i class="fas fa-plus"></i> Add New Entry
                     </a>
+                    {% if user.role in 'salesperson,supervisor,asm,avp' %}
                     <a href="{% url 'sales_funnel:import_entries' %}" class="btn btn-outline-primary">
                         <i class="fas fa-file-import"></i> Import Entries
                     </a>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
