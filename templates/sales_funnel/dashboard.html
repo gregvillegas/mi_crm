@@ -661,7 +661,7 @@
                             <td>
                                 <div class="fw-semibold text-primary">{{ entry.company_name }}</div>
                                 <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
-                                {% if can_add %}
+                                <!--{% if can_add %}
                                 <div class="mt-1">
                                     {% if entry.salesperson.initials %}
                                         <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
@@ -670,7 +670,7 @@
                                     {% endif %}
                                     <small class="text-muted ms-1">@{{ entry.salesperson.username }}</small>
                                 </div>
-                                {% endif %}
+                                {% endif %} -->
                             </td>
                             {% if can_add %}
                             <td class="text-center">

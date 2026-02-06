@@ -1381,7 +1381,7 @@ def get_executive_dashboard_data():
             asm_quota = asm_q.amount if asm_q else 0
         avp_q = RoleMonthlyQuota.objects.filter(user=team.avp, month=month_start).first()
         avp_quota = avp_q.amount if avp_q else 0
-        # Personal revenues for ASM/AVP (if they own deals)
+        # Personal profits for ASM/AVP (if they own deals)
         asm_revenue_this_month = Decimal('0')
         avp_revenue_this_month = Decimal('0')
         if team.asm:
@@ -1389,13 +1389,13 @@ def get_executive_dashboard_data():
                 salesperson=team.asm,
                 closed_date__gte=month_start,
                 closed_date__lte=today
-            ).aggregate(total=Sum('retail'))['total'] or Decimal('0')
+            ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or Decimal('0')
         if team.avp:
             avp_revenue_this_month = won_deals.filter(
                 salesperson=team.avp,
                 closed_date__gte=month_start,
                 closed_date__lte=today
-            ).aggregate(total=Sum('retail'))['total'] or Decimal('0')
+            ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or Decimal('0')
         # Progress calculation similar to group achievements
         asm_progress_pct = float((asm_revenue_this_month / asm_quota * 100) if asm_quota and asm_quota > 0 else 0)
         avp_progress_pct = float((avp_revenue_this_month / avp_quota * 100) if avp_quota and avp_quota > 0 else 0)
