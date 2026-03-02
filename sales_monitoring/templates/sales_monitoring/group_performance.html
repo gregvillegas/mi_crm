@@ -4,17 +4,25 @@
 
 {% block content %}
 <div class="container-fluid">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="fas fa-users"></i> Group Performance</h1>
-                <div class="btn-group">
+                <div class="d-flex align-items-center gap-2">
+                    <form method="get" class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0">Month</label>
+                        <input type="month" class="form-control form-control-sm" name="month" value="{{ selected_month }}">
+                        <button class="btn btn-sm btn-outline-secondary" type="submit">Go</button>
+                    </form>
+                    <div class="btn-group">
                     <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> Back to Dashboard
                     </a>
                     <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-primary">
                         <i class="fas fa-chart-bar"></i> Generate Reports
                     </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -67,6 +75,72 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Contribution Pie -->
+                    {% if group_data.salesperson_performance %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="p-3 border rounded">
+                                <h6 class="mb-3"><i class="fas fa-chart-pie me-1"></i> Profit Contribution by AE</h6>
+                                <div style="position:relative; height:260px;">
+                                    <canvas id="contribPie-{{ group_data.group.id }}"></canvas>
+                                </div>
+                                <script>
+                                    (function(){
+                                        const labels = [
+                                            {% for sp_data in group_data.salesperson_performance %}
+                                                "{{ sp_data.salesperson.initials|default:sp_data.salesperson.username }}",
+                                            {% endfor %}
+                                        ];
+                                        const values = [
+                                            {% for sp_data in group_data.salesperson_performance %}
+                                                {{ sp_data.total_profit|default:0 }},
+                                            {% endfor %}
+                                        ];
+                                        const sum = values.reduce((a,b)=>a+b,0);
+                                        const ctx = document.getElementById("contribPie-{{ group_data.group.id }}").getContext('2d');
+                                        if (sum === 0) {
+                                            ctx.font = '14px system-ui, -apple-system, Segoe UI, Roboto';
+                                            ctx.fillStyle = '#6c757d';
+                                            ctx.textAlign = 'center';
+                                            const c = ctx.canvas;
+                                            ctx.fillText('No profit yet this month', c.clientWidth/2, c.clientHeight/2);
+                                            return;
+                                        }
+                                        const colors = ['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#bab0ab'];
+                                        new Chart(ctx, {
+                                            type: 'doughnut',
+                                            data: {
+                                                labels: labels,
+                                                datasets: [{
+                                                    data: values,
+                                                    backgroundColor: labels.map((_,i)=>colors[i % colors.length]),
+                                                    borderWidth: 0
+                                                }]
+                                            },
+                                            options: {
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                plugins: {
+                                                    legend: { position: 'right' },
+                                                    tooltip: {
+                                                        callbacks: {
+                                                            label: function(context){
+                                                                const val = context.raw || 0;
+                                                                return `${context.label}: ₱${new Intl.NumberFormat('en-PH').format(val)}`;
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                
+                                            }
+                                        });
+                                    })();
+                                </script>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <!-- Individual Performance -->
                     {% if group_data.salesperson_performance %}

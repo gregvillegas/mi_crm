@@ -22,14 +22,14 @@
                     {% csrf_token %}
                     {% if available_salespeople %}
                     <div class="mb-3">
-                        <label for="salesperson" class="form-label">Assign to Salesperson</label>
+                        <label for="salesperson" class="form-label">Assign Owner (Salesperson/Manager)</label>
                         <select id="salesperson" name="salesperson" class="form-select" required>
                             <option value="">Select salesperson...</option>
                             {% for sp in available_salespeople %}
                                 <option value="{{ sp.id }}">{{ sp.get_full_name|default:sp.username }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Entries will be imported under the selected salesperson.</div>
+                        <div class="form-text">Entries will be imported under the selected owner. Managers can select themselves.</div>
                     </div>
                     {% endif %}
                     <div class="mb-3">

@@ -114,59 +114,39 @@ def customer_list(request):
 @login_required
 def delinquent_list(request):
     user = request.user
-    # Base queryset: status open or watch
     records = DelinquencyRecord.objects.filter(status__in=['open','watch']).select_related('customer','salesperson')
-    # Role-based scoping
-    if user.role == 'salesperson':
-        records = records.filter(models.Q(salesperson=user) | models.Q(customer__salesperson=user))
-    elif user.role == 'avp':
-        teams = Team.objects.filter(avp=user)
-        groups = Group.objects.filter(team__in=teams)
-        sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
-        records = records.filter(models.Q(salesperson_id__in=sp_ids) | models.Q(customer__salesperson_id__in=sp_ids))
-    elif user.role == 'asm':
-        teams = user.asm_teams.all()
-        groups = Group.objects.filter(team__in=teams)
-        sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
-        records = records.filter(models.Q(salesperson_id__in=sp_ids) | models.Q(customer__salesperson_id__in=sp_ids))
-    elif user.role == 'supervisor':
-        groups = Group.objects.filter(supervisor=user)
-        sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
-        records = records.filter(models.Q(salesperson_id__in=sp_ids) | models.Q(customer__salesperson_id__in=sp_ids))
-    elif user.role == 'teamlead':
-        groups = Group.objects.filter(teamlead=user)
-        sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
-        records = records.filter(models.Q(salesperson_id__in=sp_ids) | models.Q(customer__salesperson_id__in=sp_ids))
-    # Filters
-    status = request.GET.get('status')
-    min_amount = request.GET.get('min_amount')
-    overdue_only = request.GET.get('overdue')
+    # Filters (simplified to match current UI/fields)
     search = request.GET.get('search')
-    if status in ['open','resolved','watch']:
-        records = records.filter(status=status)
-    if min_amount:
-        try:
-            from decimal import Decimal
-            records = records.filter(amount_due__gte=Decimal(min_amount))
-        except Exception:
-            pass
-    if overdue_only == 'yes':
-        from django.utils import timezone
-        today = timezone.now().date()
-        records = records.filter(due_date__lt=today)
+    tin = request.GET.get('tin')
+    partner = request.GET.get('partner')
+    ae = request.GET.get('ae')
     if search:
         records = records.filter(
             models.Q(customer__company_name__icontains=search) |
-            models.Q(customer__contact_person_name__icontains=search)
+            models.Q(remarks__icontains=search)
         )
+    if tin:
+        records = records.filter(tin_number__icontains=tin)
+    if partner:
+        records = records.filter(partner_name__icontains=partner)
+    if ae:
+        try:
+            ae_id = int(ae)
+            records = records.filter(models.Q(salesperson_id=ae_id))
+        except Exception:
+            pass
+    # Available AE list for dropdown (all)
+    from users.models import User
+    available_ae = User.objects.filter(is_active=True, role__in=['salesperson','supervisor','asm','avp'])
     context = {
-        'records': records.order_by('due_date'),
+        'records': records.order_by('customer__company_name'),
         'current_filters': {
-            'status': status,
-            'min_amount': min_amount or '',
-            'overdue': overdue_only,
             'search': search or '',
-        }
+            'tin': tin or '',
+            'partner': partner or '',
+            'ae': int(ae) if (ae and ae.isdigit()) else '',
+        },
+        'available_ae': available_ae.order_by('first_name','last_name','username')
     }
     return render(request, 'customers/delinquent_list.html', context)
 
@@ -612,23 +592,58 @@ def edit_customer(request, pk):
 @login_required
 @user_passes_test(is_admin)
 def create_delinquency(request):
-    from .forms import DelinquencyRecordForm
+    from .forms import DelinquencyCreateForm
+    from .models import DelinquentCustomer, DelinquencyRecord
     if request.method == 'POST':
-        form = DelinquencyRecordForm(request.POST)
+        form = DelinquencyCreateForm(request.POST)
         if form.is_valid():
-            rec = form.save(commit=False)
-            rec.created_by = request.user
-            rec.save()
+            company = form.cleaned_data['company_name'].strip()
+            assigned_ae = form.cleaned_data.get('assigned_ae') or ''
+            email = (form.cleaned_data.get('email') or '').strip().lower()
+            status = form.cleaned_data['status']
+            tin = form.cleaned_data.get('tin_number') or ''
+            partner = form.cleaned_data.get('partner_name') or ''
+            date_delivered = form.cleaned_data.get('date_delivered')
+            last_payment = form.cleaned_data.get('last_payment_date')
+            remarks = form.cleaned_data.get('remarks') or ''
+            dcustomer = DelinquentCustomer.objects.create(
+                company_name=company,
+                assigned_ae=assigned_ae,
+                email=email
+            )
+            DelinquencyRecord.objects.create(
+                customer=dcustomer,
+                salesperson=None,
+                status=status,
+                tin_number=tin,
+                partner_name=partner,
+                date_delivered=date_delivered,
+                last_payment_date=last_payment,
+                remarks=remarks,
+                created_by=request.user
+            )
             messages.success(request, 'Delinquency record created.')
             return redirect('delinquent_list')
     else:
-        form = DelinquencyRecordForm()
+        form = DelinquencyCreateForm()
     return render(request, 'customers/delinquency_form.html', {'form': form, 'title': 'Add Delinquency Record'})
 
 @login_required
 @user_passes_test(is_admin)
 def import_delinquencies(request):
-    """Import delinquency records from CSV (Excel saved as CSV). Columns: company_name,email,contact_person,amount_due,due_date,status,notes,salesperson_username"""
+    """Import delinquency records from CSV (Excel saved as CSV).
+    Accepted columns (case-insensitive, flexible):
+      - Company: company_name, company, company name
+      - Email: email
+      - Contact Person: contact_person, contact, contact person
+      - TIN: tin_number, tin, tin number, tin no
+      - Amount Due: amount_due, amount, balance, ar amount
+      - Due Date: due_date, due, due date
+      - Last Payment Date: last_payment_date, last payment, last payment date
+      - Status: status (open|resolved|watch)
+      - Remarks/Notes: remarks, notes
+      - Salesperson: salesperson_username, salesperson, ae, collector, initials
+    """
     if request.method == 'POST':
         csv_file = request.FILES.get('csv_file')
         if not csv_file:
@@ -636,46 +651,131 @@ def import_delinquencies(request):
             return redirect('delinquent_list')
         try:
             import csv, io
-            decoded = io.TextIOWrapper(csv_file.file, encoding='utf-8')
-            reader = csv.DictReader(decoded)
+            # Read raw bytes and try multiple encodings (common for Excel CSV)
+            raw = csv_file.read()
+            decoded_text = None
+            for enc in ['utf-8-sig', 'utf-8', 'cp1252', 'latin-1', 'iso-8859-1', 'utf-16', 'macroman']:
+                try:
+                    decoded_text = raw.decode(enc)
+                    break
+                except Exception:
+                    continue
+            if decoded_text is None:
+                messages.error(request, 'Unable to read CSV: unsupported encoding.')
+                return redirect('delinquent_list')
+            sio = io.StringIO(decoded_text)
+            # Try to sniff delimiter if needed
+            try:
+                sample = decoded_text[:4096]
+                dialect = csv.Sniffer().sniff(sample, delimiters=',;\t')
+            except csv.Error:
+                dialect = 'excel'
+            sio.seek(0)
+            reader = csv.DictReader(sio, dialect=dialect)
             created = 0
+            from decimal import Decimal
+            from django.utils.dateparse import parse_date
+            from datetime import datetime
+
+            def first_of(row, keys):
+                for k in keys:
+                    # try exact, lower, title
+                    v = row.get(k) or row.get(k.lower()) or row.get(k.title())
+                    if v not in [None, '']:
+                        return v
+                return ''
+
+            def parse_amount(s):
+                if s is None:
+                    return Decimal('0')
+                s = str(s).strip()
+                s = s.replace('₱', '').replace(',', '').replace(' ', '')
+                negative = False
+                if s.startswith('(') and s.endswith(')'):
+                    negative = True
+                    s = s[1:-1]
+                try:
+                    val = Decimal(s)
+                    return -val if negative else val
+                except Exception:
+                    return Decimal('0')
+
+            def parse_date_flexible(s):
+                if not s:
+                    return None
+                s = str(s).strip()
+                # Try pandas-like excel serial?
+                try:
+                    # If it's a float-like excel serial number, skip here; left for future enhancement
+                    pass
+                except Exception:
+                    pass
+                # Try built-in ISO parser first
+                d = parse_date(s)
+                if d:
+                    return d
+                # Try a set of common formats (02/15/26, 15/02/2026, etc.)
+                formats = ['%m/%d/%y','%m/%d/%Y','%d/%m/%y','%d/%m/%Y','%b %d %Y','%d-%b-%Y']
+                for fmt in formats:
+                    try:
+                        return datetime.strptime(s, fmt).date()
+                    except Exception:
+                        continue
+                return None
+
             for row in reader:
-                company = row.get('company_name') or ''
-                email = row.get('email') or ''
-                contact = row.get('contact_person') or ''
-                remarks = row.get('remarks') or row.get('Remarks') or ''
-                tin_number = row.get('tin_number') or row.get('TIN Number') or ''
-                status = (row.get('status') or 'open').lower()
-                amount_str = row.get('amount_due') or '0'
-                due_date_str = row.get('due_date') or ''
-                sp_username = row.get('salesperson_username') or ''
+                company = first_of(row, ['company_name', 'company', 'Company Name'])
+                email = first_of(row, ['email', 'Email'])
+                assigned_ae_val = first_of(row, ['assigned_ae', 'Assigned AE', 'AE', 'Account Executive', 'contact_person', 'Contact Person'])
+                remarks = first_of(row, ['remarks', 'notes', 'Remarks', 'Notes'])
+                tin_number = first_of(row, ['tin_number', 'TIN', 'TIN Number', 'Tin No', 'Tin #'])
+                partner_name = first_of(row, ['partner_name', 'Partners Name', 'Partner Name', 'Partner', 'Partner_Name'])
+                status = (first_of(row, ['status', 'Status']) or 'open').lower()
+                amount_str = first_of(row, ['amount_due', 'Amount Due', 'amount', 'Amount', 'balance', 'Balance', 'AR Amount'])
+                date_delivered_str = first_of(row, ['date_delivered', 'date_deliver', 'Date Delivered', 'Date Deliver'])
+                last_payment_str = first_of(row, ['last_payment_date', 'last_payment', 'Last Payment Date', 'Last Payment'])
+                sp_val = first_of(row, ['salesperson_username', 'Salesperson Username', 'salesperson', 'Salesperson', 'ae', 'AE', 'collector', 'Collector', 'initials', 'Initials', 'Account Executive'])
+
                 from decimal import Decimal
-                amount = Decimal(str(amount_str)) if amount_str else Decimal('0')
-                from django.utils.dateparse import parse_date
-                due_date = parse_date(due_date_str) if due_date_str else None
-                # Find or create customer
-                customer = None
+                amount = parse_amount(amount_str)
+                date_delivered = parse_date_flexible(date_delivered_str) if date_delivered_str else None
+                last_payment = parse_date_flexible(last_payment_str) if last_payment_str else None
+                # Find or create delinquent customer (separate table)
+                from .models import DelinquentCustomer
+                dcustomer = None
                 if email:
-                    customer = Customer.objects.filter(email=email).first()
-                if not customer and company:
-                    customer = Customer.objects.filter(company_name__iexact=company).first()
-                if not customer and company:
-                    customer = Customer.objects.create(
+                    dcustomer = DelinquentCustomer.objects.filter(email__iexact=email).first()
+                if not dcustomer and company:
+                    dcustomer = DelinquentCustomer.objects.filter(company_name__iexact=company).first()
+                if dcustomer and assigned_ae_val:
+                    if (dcustomer.assigned_ae or '').strip().lower() in ['', 'unknown'] or dcustomer.assigned_ae != assigned_ae_val:
+                        dcustomer.assigned_ae = assigned_ae_val
+                        dcustomer.save(update_fields=['assigned_ae'])
+                if not dcustomer and company:
+                    dcustomer = DelinquentCustomer.objects.create(
                         company_name=company,
-                        contact_person_name=contact or 'Unknown',
-                        email=email or f"unknown_{company.replace(' ','_')}@example.com"
+                        assigned_ae=assigned_ae_val or '',
+                        email=email or ''
                     )
                 # Find salesperson
-                salesperson = User.objects.filter(username=sp_username, role='salesperson').first() if sp_username else None
-                if customer:
+                salesperson = None
+                if sp_val:
+                    # Try by username first
+                    salesperson = User.objects.filter(username__iexact=sp_val, is_active=True).first()
+                    # Fallback to initials match
+                    if not salesperson:
+                        salesperson = User.objects.filter(initials__iexact=sp_val, is_active=True).first()
+                if dcustomer:
+                    final_remarks = remarks
                     DelinquencyRecord.objects.create(
-                        customer=customer,
+                        customer=dcustomer,
                         salesperson=salesperson,
                         status=status if status in ['open','resolved','watch'] else 'open',
                         tin_number=tin_number,
-                        amount_due=amount,
-                        due_date=due_date,
-                        remarks=remarks,
+                        partner_name=partner_name,
+                        date_delivered=date_delivered,
+                        last_payment_date=last_payment,
+                        remarks=final_remarks,
                         created_by=request.user
                     )
                     created += 1
@@ -693,8 +793,8 @@ def download_delinquency_sample_csv(request):
     response['Content-Disposition'] = 'attachment; filename="delinquency_sample.csv"'
     import csv
     writer = csv.writer(response)
-    writer.writerow(['company_name','email','contact_person','tin_number','amount_due','due_date','status','remarks','salesperson_username'])
-    writer.writerow(['Acme Corp','billing@acme.com','John Smith','000-123-456','100000','2026-02-15','open','Paid but hard to collect','jsmith'])
+    writer.writerow(['company_name','email','assigned_ae','tin_number','partner_name','date_delivered','last_payment_date','status','remarks','salesperson_username'])
+    writer.writerow(['Acme Corp','billing@acme.com','J. Rabe','000-123-456','Micro Image','2026-02-15','2026-01-15','open','Hard to collect due to long processing','jsmith'])
     return response
 
 @login_required
@@ -705,25 +805,35 @@ def export_delinquencies(request):
     import csv
     writer = csv.writer(response)
     writer.writerow([
-        'company_name','email','contact_person','tin_number','status','amount_due','due_date','last_payment_date','remarks','salesperson_username','created_by','updated_at'
+        'company_name','email','assigned_ae','tin_number','status','partner_name','date_delivered','last_payment_date','remarks','salesperson_username','created_by','updated_at'
     ])
     qs = DelinquencyRecord.objects.select_related('customer','salesperson','created_by').all().order_by('customer__company_name')
     for rec in qs:
         writer.writerow([
             rec.customer.company_name,
             rec.customer.email,
-            rec.customer.contact_person_name,
+            rec.customer.assigned_ae,
             rec.tin_number or '',
             rec.get_status_display(),
-            f"{rec.amount_due}",
-            rec.due_date.isoformat() if rec.due_date else '',
+            rec.partner_name or '',
+            rec.date_delivered.isoformat() if rec.date_delivered else '',
             rec.last_payment_date.isoformat() if rec.last_payment_date else '',
             rec.remarks.replace('\n',' ').strip() if rec.remarks else '',
-            rec.salesperson.username if rec.salesperson else (rec.customer.salesperson.username if rec.customer.salesperson else ''),
+            rec.salesperson.username if rec.salesperson else '',
             rec.created_by.username if rec.created_by else '',
             rec.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
         ])
     return response
+ 
+@login_required
+@user_passes_test(is_admin)
+def clear_delinquencies(request):
+    if request.method == 'POST':
+        count = DelinquencyRecord.objects.count()
+        DelinquencyRecord.objects.all().delete()
+        messages.success(request, f'Cleared {count} delinquency records.')
+        return redirect('delinquent_list')
+    return render(request, 'customers/confirm_clear_delinquencies.html', {})
 
 
 @login_required

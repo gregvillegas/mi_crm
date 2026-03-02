@@ -7,9 +7,9 @@ from customers.models import Customer
 class SalesFunnel(models.Model):
     FUNNEL_STAGES = [
         ('quoted', 'Newly Quoted'),       # Pink funnel
-        ('closable', 'Closable This Month'),  # Yellow funnel  
-        ('project', 'Project Based'),     # Green funnel
-        ('services', 'Services'),         # Blue funnel
+        ('closable', 'Closable Deals'),  # Yellow funnel  
+        ('project', 'Green Funnel'),     # Green funnel
+        ('services', 'Blue Funnel'),         # Blue funnel
     ]
     
     # Basic Information

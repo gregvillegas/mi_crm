@@ -37,11 +37,16 @@ class LeadForm(forms.ModelForm):
                 # Salespeople can only assign to themselves
                 self.fields['assigned_to'].queryset = User.objects.filter(id=user.id)
             elif user.role in ['supervisor', 'asm', 'avp']:
-                # Supervisors can assign to their team members
-                team_members = User.objects.filter(
-                    team_membership__group__in=user.managed_groups.all(),
-                    role='salesperson'
-                )
+                # Managers can assign within their scope
+                if user.role == 'supervisor':
+                    groups = user.managed_groups.all()
+                elif user.role == 'asm':
+                    from teams.models import Group
+                    groups = Group.objects.filter(team__in=user.asm_teams.all())
+                else:
+                    from teams.models import Group, Team
+                    groups = Group.objects.filter(team__in=Team.objects.filter(avp=user))
+                team_members = User.objects.filter(team_membership__group__in=groups, role='salesperson')
                 self.fields['assigned_to'].queryset = team_members
             else:
                 # Admins and executives see all salespeople
@@ -229,11 +234,15 @@ class LeadFilterForm(forms.Form):
         
         # Filter salesperson choices based on user permissions
         if user and user.role in ['supervisor', 'asm', 'avp']:
-            # Show only team members for supervisors
-            team_members = User.objects.filter(
-                team_membership__group__in=user.managed_groups.all(),
-                role='salesperson'
-            )
+            if user.role == 'supervisor':
+                groups = user.managed_groups.all()
+            elif user.role == 'asm':
+                from teams.models import Group
+                groups = Group.objects.filter(team__in=user.asm_teams.all())
+            else:
+                from teams.models import Group, Team
+                groups = Group.objects.filter(team__in=Team.objects.filter(avp=user))
+            team_members = User.objects.filter(team_membership__group__in=groups, role='salesperson')
             self.fields['assigned_to'].queryset = team_members
         
         self.helper = FormHelper()

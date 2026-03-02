@@ -9,6 +9,7 @@ urlpatterns = [
     path('delinquent/', views.delinquent_list, name='delinquent_list'),
     path('delinquent/add/', views.create_delinquency, name='create_delinquency'),
     path('delinquent/import/', views.import_delinquencies, name='import_delinquencies'),
+    path('delinquent/clear/', views.clear_delinquencies, name='clear_delinquencies'),
     path('delinquent/sample-csv/', views.download_delinquency_sample_csv, name='download_delinquency_sample_csv'),
     path('delinquent/export/', views.export_delinquencies, name='export_delinquencies'),
     path('add/', views.create_customer, name='create_customer'),

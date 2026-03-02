@@ -605,7 +605,7 @@ def import_funnel_entries(request):
                 messages.error(request, 'Please select a salesperson to assign imported entries.')
                 return redirect('sales_funnel:import_entries')
             try:
-                sp = User.objects.get(id=sp_id, role='salesperson', is_active=True)
+                sp = User.objects.get(id=sp_id, is_active=True)
             except User.DoesNotExist:
                 messages.error(request, 'Selected salesperson not found or inactive.')
                 return redirect('sales_funnel:import_entries')
@@ -613,15 +613,20 @@ def import_funnel_entries(request):
             allowed_ids = []
             if request.user.role == 'supervisor':
                 groups = Group.objects.filter(supervisor=request.user)
-                allowed_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+                allowed_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)) + [request.user.id]
             elif request.user.role == 'asm':
                 asm_teams = request.user.asm_teams.all()
                 groups = Group.objects.filter(team__in=asm_teams)
-                allowed_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+                sp_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+                supervisor_ids = list(Group.objects.filter(team__in=asm_teams, supervisor__isnull=False).values_list('supervisor_id', flat=True))
+                allowed_ids = sp_ids + supervisor_ids + [request.user.id]
             elif request.user.role == 'avp':
                 teams = Team.objects.filter(avp=request.user)
                 groups = Group.objects.filter(team__in=teams)
-                allowed_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+                sp_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+                asm_ids = list(teams.exclude(asm__isnull=True).values_list('asm_id', flat=True))
+                supervisor_ids = list(Group.objects.filter(team__in=teams, supervisor__isnull=False).values_list('supervisor_id', flat=True))
+                allowed_ids = sp_ids + asm_ids + supervisor_ids + [request.user.id]
             elif request.user.role == 'admin':
                 allowed_ids = [sp.id]
             if allowed_ids and sp.id not in allowed_ids:
@@ -813,15 +818,20 @@ def import_funnel_entries(request):
     if request.user.role in ['supervisor', 'asm', 'avp', 'admin']:
         if request.user.role == 'supervisor':
             groups = Group.objects.filter(supervisor=request.user)
-            sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
+            sp_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)) + [request.user.id]
         elif request.user.role == 'asm':
             asm_teams = request.user.asm_teams.all()
             groups = Group.objects.filter(team__in=asm_teams)
-            sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
+            sp_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+            supervisor_ids = list(Group.objects.filter(team__in=asm_teams, supervisor__isnull=False).values_list('supervisor_id', flat=True))
+            sp_ids = sp_ids + supervisor_ids + [request.user.id]
         elif request.user.role == 'avp':
             teams = Team.objects.filter(avp=request.user)
             groups = Group.objects.filter(team__in=teams)
-            sp_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
+            sp_ids = list(TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True))
+            asm_ids = list(teams.exclude(asm__isnull=True).values_list('asm_id', flat=True))
+            supervisor_ids = list(Group.objects.filter(team__in=teams, supervisor__isnull=False).values_list('supervisor_id', flat=True))
+            sp_ids = sp_ids + asm_ids + supervisor_ids + [request.user.id]
         else:
             sp_ids = User.objects.filter(role='salesperson', is_active=True).values_list('id', flat=True)
         available_salespeople = User.objects.filter(id__in=list(sp_ids), is_active=True).order_by('first_name','last_name','username')

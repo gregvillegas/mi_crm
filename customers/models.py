@@ -2,6 +2,24 @@ from django.db import models
 from users.models import User
 import json
 
+class DelinquentCustomer(models.Model):
+    company_name = models.CharField(max_length=200)
+    assigned_ae = models.CharField(max_length=200, blank=True)
+    email = models.EmailField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['company_name']
+        indexes = [
+            models.Index(fields=['company_name']),
+            models.Index(fields=['email']),
+        ]
+        unique_together = (('company_name', 'email'),)
+
+    def __str__(self):
+        return self.company_name
+
 class Customer(models.Model):
     INDUSTRY_CHOICES = [
 		('agriculture','Agriculture & Agribusiness'),
@@ -266,10 +284,12 @@ class DelinquencyRecord(models.Model):
         ('resolved', 'Resolved'),
         ('watch', 'Watch List'),
     ]
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='delinquency_records')
+    customer = models.ForeignKey(DelinquentCustomer, on_delete=models.CASCADE, related_name='delinquency_records')
     salesperson = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, limit_choices_to={'role': 'salesperson'}, related_name='delinquency_customers')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
     tin_number = models.CharField(max_length=50, blank=True)
+    partner_name = models.CharField(max_length=100, blank=True)
+    date_delivered = models.DateField(null=True, blank=True)
     amount_due = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     due_date = models.DateField(null=True, blank=True)
     last_payment_date = models.DateField(null=True, blank=True)

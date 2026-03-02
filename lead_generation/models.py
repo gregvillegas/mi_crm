@@ -266,6 +266,8 @@ class Lead(models.Model):
     @property
     def days_as_lead(self):
         """Calculate how many days this has been a lead"""
+        if not self.created_at:
+            return 0
         return (timezone.now() - self.created_at).days
     
     @property

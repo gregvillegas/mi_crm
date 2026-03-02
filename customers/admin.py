@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, CustomerHistory, CustomerBackup, DelinquencyRecord
+from .models import Customer, CustomerHistory, CustomerBackup, DelinquencyRecord, DelinquentCustomer
 
 @admin.register(CustomerHistory)
 class CustomerHistoryAdmin(admin.ModelAdmin):
@@ -39,8 +39,14 @@ class CustomerBackupAdmin(admin.ModelAdmin):
     list_filter = ('created_at', 'changed_by')
     search_fields = ('customer__company_name', 'reason')
 
+@admin.register(DelinquentCustomer)
+class DelinquentCustomerAdmin(admin.ModelAdmin):
+    list_display = ('company_name', 'assigned_ae', 'email', 'created_at', 'updated_at')
+    search_fields = ('company_name', 'assigned_ae', 'email')
+    ordering = ('company_name',)
+
 @admin.register(DelinquencyRecord)
 class DelinquencyRecordAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'tin_number', 'status', 'amount_due', 'due_date', 'salesperson', 'updated_at')
+    list_display = ('customer', 'tin_number', 'status', 'partner_name', 'date_delivered', 'salesperson', 'updated_at')
     list_filter = ('status', 'salesperson')
     search_fields = ('customer__company_name', 'salesperson__username', 'tin_number', 'remarks')

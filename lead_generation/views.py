@@ -29,11 +29,16 @@ def lead_dashboard(request):
     if request.user.role == 'salesperson':
         leads = Lead.objects.filter(assigned_to=request.user, is_active=True)
     elif request.user.role in ['supervisor', 'asm', 'avp']:
-        # Get leads from team members
-        team_members = User.objects.filter(
-            team_membership__group__in=request.user.managed_groups.all(),
-            role='salesperson'
-        )
+        # Get leads from team members by role
+        if request.user.role == 'supervisor':
+            groups = request.user.managed_groups.all()
+        elif request.user.role == 'asm':
+            from teams.models import Group
+            groups = Group.objects.filter(team__in=request.user.asm_teams.all())
+        else:  # avp
+            from teams.models import Group, Team
+            groups = Group.objects.filter(team__in=Team.objects.filter(avp=request.user))
+        team_members = User.objects.filter(team_membership__group__in=groups, role='salesperson')
         leads = Lead.objects.filter(assigned_to__in=team_members, is_active=True)
     else:
         # Admins and executives see all leads
@@ -90,10 +95,15 @@ def lead_list(request):
     if request.user.role == 'salesperson':
         leads = Lead.objects.filter(assigned_to=request.user, is_active=True)
     elif request.user.role in ['supervisor', 'asm', 'avp']:
-        team_members = User.objects.filter(
-            team_membership__group__in=request.user.managed_groups.all(),
-            role='salesperson'
-        )
+        if request.user.role == 'supervisor':
+            groups = request.user.managed_groups.all()
+        elif request.user.role == 'asm':
+            from teams.models import Group
+            groups = Group.objects.filter(team__in=request.user.asm_teams.all())
+        else:
+            from teams.models import Group, Team
+            groups = Group.objects.filter(team__in=Team.objects.filter(avp=request.user))
+        team_members = User.objects.filter(team_membership__group__in=groups, role='salesperson')
         leads = Lead.objects.filter(assigned_to__in=team_members, is_active=True)
     else:
         leads = Lead.objects.filter(is_active=True)
@@ -199,11 +209,16 @@ def lead_detail(request, lead_id):
         messages.error(request, 'You can only view leads assigned to you.')
         return redirect('lead_generation:lead_list')
     elif request.user.role in ['supervisor', 'asm', 'avp']:
-        # Check if lead is assigned to team member
-        team_members = User.objects.filter(
-            team_membership__group__in=request.user.managed_groups.all(),
-            role='salesperson'
-        )
+        # Check if lead is assigned to a team member within the viewer's scope
+        if request.user.role == 'supervisor':
+            groups = request.user.managed_groups.all()
+        elif request.user.role == 'asm':
+            from teams.models import Group
+            groups = Group.objects.filter(team__in=request.user.asm_teams.all())
+        else:
+            from teams.models import Group, Team
+            groups = Group.objects.filter(team__in=Team.objects.filter(avp=request.user))
+        team_members = User.objects.filter(team_membership__group__in=groups, role='salesperson')
         if lead.assigned_to not in team_members:
             messages.error(request, 'You can only view leads from your team.')
             return redirect('lead_generation:lead_list')

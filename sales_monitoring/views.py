@@ -244,11 +244,22 @@ def avp_dashboard(request):
         salesperson_id__in=salesperson_ids
     ).select_related('salesperson', 'customer', 'activity_type')
     
-    # Statistics
+    # Statistics and month window (supports ?month=YYYY-MM)
     today = timezone.now().date()
     week_start = today - timedelta(days=today.weekday())
-    month_start = today.replace(day=1)
-    month_end = today
+    month_param = request.GET.get('month')
+    if month_param:
+        try:
+            dt = datetime.strptime(month_param, "%Y-%m").date()
+            month_start = dt.replace(day=1)
+            next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+            month_end = next_month - timedelta(days=1)
+        except Exception:
+            month_start = today.replace(day=1)
+            month_end = today
+    else:
+        month_start = today.replace(day=1)
+        month_end = today
     
     stats = {
         'total_teams': user_teams.count(),
@@ -260,7 +271,7 @@ def avp_dashboard(request):
             actual_end__date=today
         ).count(),
         'activities_this_week': activities.filter(scheduled_start__date__gte=week_start).count(),
-        'activities_this_month': activities.filter(scheduled_start__date__gte=month_start).count(),
+        'activities_this_month': activities.filter(scheduled_start__date__gte=month_start, scheduled_start__date__lte=month_end).count(),
         'overdue_activities': activities.filter(
             scheduled_end__lt=timezone.now(),
             status__in=['planned', 'in_progress']
@@ -345,18 +356,18 @@ def avp_dashboard(request):
             continue
         sup_quota_obj = RoleMonthlyQuota.objects.filter(user=supervisor, month=month_start).first()
         sup_quota = sup_quota_obj.amount if sup_quota_obj else 0
-        group_salespeople = User.objects.filter(
-            team_membership__group=group,
-            role='salesperson',
-            is_active=True
-        )
-        profit_data = SalesFunnel.objects.filter(
-            salesperson__in=group_salespeople,
-            deal_outcome='won',
-            closed_date__gte=month_start,
-            closed_date__lte=month_end
-        ).aggregate(total_profit=Sum(F('retail') - F('cost')))
-        actual_profit = profit_data['total_profit'] or 0
+        # Supervisor achievement should reflect only supervisor-owned deals,
+        # not the sum of their group's salesperson deals.
+        if getattr(supervisor, 'role', None) == 'salesperson':
+            profit_data = SalesFunnel.objects.filter(
+                salesperson=supervisor,
+                deal_outcome='won',
+                closed_date__gte=month_start,
+                closed_date__lte=month_end
+            ).aggregate(total_profit=Sum(F('retail') - F('cost')))
+            actual_profit = profit_data['total_profit'] or 0
+        else:
+            actual_profit = 0
         sup_progress_pct = (actual_profit / sup_quota * 100) if sup_quota and sup_quota > 0 else 0
         sup_status_color = 'success' if sup_progress_pct >= 80 else 'warning' if sup_progress_pct >= 60 else 'danger'
         supervisor_achievements.append({
@@ -850,6 +861,24 @@ def group_performance(request):
         # Supervisors access groups through managed_groups relationship
         supervised_groups = user.managed_groups.all()
     
+    # Month selector (YYYY-MM). Default to current month
+    month_param = request.GET.get('month')
+    today = timezone.now().date()
+    if month_param:
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(month_param, "%Y-%m").date()
+            month_start = dt.replace(day=1)
+            next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+            month_end = next_month - timedelta(days=1)
+        except Exception:
+            month_start = today.replace(day=1)
+            month_end = today
+    else:
+        month_start = today.replace(day=1)
+        month_end = today
+    selected_month_str = month_start.strftime("%Y-%m")
+    
     # Generate performance data for each supervised group
     performance_data = []
     
@@ -861,9 +890,7 @@ def group_performance(request):
         )
         activities = SalesActivity.objects.filter(salesperson__in=salespeople)
         
-        today = timezone.now().date()
         week_start = today - timedelta(days=today.weekday())
-        month_start = today.replace(day=1)
         
         # Individual salesperson performance
         salesperson_performance = []
@@ -882,15 +909,13 @@ def group_performance(request):
             except TeamMembership.DoesNotExist:
                 quota = 0
                 
-            # Monthly profit (Retail - Cost) for WON deals this month
+            # Profit (Retail - Cost) for WON deals in selected month
             profit_data = SalesFunnel.objects.filter(
                 salesperson=sp, 
                 deal_outcome='won',
                 closed_date__gte=month_start,
-                closed_date__lte=today
-            ).aggregate(
-                total_profit=Sum(F('retail') - F('cost'))
-            )
+                closed_date__lte=month_end
+            ).aggregate(total_profit=Sum(F('retail') - F('cost')))
             total_profit = profit_data['total_profit'] or 0
             
             quota_achievement = (total_profit / quota * 100) if quota > 0 else 0
@@ -943,6 +968,7 @@ def group_performance(request):
     
     context = {
         'performance_data': performance_data,
+        'selected_month': selected_month_str,
     }
     
     return render(request, 'sales_monitoring/group_performance.html', context)
@@ -1600,16 +1626,16 @@ def get_executive_dashboard_data():
             continue
         sup_quota_obj = RoleMonthlyQuota.objects.filter(user=supervisor, month=month_start).first()
         sup_quota = sup_quota_obj.amount if sup_quota_obj else Decimal('0')
-        group_salespeople = User.objects.filter(
-            team_membership__group=group,
-            role='salesperson',
-            is_active=True
-        )
-        actual_profit = won_deals.filter(
-            salesperson__in=group_salespeople,
-            closed_date__gte=month_start,
-            closed_date__lte=today
-        ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or Decimal('0')
+        # Supervisor's personal actual profit (own deals only)
+        if getattr(supervisor, 'role', None) == 'salesperson':
+            actual_profit = SalesFunnel.objects.filter(
+                salesperson=supervisor,
+                deal_outcome='won',
+                closed_date__gte=month_start,
+                closed_date__lte=today
+            ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or Decimal('0')
+        else:
+            actual_profit = Decimal('0')
         sup_progress_pct = float((actual_profit / sup_quota * 100) if sup_quota and sup_quota > 0 else 0)
         sup_status_color = 'success' if sup_progress_pct >= 80 else 'warning' if sup_progress_pct >= 60 else 'danger'
         supervisor_achievements.append({

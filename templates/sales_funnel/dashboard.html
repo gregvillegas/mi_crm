@@ -106,6 +106,9 @@
         </div>
     </div>
 -->
+    <style>
+    .kpi-card small.kpi-label{white-space:nowrap;font-size:clamp(.65rem,1.6vw,.85rem)}
+    </style>
     <div class="col-lg-3 col-md-4 col-sm-6 mb-3">
         <div class="card bg-dark text-white kpi-card">
             <div class="card-body">
@@ -114,19 +117,19 @@
                         <small>Pipeline Stages</small>
                     </div>
                     <div class="col-3">
-                        <small>Quoted</small><br>
+                        <small class="kpi-label">PINK</small><br>
                         <strong>{{ stats.quoted_count }}</strong>
                     </div>
                     <div class="col-3">
-                        <small>Closable</small><br>
+                        <small class="kpi-label">YELLOW</small><br>
                         <strong>{{ stats.closable_count }}</strong>
                     </div>
                     <div class="col-3">
-                        <small>Project</small><br>
+                        <small class="kpi-label">GREEN</small><br>
                         <strong>{{ stats.project_count }}</strong>
                     </div>
                     <div class="col-3">
-                        <small>Services</small><br>
+                        <small class="kpi-label">BLUE</small><br>
                         <strong>{{ stats.services_count }}</strong>
                     </div>
                 </div>
@@ -258,7 +261,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No quoted entries</td>
+                            <td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No PINK entries</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -338,7 +341,7 @@
             {% else %}
                 <div class="p-4 text-center text-muted">
                     <i class="fas fa-inbox fa-3x mb-3"></i><br>
-                    <h6>No quoted entries</h6>
+                    <h6>No PINK entries</h6>
                     <p>New quotes will appear here</p>
                 </div>
             {% endif %}
@@ -402,7 +405,7 @@
                             {% endif %}
                         </tr>
                         {% empty %}
-                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No closable entries</td></tr>
+                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No YELLOW entries</td></tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
@@ -479,7 +482,7 @@
             {% else %}
                 <div class="p-4 text-center text-muted">
                     <i class="fas fa-inbox fa-3x mb-3"></i><br>
-                    <h6>No closable entries</h6>
+                    <h6>No YELLOW entries</h6>
                     <p>Deals ready to close will appear here</p>
                 </div>
             {% endif %}
@@ -543,7 +546,7 @@
                             {% endif %}
                         </tr>
                         {% empty %}
-                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No project entries</td></tr>
+                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No GREEN entries</td></tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
@@ -622,8 +625,8 @@
             {% else %}
                 <div class="p-4 text-center text-muted">
                     <i class="fas fa-inbox fa-3x mb-3"></i><br>
-                    <h6>No project entries</h6>
-                    <p>Project-based deals will appear here</p>
+                    <h6>No GREEN entries</h6>
+                    <p>500K and up deals will appear here</p>
                 </div>
             {% endif %}
             {% endif %}
@@ -695,7 +698,7 @@
                             {% endif %}
                         </tr>
                         {% empty %}
-                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No service entries</td></tr>
+                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No BLUE entries</td></tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
@@ -774,8 +777,8 @@
             {% else %}
                 <div class="p-4 text-center text-muted">
                     <i class="fas fa-inbox fa-3x mb-3"></i><br>
-                    <h6>No service entries</h6>
-                    <p>Service engagements will appear here</p>
+                    <h6>No BLUE entries</h6>
+                    <p>below 500K deals will appear here</p>
                 </div>
             {% endif %}
             {% endif %}

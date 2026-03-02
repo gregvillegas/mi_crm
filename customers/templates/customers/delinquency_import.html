@@ -12,7 +12,10 @@
 
 <div class="card">
     <div class="card-body">
-        <p class="text-muted">Upload a CSV file exported from Excel with columns: <code>company_name,email,contact_person,amount_due,due_date,status,notes,salesperson_username</code></p>
+        <p class="text-muted">
+            Upload a CSV file exported from Excel. Accepted headers are flexible (case-insensitive). Examples:
+            <code>company_name/company, email, contact_person/contact, tin_number/TIN, amount_due/amount/balance, due_date/Due Date, last_payment_date, status, remarks/notes, salesperson_username/salesperson/AE/initials</code>.
+        </p>
         <form method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="mb-3">
@@ -20,6 +23,7 @@
                 <input type="file" name="csv_file" accept=".csv" class="form-control" required>
             </div>
             <button type="submit" class="btn btn-primary"><i class="fas fa-upload"></i> Import</button>
+            <a href="{% url 'download_delinquency_sample_csv' %}" class="btn btn-outline-secondary ms-2"><i class="fas fa-file-csv"></i> Download Sample CSV</a>
         </form>
     </div>
 </div>
