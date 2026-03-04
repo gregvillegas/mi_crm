@@ -6,3 +6,5 @@ venv/
 mcp-server-puppeteer-py/
 db.sqlite3
 db.*
+settings.py
+crm_project/settings.py
