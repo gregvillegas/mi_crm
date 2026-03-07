@@ -64,15 +64,17 @@
     <!-- Statistics Cards -->
     <div class="row mb-4">
         <div class="col-md-2">
-            <div class="card border-primary">
-                <div class="card-body text-center">
-                    <h5 class="card-title text-primary">
-                        <i class="fas fa-tasks"></i><br>
-                        {{ stats.total_activities }}
-                    </h5>
-                    <p class="card-text small">Total Activities</p>
+            <a class="text-decoration-none" href="{% url 'sales_monitoring:salesperson_activities' %}">
+                <div class="card border-primary">
+                    <div class="card-body text-center">
+                        <h5 class="card-title text-primary">
+                            <i class="fas fa-tasks"></i><br>
+                            {{ stats.total_activities }}
+                        </h5>
+                        <p class="card-text small">Total Activities</p>
+                    </div>
                 </div>
-            </div>
+            </a>
         </div>
         <div class="col-md-2">
             <div class="card border-success">

@@ -16,6 +16,9 @@ def is_manager(user):
 def is_executive(user):
     return user.role in ['admin', 'president', 'gm', 'vp']
 
+def is_admin_or_exec(user):
+    return user.role in ['admin', 'gm', 'vp']
+
 @login_required
 def customer_list(request):
     user = request.user
@@ -90,7 +93,7 @@ def customer_list(request):
     context = {
         'customers': customers,
         'view_mode': view_mode,
-        'show_actions': (view_mode == 'card' and user.role == 'admin'),
+        'show_actions': (user.role in ['admin','gm','vp']),
         'industry_choices': Customer.INDUSTRY_CHOICES,
         'territory_choices': Customer.TERRITORY_CHOICES,
         'current_filters': {
@@ -155,7 +158,7 @@ def create_customer(request):
     user = request.user
     
     # Check permissions - managers can create any customer, salespeople can only create customers for themselves
-    if user.role not in ['admin', 'avp', 'supervisor', 'asm', 'teamlead', 'salesperson']:
+    if user.role not in ['admin', 'gm', 'vp', 'avp', 'supervisor', 'asm', 'teamlead', 'salesperson']:
         messages.error(request, "You don't have permission to create customers.")
         return redirect('customer_list')
     
@@ -555,7 +558,7 @@ def customer_history(request, pk):
 # =====================================================================
 
 @login_required
-@user_passes_test(is_admin)
+@user_passes_test(is_admin_or_exec)
 def edit_customer(request, pk):
     """Admin can edit customer details with automatic backup"""
     customer = get_object_or_404(Customer, pk=pk)

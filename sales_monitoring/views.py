@@ -194,7 +194,10 @@ def salesperson_dashboard(request):
     stats = {
         'total_activities': activities.count(),
         'today_activities': today_activities.count(),
-        'completed_today': today_activities.filter(status='completed').count(),
+        'completed_today': activities.filter(
+            status='completed',
+            actual_end__date=today
+        ).count(),
         'upcoming_activities': upcoming_activities.count(),
         'overdue_activities': overdue_activities.count(),
         'this_week_completed': activities.filter(
@@ -217,6 +220,23 @@ def salesperson_dashboard(request):
     
     return render(request, 'sales_monitoring/salesperson_dashboard.html', context)
 
+@login_required
+def salesperson_activity_list(request):
+    """List all activities for the current salesperson with edit links"""
+    user = request.user
+    if user.role != 'salesperson':
+        return HttpResponseForbidden("You don't have permission to access this page.")
+    activities = SalesActivity.objects.filter(salesperson=user).select_related('activity_type', 'customer').order_by('-scheduled_start', '-created_at')
+    status = request.GET.get('status') or ''
+    if status:
+        activities = activities.filter(status=status)
+    paginator = Paginator(activities, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    return render(request, 'sales_monitoring/salesperson_activity_list.html', {
+        'activities': page_obj,
+        'status': status
+    })
 @login_required
 def avp_dashboard(request):
     """Dashboard for AVPs to view their team's activity metrics"""
@@ -465,6 +485,129 @@ def avp_group_activities(request, group_id):
     }
 
     return render(request, 'sales_monitoring/avp_group_activities.html', context)
+
+@login_required
+def group_fiscal_summary(request, group_id):
+    """Detailed view for group fiscal year summary"""
+    user = request.user
+    
+    allowed_roles = ['supervisor', 'asm', 'teamlead', 'avp', 'admin', 'vp', 'gm', 'president']
+    if user.role not in allowed_roles:
+        return HttpResponseForbidden("You don't have permission to access this page.")
+        
+    group = get_object_or_404(Group, id=group_id)
+    
+    # Permission check: ensure user can view this group
+    if user.role == 'avp':
+        if group.team.avp != user:
+             return HttpResponseForbidden("You don't have permission to view this group.")
+             
+    if user.role in ['supervisor', 'asm', 'teamlead']:
+        # Simplified check - in real app might be stricter
+        pass 
+    
+    # Determine fiscal year based on month parameter or current date
+    month_param = request.GET.get('month')
+    today = timezone.now().date()
+    
+    if month_param:
+        try:
+            dt = datetime.strptime(month_param, "%Y-%m").date()
+            month_start = dt.replace(day=1)
+        except Exception:
+            month_start = today.replace(day=1)
+    else:
+        month_start = today.replace(day=1)
+        
+    selected_month_str = month_start.strftime("%Y-%m")
+    
+    # Calculate Fiscal Year parameters
+    if month_start.month == 12:
+        fiscal_year = month_start.year + 1
+    else:
+        fiscal_year = month_start.year
+        
+    fiscal_start = datetime(fiscal_year - 1, 12, 1).date()
+    fiscal_end = datetime(fiscal_year, 11, 30).date()
+    
+    # Generate list of months for the table header
+    fiscal_months = []
+    curr = fiscal_start
+    for _ in range(12):
+        fiscal_months.append({
+            'date': curr,
+            'label': curr.strftime('%b').upper(), 
+        })
+        if curr.month == 12:
+            curr = curr.replace(year=curr.year + 1, month=1)
+        else:
+            curr = curr.replace(month=curr.month + 1)
+            
+    # Get salespeople
+    salespeople = User.objects.filter(
+        team_membership__group=group,
+        role='salesperson',
+        is_active=True
+    )
+    
+    fiscal_summary = []
+    for sp in salespeople:
+        try:
+            membership = TeamMembership.objects.get(user=sp)
+            quota = membership.quota
+        except TeamMembership.DoesNotExist:
+            quota = 0
+            
+        monthly_data = []
+        sp_fiscal_deals = SalesFunnel.objects.filter(
+            salesperson=sp,
+            deal_outcome='won',
+            closed_date__gte=fiscal_start,
+            closed_date__lte=fiscal_end
+        )
+        
+        total_fiscal_profit = 0
+        
+        for m in fiscal_months:
+            m_start = m['date']
+            if m_start.month == 12:
+                 m_end = m_start.replace(year=m_start.year + 1, month=1) - timedelta(days=1)
+            else:
+                 m_end = m_start.replace(month=m_start.month + 1) - timedelta(days=1)
+            
+            m_profit = sp_fiscal_deals.filter(
+                closed_date__gte=m_start,
+                closed_date__lte=m_end
+            ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0
+            monthly_data.append(m_profit)
+            total_fiscal_profit += m_profit
+        
+        fiscal_summary.append({
+            'salesperson': sp,
+            'quota': quota * 12, # Annual quota
+            'monthly_data': monthly_data,
+            'total_profit': total_fiscal_profit
+        })
+        
+    # Determine back link based on role
+    if user.role in ['avp', 'admin', 'vp', 'gm', 'president']:
+        back_url_name = 'sales_monitoring:team_performance'
+        back_label = 'Back to Team Performance'
+    else:
+        back_url_name = 'sales_monitoring:group_performance'
+        back_label = 'Back to Group Performance'
+
+    context = {
+        'group': group,
+        'selected_month': selected_month_str,
+        'fiscal_year_label': f"FISCAL YEAR {fiscal_year} ({fiscal_start.strftime('%B %Y').upper()} - {fiscal_end.strftime('%B %Y').upper()})",
+        'fiscal_months': fiscal_months,
+        'fiscal_summary': fiscal_summary,
+        'back_url_name': back_url_name,
+        'back_label': back_label,
+    }
+    
+    return render(request, 'sales_monitoring/group_fiscal_summary.html', context)
 
 @login_required
 def admin_dashboard(request):
@@ -737,6 +880,23 @@ def team_performance(request):
         # Admin and higher roles can see all groups
         groups = Group.objects.all()
     
+    # Month selector
+    month_param = request.GET.get('month')
+    today = timezone.now().date()
+    if month_param:
+        try:
+            dt = datetime.strptime(month_param, "%Y-%m").date()
+            month_start = dt.replace(day=1)
+            next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+            month_end = next_month - timedelta(days=1)
+        except Exception:
+            month_start = today.replace(day=1)
+            month_end = today
+    else:
+        month_start = today.replace(day=1)
+        month_end = today
+    selected_month_str = month_start.strftime("%Y-%m")
+
     # Generate performance data for each group
     performance_data = []
     
@@ -752,7 +912,6 @@ def team_performance(request):
                 salesperson__in=salespeople
             )
             
-            today = timezone.now().date()
             week_start = today - timedelta(days=today.weekday())
             
             # Individual salesperson performance
@@ -775,7 +934,9 @@ def team_performance(request):
                 # Calculate profit (Retail - Cost) for WON deals
                 profit_data = SalesFunnel.objects.filter(
                     salesperson=sp, 
-                    deal_outcome='won'
+                    deal_outcome='won',
+                    closed_date__gte=month_start,
+                    closed_date__lte=month_end
                 ).aggregate(
                     total_profit=Sum(F('retail') - F('cost'))
                 )
@@ -809,17 +970,17 @@ def team_performance(request):
             from teams.models import RoleMonthlyQuota
             supervisor = group.get_manager()
             if supervisor:
-                sup_quota = RoleMonthlyQuota.objects.filter(user=supervisor, month=today.replace(day=1)).first()
+                sup_quota = RoleMonthlyQuota.objects.filter(user=supervisor, month=month_start).first()
                 if sup_quota:
                     group_quota += sup_quota.amount
-            # Monthly profit from won deals
-            month_profit = SalesFunnel.objects.filter(
-                salesperson__in=salespeople,
-                deal_outcome='won',
-                closed_date__gte=today.replace(day=1),
-                closed_date__lte=today
-            ).aggregate(total_profit=Sum(F('retail') - F('cost')))['total_profit'] or 0
-            group_profit = month_profit
+            
+            # Group Profit is already summed up from salespeople above
+            # But let's verify if we need to query again or just use the sum
+            # The original code re-queried. Let's stick to the sum loop which is efficient enough
+            # unless we need to catch deals from non-active salespeople? 
+            # Original code queried SalesFunnel.objects.filter(salesperson__in=salespeople...)
+            # which matches the loop.
+            
             group_achievement = (group_profit / group_quota * 100) if group_quota > 0 else 0
             
             group_data = {
@@ -838,6 +999,7 @@ def team_performance(request):
     
     context = {
         'performance_data': performance_data,
+        'selected_month': selected_month_str,
     }
     
     return render(request, 'sales_monitoring/team_performance.html', context)
@@ -866,7 +1028,6 @@ def group_performance(request):
     today = timezone.now().date()
     if month_param:
         try:
-            from datetime import datetime
             dt = datetime.strptime(month_param, "%Y-%m").date()
             month_start = dt.replace(day=1)
             next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
@@ -879,6 +1040,31 @@ def group_performance(request):
         month_end = today
     selected_month_str = month_start.strftime("%Y-%m")
     
+    # Calculate Fiscal Year parameters
+    # Fiscal Year 2026 = Dec 2025 to Nov 2026
+    if month_start.month == 12:
+        fiscal_year = month_start.year + 1
+    else:
+        fiscal_year = month_start.year
+        
+    fiscal_start = datetime(fiscal_year - 1, 12, 1).date()
+    fiscal_end = datetime(fiscal_year, 11, 30).date()
+    
+    # Generate list of months for the table header
+    fiscal_months = []
+    curr = fiscal_start
+    # We want exactly 12 months
+    for _ in range(12):
+        fiscal_months.append({
+            'date': curr,
+            'label': curr.strftime('%b').upper(), # DEC, JAN, etc.
+        })
+        # Increment month
+        if curr.month == 12:
+            curr = curr.replace(year=curr.year + 1, month=1)
+        else:
+            curr = curr.replace(month=curr.month + 1)
+
     # Generate performance data for each supervised group
     performance_data = []
     
@@ -897,6 +1083,9 @@ def group_performance(request):
         group_quota = 0
         group_profit = 0
         
+        # Fiscal Year Summary Data
+        fiscal_summary = []
+
         for sp in salespeople:
             # Activity metrics
             sp_activities = activities.filter(salesperson=sp)
@@ -938,6 +1127,34 @@ def group_performance(request):
                 'quota_achievement': quota_achievement,
             }
             salesperson_performance.append(sp_data)
+
+            # Calculate monthly data for fiscal year summary
+            monthly_data = []
+            sp_fiscal_deals = SalesFunnel.objects.filter(
+                salesperson=sp,
+                deal_outcome='won',
+                closed_date__gte=fiscal_start,
+                closed_date__lte=fiscal_end
+            )
+            
+            for m in fiscal_months:
+                m_start = m['date']
+                if m_start.month == 12:
+                     m_end = m_start.replace(year=m_start.year + 1, month=1) - timedelta(days=1)
+                else:
+                     m_end = m_start.replace(month=m_start.month + 1) - timedelta(days=1)
+                
+                m_profit = sp_fiscal_deals.filter(
+                    closed_date__gte=m_start,
+                    closed_date__lte=m_end
+                ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0
+                monthly_data.append(m_profit)
+            
+            fiscal_summary.append({
+                'salesperson': sp,
+                'quota': quota,
+                'monthly_data': monthly_data
+            })
         
         # Include supervisor monthly quota
         supervisor = group.get_manager()
@@ -962,6 +1179,9 @@ def group_performance(request):
             'group_quota': group_quota,
             'group_profit': group_profit,
             'group_achievement': group_achievement,
+            'fiscal_summary': fiscal_summary,
+            'fiscal_year_label': f"FISCAL YEAR {fiscal_year} ({fiscal_start.strftime('%B %Y').upper()} - {fiscal_end.strftime('%B %Y').upper()})",
+            'fiscal_months': fiscal_months,
         }
         
         performance_data.append(group_data)

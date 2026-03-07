@@ -112,6 +112,17 @@ class SalesActivity(models.Model):
         self.supervisor_reviewed_at = timezone.now()
         self.save(update_fields=['reviewed_by_supervisor', 'supervisor_notes', 'supervisor_reviewed_at'])
 
+    def save(self, *args, **kwargs):
+        """Override save to ensure timestamps are set correctly"""
+        if self.status == 'completed' and not self.actual_end:
+            self.actual_end = timezone.now()
+        
+        # Also ensure actual_start is set if missing when completed
+        if self.status == 'completed' and not self.actual_start:
+            self.actual_start = self.scheduled_start if self.scheduled_start else self.actual_end
+            
+        super().save(*args, **kwargs)
+
 class CallActivity(models.Model):
     """Specific details for phone calls"""
     sales_activity = models.OneToOneField(SalesActivity, on_delete=models.CASCADE, related_name='call_details')

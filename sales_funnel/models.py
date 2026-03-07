@@ -63,6 +63,15 @@ class SalesFunnel(models.Model):
         blank=True,
         help_text="Associated customer (if exists in customer database)"
     )
+
+    proposal = models.ForeignKey(
+        'sales_proposals.Proposal',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='funnel_entries',
+        help_text="The proposal that generated this funnel entry"
+    )
     
     # Additional Information
     expected_close_date = models.DateField(

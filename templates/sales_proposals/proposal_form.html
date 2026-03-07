@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% load humanize %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>{{ title }}</h2>
+    </div>
+    
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Header Info -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Proposal Details</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        {{ form.reference_number|as_crispy_field }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.customer|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                        {{ form.subject|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        {{ form.date|as_crispy_field }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.valid_until|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Items -->
+        <div class="card mb-4">
+            <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Items</h5>
+                <button type="button" id="add-item-btn" class="btn btn-sm btn-light">
+                    <i class="fas fa-plus"></i> Add Item
+                </button>
+            </div>
+            <div class="card-body">
+                {{ formset.management_form }}
+                <div id="items-container">
+                    {% for form in formset %}
+                        <div class="item-row row mb-3 border-bottom pb-3">
+                            {% for hidden in form.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+                            <div class="col-md-2">
+                                {{ form.part_number|as_crispy_field }}
+                            </div>
+                            <div class="col-md-3">
+                                {{ form.description|as_crispy_field }}
+                            </div>
+                            <div class="col-md-1">
+                                {{ form.quantity|as_crispy_field }}
+                            </div>
+                            <div class="col-md-1">
+                                {{ form.unit_cost|as_crispy_field }}
+                            </div>
+                            <div class="col-md-1">
+                                {{ form.unit_price|as_crispy_field }}
+                            </div>
+                            <div class="col-md-2">
+                                {{ form.availability|as_crispy_field }}
+                            </div>
+                            <div class="col-md-2 d-flex align-items-center pt-3">
+                                {% if formset.can_delete %}
+                                    <div class="form-check">
+                                        {{ form.DELETE }}
+                                        <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">Delete</label>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Empty Form Template -->
+                <div id="empty-form" style="display:none;">
+                    <div class="item-row row mb-3 border-bottom pb-3">
+                        {% for hidden in formset.empty_form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        <div class="col-md-2">
+                            {{ formset.empty_form.part_number|as_crispy_field }}
+                        </div>
+                        <div class="col-md-3">
+                            {{ formset.empty_form.description|as_crispy_field }}
+                        </div>
+                        <div class="col-md-1">
+                            {{ formset.empty_form.quantity|as_crispy_field }}
+                        </div>
+                        <div class="col-md-1">
+                            {{ formset.empty_form.unit_cost|as_crispy_field }}
+                        </div>
+                        <div class="col-md-1">
+                            {{ formset.empty_form.unit_price|as_crispy_field }}
+                        </div>
+                        <div class="col-md-2">
+                            {{ formset.empty_form.availability|as_crispy_field }}
+                        </div>
+                        <div class="col-md-2 d-flex align-items-center pt-3">
+                            {% if formset.can_delete %}
+                                <div class="form-check">
+                                    {{ formset.empty_form.DELETE }}
+                                    <label class="form-check-label text-danger" for="{{ formset.empty_form.DELETE.id_for_label }}">Delete</label>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terms -->
+        <div class="card mb-4">
+            <div class="card-header">
+                Terms & Conditions
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        {{ form.payment_terms|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.delivery_lead_time|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.warranty|as_crispy_field }}
+                    </div>
+                </div>
+                {{ form.introduction|as_crispy_field }}
+                {{ form.closing|as_crispy_field }}
+                <div class="row">
+                    <div class="col-md-4">
+                        {{ form.tax_rate|as_crispy_field }}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Profitability Analysis (Internal) -->
+        {% if proposal %}
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Profitability Analysis (Internal Use Only)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <h6>Total Revenue (excl. VAT)</h6>
+                        <h4 class="text-primary">₱{{ proposal.subtotal|intcomma }}</h4>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Total Cost</h6>
+                        <h4 class="text-danger">₱{{ proposal.total_cost|intcomma }}</h4>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Gross Profit</h6>
+                        <h4 class="text-success">₱{{ proposal.gross_profit|intcomma }}</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-5">
+            <a href="{% url 'proposal_list' %}" class="btn btn-secondary me-md-2">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Proposal</button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('items-container');
+    const addButton = document.getElementById('add-item-btn');
+    const totalFormsInput = document.getElementById('id_items-TOTAL_FORMS');
+    const emptyFormHtml = document.getElementById('empty-form').innerHTML;
+    
+    addButton.addEventListener('click', function() {
+        const formIdx = parseInt(totalFormsInput.value);
+        const newFormHtml = emptyFormHtml.replace(/__prefix__/g, formIdx);
+        
+        const div = document.createElement('div');
+        div.innerHTML = newFormHtml;
+        container.appendChild(div.firstElementChild);
+        
+        totalFormsInput.value = formIdx + 1;
+    });
+});
+</script>
+{% endblock %}

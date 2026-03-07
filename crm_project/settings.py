@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'sales_monitoring',
     'lead_generation',
     'file_sharing',
+    'sales_proposals',
 ]
 
 MIDDLEWARE = [
@@ -155,3 +156,27 @@ CRISPY_TEMPLATE_PACK = "bootstrap5"
 # Login/Logout URLs
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
+
+# Email Settings
+# For Development (Local File Storage)
+# EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+# EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+
+# For Production (SMTP)
+# Uncomment and set these environment variables when ready
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'email.microimageph.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+#EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'crm_sales@microimageph.com')
+#EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'Rtyu1029@!Brx4*svv')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = 'sales@microimageph.com'
+
+# Fallback to filebased backend if SMTP credentials are missing (Safety for local dev)
+if not EMAIL_HOST_USER:
+    EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
+    EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+    print("WARNING: EMAIL_HOST_USER not set. Using filebased email backend (sent_emails/).")
+

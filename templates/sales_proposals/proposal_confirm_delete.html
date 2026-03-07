@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block content %}
+<div class="container">
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Delete Proposal</h5>
+        </div>
+        <div class="card-body">
+            <p class="lead">Are you sure you want to delete proposal <strong>{{ proposal.proposal_number }}</strong>?</p>
+            <p>Subject: {{ proposal.subject }}</p>
+            <p>Customer: {{ proposal.customer.company_name }}</p>
+            
+            <form method="post">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> Yes, Delete
+                </button>
+                <a href="{% url 'proposal_detail' proposal.pk %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

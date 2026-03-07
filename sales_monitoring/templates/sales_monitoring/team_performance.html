@@ -8,13 +8,20 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1><i class="fas fa-users"></i> Team Performance</h1>
-                <div class="btn-group">
-                    <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Dashboard
-                    </a>
-                    <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-primary">
-                        <i class="fas fa-chart-bar"></i> Generate Reports
-                    </a>
+                <div class="d-flex gap-2">
+                    <form method="get" class="d-flex align-items-center gap-2 me-3">
+                        <label class="form-label mb-0">Month:</label>
+                        <input type="month" class="form-control form-control-sm" name="month" value="{{ selected_month }}">
+                        <button class="btn btn-sm btn-outline-secondary" type="submit">Go</button>
+                    </form>
+                    <div class="btn-group">
+                        <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                        <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-primary">
+                            <i class="fas fa-chart-bar"></i> Generate Reports
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -70,7 +77,12 @@
 
                     <!-- Individual Performance -->
                     {% if group_data.salesperson_performance %}
-                    <h6><i class="fas fa-user"></i> Individual Performance</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6><i class="fas fa-user"></i> Individual Performance</h6>
+                        <a href="{% url 'sales_monitoring:group_fiscal_summary' group_data.group.id %}?month={{ selected_month }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-calendar-alt"></i> View Fiscal Year Summary
+                        </a>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover">
                             <thead class="table-light">

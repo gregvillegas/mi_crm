@@ -8,9 +8,11 @@ urlpatterns = [
     path('', views.dashboard, name='dashboard'),
     path('supervisor/', views.supervisor_dashboard, name='supervisor_dashboard'),
     path('salesperson/', views.salesperson_dashboard, name='salesperson_dashboard'),
+    path('salesperson/activities/', views.salesperson_activity_list, name='salesperson_activities'),
     path('admin/', views.admin_dashboard, name='admin_dashboard'),
     path('executive/', views.executive_dashboard, name='executive_dashboard'),
     path('avp/group/<int:group_id>/activities/', views.avp_group_activities, name='avp_group_activities'),
+    path('group/<int:group_id>/fiscal-summary/', views.group_fiscal_summary, name='group_fiscal_summary'),
     
     # Activity management
     path('activity/create/', views.create_activity, name='create_activity'),

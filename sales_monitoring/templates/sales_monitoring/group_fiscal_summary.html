@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% load humanize %}
+{% block title %}Monthly Achievement Summary - {{ group.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
+                <div>
+                    <h2><i class="fas fa-calendar-alt text-primary"></i> Monthly Achievement Summary</h2>
+                    <h5 class="text-muted">{{ group.name }} - {{ group.team.name }}</h5>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <form method="get" class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0 fw-bold">Reference Month:</label>
+                        <input type="month" class="form-control" name="month" value="{{ selected_month }}">
+                        <button class="btn btn-primary" type="submit">Go</button>
+                    </form>
+                    <a href="{% url back_url_name %}?month={{ selected_month }}" class="btn btn-secondary ms-2">
+                        <i class="fas fa-arrow-left"></i> {{ back_label }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        {{ fiscal_year_label }}
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if fiscal_summary %}
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered table-striped align-middle mb-0">
+                            <thead class="table-light text-center">
+                                <tr>
+                                    <th class="align-middle bg-light py-3" style="position: sticky; left: 0; z-index: 10; min-width: 200px;">Salesperson</th>
+                                    <th class="align-middle py-3">Annual Quota</th>
+                                    {% for month in fiscal_months %}
+                                    <th class="py-3">{{ month.label }}</th>
+                                    {% endfor %}
+                                    <th class="align-middle py-3 bg-light">Total Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in fiscal_summary %}
+                                <tr>
+                                    <td class="bg-white" style="position: sticky; left: 0; z-index: 10;">
+                                        <div class="d-flex align-items-center">
+                                            <div class="avatar-circle bg-primary text-white me-2" style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px;">
+                                                {{ item.salesperson.first_name|first }}{{ item.salesperson.last_name|first }}
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold text-dark">{{ item.salesperson.get_full_name|default:item.salesperson.username }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-end fw-bold">₱{{ item.quota|floatformat:2|intcomma }}</td>
+                                    {% for profit in item.monthly_data %}
+                                    <td class="text-end {% if profit > 0 %}text-success fw-bold{% else %}text-muted{% endif %}">
+                                        {% if profit > 0 %}
+                                        ₱{{ profit|floatformat:2|intcomma }}
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    {% endfor %}
+                                    <td class="text-end fw-bold text-primary bg-light">₱{{ item.total_profit|floatformat:2|intcomma }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <p class="text-muted">No salespeople found in this group.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

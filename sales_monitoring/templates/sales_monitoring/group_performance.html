@@ -33,18 +33,13 @@
     <div class="row mb-4">
         <div class="col-12">
             <div class="card">
-                <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h5>
-                            {{ group_data.group.name }}
-                            <small class="text-muted">- {{ group_data.group.team.name }}</small>
-                        </h5>
-                        <div>
-                            <span class="badge bg-{% if group_data.group_achievement >= 100 %}success{% elif group_data.group_achievement >= 80 %}warning{% else %}danger{% endif %} me-2">
-                                {{ group_data.group_achievement|floatformat:1 }}% Achievement
-                            </span>
-                            <span class="badge bg-info">{{ group_data.salespeople_count }} Members</span>
-                        </div>
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ group_data.group.name }} - <span class="text-muted small">{{ group_data.group.team.name }}</span></h5>
+                    <div>
+                        <span class="badge {% if group_data.group_achievement >= 100 %}bg-success{% else %}bg-danger{% endif %} me-2">
+                            {{ group_data.group_achievement|floatformat:1 }}% Achievement
+                        </span>
+                        <span class="badge bg-info text-dark">{{ group_data.salespeople_count }} Members</span>
                     </div>
                 </div>
                 <div class="card-body">
@@ -144,7 +139,12 @@
 
                     <!-- Individual Performance -->
                     {% if group_data.salesperson_performance %}
-                    <h6><i class="fas fa-user"></i> Individual Performance</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6><i class="fas fa-user"></i> Individual Performance</h6>
+                        <a href="{% url 'sales_monitoring:group_fiscal_summary' group_data.group.id %}?month={{ selected_month }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-calendar-alt"></i> View Fiscal Year Summary
+                        </a>
+                    </div>
                     <div class="table-responsive">
                         <table class="table table-sm table-hover">
                             <thead class="table-light">

@@ -136,7 +136,9 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     {% if user.is_authenticated %}
-                        <li class="nav-item"><a class="nav-link" href="{% url 'customer_list' %}">Customers</a></li>
+                       {% if user.role in 'avp,admin,president,gm,vp' %}
+                       <li class="nav-item"><a class="nav-link" href="{% url 'customer_list' %}">Customers</a></li>
+                       {% endif %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'delinquent_list' %}"></i> Delinquent</a></li>
                         {% if user.role in 'salesperson,supervisor,teamlead,asm,avp,admin,president,gm,vp' %}
                             <li class="nav-item dropdown">
@@ -179,6 +181,11 @@
                                         <li><a class="dropdown-item text-danger" href="{% url 'sales_funnel:clear_stage' %}"><i class="fas fa-broom me-2"></i>Clear Stage...</a></li>
                                     {% endif %}
                                 </ul>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'proposal_list' %}">
+                                    <i class="fas fa-file-invoice"></i> Proposals
+                                </a>
                             </li>
                         {% endif %}
                         {% if user.role in 'salesperson,avp,supervisor,teamlead,asm,admin,president,gm,vp' %}

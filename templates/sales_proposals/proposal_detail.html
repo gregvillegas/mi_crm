@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Proposal {{ proposal.proposal_number }}</h2>
+        <div class="btn-group">
+            <a href="{% url 'proposal_update' proposal.pk %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+            <a href="{% url 'proposal_pdf' proposal.pk %}" class="btn btn-outline-secondary" target="_blank">
+                <i class="fas fa-file-pdf"></i> View PDF
+            </a>
+            <a href="{% url 'proposal_email' proposal.pk %}" class="btn btn-success">
+                <i class="fas fa-envelope"></i> Email Customer
+            </a>
+            <a href="{% url 'proposal_delete' proposal.pk %}" class="btn btn-danger">
+                <i class="fas fa-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Proposal Content</h5>
+                </div>
+                <div class="card-body">
+                    {% if proposal.reference_number %}
+                    <p class="mb-1"><strong>{{ proposal.reference_number }}</strong></p>
+                    {% endif %}
+                    <h4 class="card-title">{{ proposal.subject }}</h4>
+                    <p class="text-muted">To: {{ proposal.customer.company_name }} (Attn: {{ proposal.customer.contact_person_name }})</p>
+                    <hr>
+                    
+                    {% if proposal.introduction %}
+                    <div class="mb-4">
+                        <h6>Introduction</h6>
+                        <p>{{ proposal.introduction|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Part Number</th>
+                                    <th>Description</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Total Price</th>
+                                    <th>Availability</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in proposal.items.all %}
+                                <tr>
+                                    <td>{{ item.part_number }}</td>
+                                    <td>{{ item.description }}</td>
+                                    <td class="text-end">{{ item.quantity|intcomma }}</td>
+                                    <td class="text-end">₱{{ item.unit_price|intcomma }}</td>
+                                    <td class="text-end">₱{{ item.amount|intcomma }}</td>
+                                    <td>{{ item.availability }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                                    <td class="text-end">₱{{ proposal.subtotal|intcomma }}</td>
+                                    <td></td>
+                                </tr>
+                                {% if proposal.tax_rate > 0 %}
+                                <tr>
+                                    <td colspan="4" class="text-end">VAT ({{ proposal.tax_rate }}%):</td>
+                                    <td class="text-end">₱{{ proposal.tax_amount|intcomma }}</td>
+                                    <td></td>
+                                </tr>
+                                {% endif %}
+                                <tr class="table-active">
+                                    <td colspan="4" class="text-end"><strong>Total Investment:</strong></td>
+                                    <td class="text-end"><strong>₱{{ proposal.total_amount|intcomma }}</strong></td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    {% if proposal.closing %}
+                    <div class="mt-4">
+                        <h6>Terms & Conditions</h6>
+                        <p>{{ proposal.closing|linebreaks }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Details</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Status
+                        <span class="badge bg-{% if proposal.status == 'accepted' %}success{% elif proposal.status == 'sent' %}info{% elif proposal.status == 'declined' %}danger{% else %}secondary{% endif %}">
+                            {{ proposal.get_status_display }}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Date
+                        <span>{{ proposal.date }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Valid Until
+                        <span>{{ proposal.valid_until|default:"N/A" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Prepared By
+                        <span>{{ proposal.created_by.get_full_name }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Customer
+                        <a href="{% url 'customer_history' proposal.customer.pk %}">{{ proposal.customer.company_name }}</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
