@@ -5,7 +5,7 @@ from django.forms import inlineformset_factory
 class ProposalForm(forms.ModelForm):
     class Meta:
         model = Proposal
-        fields = ['reference_number', 'customer', 'date', 'valid_until', 'subject', 'introduction', 'closing', 'tax_rate', 'payment_terms', 'delivery_lead_time', 'warranty']
+        fields = ['reference_number', 'customer', 'date', 'valid_until', 'subject', 'currency', 'exchange_rate', 'introduction', 'closing', 'tax_type', 'tax_rate', 'payment_terms', 'delivery_lead_time', 'warranty']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
@@ -14,6 +14,7 @@ class ProposalForm(forms.ModelForm):
             'payment_terms': forms.TextInput(attrs={'placeholder': 'e.g. 30 days'}),
             'delivery_lead_time': forms.TextInput(attrs={'placeholder': 'e.g. 5-10 working days'}),
             'warranty': forms.TextInput(attrs={'placeholder': 'e.g. 1 year - Parts Warranty'}),
+            'tax_type': forms.Select(attrs={'class': 'form-select'}),
         }
 
     def __init__(self, *args, **kwargs):

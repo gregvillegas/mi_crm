@@ -60,8 +60,8 @@
                                     <td>{{ item.part_number }}</td>
                                     <td>{{ item.description }}</td>
                                     <td class="text-end">{{ item.quantity|intcomma }}</td>
-                                    <td class="text-end">₱{{ item.unit_price|intcomma }}</td>
-                                    <td class="text-end">₱{{ item.amount|intcomma }}</td>
+                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.unit_price|intcomma }}</td>
+                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.amount|intcomma }}</td>
                                     <td>{{ item.availability }}</td>
                                 </tr>
                                 {% endfor %}
@@ -69,19 +69,37 @@
                             <tfoot>
                                 <tr>
                                     <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
-                                    <td class="text-end">₱{{ proposal.subtotal|intcomma }}</td>
+                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.subtotal|intcomma }}</td>
                                     <td></td>
                                 </tr>
-                                {% if proposal.tax_rate > 0 %}
+                                {% if proposal.tax_type == 'VAT' %}
                                 <tr>
-                                    <td colspan="4" class="text-end">VAT ({{ proposal.tax_rate }}%):</td>
-                                    <td class="text-end">₱{{ proposal.tax_amount|intcomma }}</td>
+                                    <td colspan="4" class="text-end">VAT ({{ proposal.tax_rate|floatformat:0 }}%):</td>
+                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.tax_amount|intcomma }}</td>
+                                    <td></td>
+                                </tr>
+                                {% elif proposal.tax_type == 'ZERO' %}
+                                <tr>
+                                    <td colspan="4" class="text-end">Zero-Rated (0%):</td>
+                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}0.00</td>
+                                    <td></td>
+                                </tr>
+                                {% elif proposal.tax_type == 'EXEMPT' %}
+                                <tr>
+                                    <td colspan="4" class="text-end">VAT-Exempt (0%):</td>
+                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}0.00</td>
+                                    <td></td>
+                                </tr>
+                                {% elif proposal.tax_rate > 0 %}
+                                <tr>
+                                    <td colspan="4" class="text-end">Tax ({{ proposal.tax_rate|floatformat:0 }}%):</td>
+                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.tax_amount|intcomma }}</td>
                                     <td></td>
                                 </tr>
                                 {% endif %}
                                 <tr class="table-active">
                                     <td colspan="4" class="text-end"><strong>Total Investment:</strong></td>
-                                    <td class="text-end"><strong>₱{{ proposal.total_amount|intcomma }}</strong></td>
+                                    <td class="text-end"><strong>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.total_amount|intcomma }}</strong></td>
                                     <td></td>
                                 </tr>
                             </tfoot>

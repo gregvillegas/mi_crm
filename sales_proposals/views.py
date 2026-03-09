@@ -5,6 +5,7 @@ from django.http import HttpResponse
 from .models import Proposal, ProposalItem
 from .forms import ProposalForm, ProposalItemFormSet
 from customers.models import Customer
+from users.models import User
 from sales_monitoring.models import SalesActivity, ActivityType
 from sales_funnel.models import SalesFunnel
 from django.db import transaction
@@ -27,10 +28,77 @@ from reportlab.lib.utils import ImageReader
 def proposal_list(request):
     if request.user.role == 'salesperson':
         proposals = Proposal.objects.filter(created_by=request.user)
+    elif request.user.role == 'supervisor':
+        # Get groups managed by this supervisor
+        managed_groups = request.user.managed_groups.all()
+        # Get all users in these groups (salespeople)
+        member_ids = []
+        for group in managed_groups:
+             member_ids.extend(group.members.values_list('user_id', flat=True))
+        
+        # Include proposals created by the supervisor themselves + their group members
+        member_ids.append(request.user.id)
+        proposals = Proposal.objects.filter(created_by_id__in=member_ids)
+    elif request.user.role == 'avp':
+        # Get teams managed by this AVP
+        managed_teams = request.user.managed_teams.all()
+        member_ids = []
+        for team in managed_teams:
+            for group in team.groups.all():
+                member_ids.extend(group.members.values_list('user_id', flat=True))
+                # Include group supervisors
+                if group.supervisor:
+                    member_ids.append(group.supervisor.id)
+        
+        member_ids.append(request.user.id)
+        proposals = Proposal.objects.filter(created_by_id__in=member_ids)
+    elif request.user.role == 'asm':
+        # ASMs see all groups in their assigned teams
+        from teams.models import Group
+        assigned_teams = request.user.asm_teams.all()
+        
+        member_ids = []
+        for team in assigned_teams:
+            for group in team.groups.all():
+                member_ids.extend(group.members.values_list('user_id', flat=True))
+                if group.supervisor:
+                    member_ids.append(group.supervisor.id)
+        
+        member_ids.append(request.user.id)
+        proposals = Proposal.objects.filter(created_by_id__in=member_ids)
+    elif request.user.role == 'teamlead':
+        # Team Leads see their led groups
+        led_groups = request.user.led_groups.all()
+        member_ids = []
+        for group in led_groups:
+            member_ids.extend(group.members.values_list('user_id', flat=True))
+        
+        member_ids.append(request.user.id)
+        proposals = Proposal.objects.filter(created_by_id__in=member_ids)
     else:
+        # Admins, VPs, GMs see all
         proposals = Proposal.objects.all()
     
-    return render(request, 'sales_proposals/proposal_list.html', {'proposals': proposals})
+    # Get list of salespeople for filter dropdown (from the visible proposals)
+    salespeople_ids = proposals.values_list('created_by', flat=True).distinct()
+    salespeople = User.objects.filter(id__in=salespeople_ids).order_by('first_name', 'last_name')
+    
+    # Filter by salesperson if requested
+    salesperson_id = request.GET.get('salesperson')
+    if salesperson_id:
+        try:
+            salesperson_id = int(salesperson_id)
+            proposals = proposals.filter(created_by_id=salesperson_id)
+        except ValueError:
+            salesperson_id = None
+            
+    context = {
+        'proposals': proposals,
+        'salespeople': salespeople,
+        'selected_salesperson': salesperson_id
+    }
+    
+    return render(request, 'sales_proposals/proposal_list.html', context)
 
 @login_required
 def proposal_create(request):
@@ -219,7 +287,7 @@ def generate_pdf_buffer(proposal):
     # --- REFERENCE INFO ---
     ref_no = proposal.reference_number if proposal.reference_number else proposal.proposal_number
     elements.append(Paragraph(f"Ref No: {ref_no}", styles['NormalSmall']))
-    elements.append(Paragraph(f"{proposal.date.strftime('%Y-%m-%d')}", styles['NormalSmall']))
+    elements.append(Paragraph(f"{proposal.date.strftime('%B %d, %Y')}", styles['NormalSmall']))
     elements.append(Spacer(1, 12))
     
     # --- CUSTOMER INFO ---
@@ -251,21 +319,56 @@ def generate_pdf_buffer(proposal):
         Paragraph("AVAILABILITY", styles['TableHeader'])
     ]]
     
+    currency_symbol = proposal.currency
+    
     for item in proposal.items.all():
         table_data.append([
             Paragraph(item.part_number, styles['TableText']),
             Paragraph(item.description, styles['TableText']),
             Paragraph(str(int(item.quantity)) if item.quantity % 1 == 0 else str(item.quantity), styles['TableText']),
-            Paragraph(f"PHP {item.unit_price:,.2f}", styles['TableText']),
-            Paragraph(f"PHP {item.amount:,.2f}", styles['TableText']),
+            Paragraph(f"{currency_symbol} {item.unit_price:,.2f}", styles['TableText']),
+            Paragraph(f"{currency_symbol} {item.amount:,.2f}", styles['TableText']),
             Paragraph(item.availability, styles['TableText'])
         ])
     
+    # Subtotal
+    table_data.append([
+        '', '', '', 
+        Paragraph("Subtotal", styles['TableText']), 
+        Paragraph(f"{currency_symbol} {proposal.subtotal:,.2f}", styles['TableText']), 
+        ''
+    ])
+
+    # Tax
+    tax_label = None
+    tax_amount_str = None
+
+    if proposal.tax_type == 'VAT':
+        tax_label = f"VAT ({proposal.tax_rate:.0f}%)"
+        tax_amount_str = f"{currency_symbol} {proposal.tax_amount:,.2f}"
+    elif proposal.tax_type == 'ZERO':
+        tax_label = "Zero-Rated (0%)"
+        tax_amount_str = f"{currency_symbol} 0.00"
+    elif proposal.tax_type == 'EXEMPT':
+        tax_label = "VAT-Exempt (0%)"
+        tax_amount_str = f"{currency_symbol} 0.00"
+    elif proposal.tax_rate > 0:
+        tax_label = f"Tax ({proposal.tax_rate:.0f}%)"
+        tax_amount_str = f"{currency_symbol} {proposal.tax_amount:,.2f}"
+
+    if tax_label:
+        table_data.append([
+            '', '', '', 
+            Paragraph(tax_label, styles['TableText']), 
+            Paragraph(tax_amount_str, styles['TableText']), 
+            ''
+        ])
+
     # Total Investment Row
     table_data.append([
         '', '', '', 
         Paragraph("Total Investment", styles['TableHeader']), 
-        Paragraph(f"PHP {proposal.total_amount:,.2f}", styles['TableHeader']), 
+        Paragraph(f"{currency_symbol} {proposal.total_amount:,.2f}", styles['TableHeader']), 
         ''
     ])
     
@@ -329,6 +432,7 @@ def generate_pdf_buffer(proposal):
     closing_elements.append(Paragraph("We trust that you keep this proposal with confidentiality and we hope that you find everything in order.", styles['NormalSmall']))
     closing_elements.append(Paragraph("Please fax Purchase Order/approval/conforme at (632) 894-25-90.", styles['NormalSmall']))
     closing_elements.append(Paragraph("Should you have any additional concern, please feel free to contact us.", styles['NormalSmall']))
+    closing_elements.append(Spacer(1, 30))
     closing_elements.append(Paragraph("Very truly yours,", styles['NormalSmall']))
     closing_elements.append(Spacer(1, 30))
     
@@ -336,8 +440,8 @@ def generate_pdf_buffer(proposal):
         ['', 'Conforme:'],
         ['', ''],
         ['__________________________', '__________________________'],
-        [Paragraph(f"<b>{proposal.created_by.get_full_name()}</b><br/>Technical Sales", styles['NormalSmall']), 
-         Paragraph("(Client Signature over printed name)<br/>Serves as an order if signed by Authorized Representative", styles['NormalSmall'])]
+        [Paragraph(f"<b>{proposal.created_by.get_full_name()}</b><br/>Account Manager<br/>Mobile #: {proposal.created_by.mobile_number or ''}", styles['NormalSmall']), 
+         Paragraph("Print Name & Sign<br/>Served as Order if signed by Authorized <br/>Representative", styles['NormalSmall'])]
     ]
     sig_table = Table(sig_data, colWidths=[3.5*inch, 4*inch])
     sig_table.setStyle(TableStyle([
@@ -454,13 +558,22 @@ def log_sales_activity(proposal, user):
     )
 
 def update_sales_funnel(proposal):
+    # Determine PHP amounts for Sales Funnel (which tracks in PHP)
+    if proposal.currency == 'USD':
+        rate = proposal.exchange_rate if proposal.exchange_rate > 0 else 1.0
+        retail_php = proposal.total_amount * rate
+        cost_php = proposal.total_cost * rate
+    else:
+        retail_php = proposal.total_amount
+        cost_php = proposal.total_cost
+
     # Try to find a funnel entry linked to this proposal
     funnel = SalesFunnel.objects.filter(proposal=proposal).first()
     
     if funnel:
         # Update existing linked funnel entry
-        funnel.retail = proposal.total_amount
-        funnel.cost = proposal.total_cost
+        funnel.retail = retail_php
+        funnel.cost = cost_php
         funnel.requirement_description = proposal.subject
         funnel.save()
     else:
@@ -469,8 +582,8 @@ def update_sales_funnel(proposal):
             date_created=proposal.date,
             company_name=proposal.customer.company_name,
             requirement_description=proposal.subject,
-            cost=proposal.total_cost,
-            retail=proposal.total_amount,
+            cost=cost_php,
+            retail=retail_php,
             stage='quoted', # Pink Funnel
             salesperson=proposal.created_by,
             customer=proposal.customer,

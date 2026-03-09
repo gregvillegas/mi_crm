@@ -18,6 +18,7 @@ class User(AbstractUser):
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='salesperson')
     initials = models.CharField(max_length=3, blank=True, help_text='3-letter initials for the user (e.g., JDO for John Doe)')
+    mobile_number = models.CharField(max_length=20, blank=True, null=True, help_text='Mobile number of the user')
     is_active = models.BooleanField(default=True, help_text='Designates whether this user should be treated as active. Unselect this instead of deleting accounts.')
 
     # Add related_name to resolve clashes with the default User model

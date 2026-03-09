@@ -4,10 +4,26 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Sales Proposals</h2>
-    <div>
-        <a href="{% url 'proposal_create' %}" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Create Proposal
-        </a>
+    
+    <div class="d-flex align-items-center gap-3">
+        {% if user.role != 'salesperson' and salespeople %}
+        <form class="d-flex align-items-center" method="get">
+            <select name="salesperson" class="form-select form-select-sm" onchange="this.form.submit()" style="min-width: 200px;">
+                <option value="">All Salespeople</option>
+                {% for sp in salespeople %}
+                <option value="{{ sp.id }}" {% if selected_salesperson == sp.id %}selected{% endif %}>
+                    {{ sp.get_full_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+        
+        <div>
+            <a href="{% url 'proposal_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Create Proposal
+            </a>
+        </div>
     </div>
 </div>
 
@@ -22,6 +38,7 @@
                         <th>Customer</th>
                         <th>Date</th>
                         <th>Amount</th>
+                        <th>Salesperson</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -37,7 +54,12 @@
                         <td>{{ proposal.subject }}</td>
                         <td>{{ proposal.customer.company_name }}</td>
                         <td>{{ proposal.date }}</td>
-                        <td>₱{{ proposal.total_amount|intcomma }}</td>
+                        <td>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.total_amount|intcomma }}</td>
+                        <td>
+                            <span class="badge bg-secondary" title="{{ proposal.created_by.get_full_name }}">
+                                {{ proposal.created_by.initials|default:proposal.created_by.username|slice:":3"|upper }}
+                            </span>
+                        </td>
                         <td>
                             <span class="badge bg-{% if proposal.status == 'accepted' %}success{% elif proposal.status == 'sent' %}info{% elif proposal.status == 'declined' %}danger{% else %}secondary{% endif %}">
                                 {{ proposal.get_status_display }}
@@ -62,7 +84,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="7" class="text-center py-4">
+                        <td colspan="8" class="text-center py-4">
                             <div class="text-muted">
                                 <i class="fas fa-file-invoice fa-3x mb-3"></i>
                                 <h5>No proposals found</h5>

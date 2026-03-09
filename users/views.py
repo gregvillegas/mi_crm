@@ -136,6 +136,7 @@ def create_user(request):
         email = request.POST.get('email')
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
+        mobile_number = request.POST.get('mobile_number')
         initials = request.POST.get('initials', '').upper()  # Convert to uppercase
         role = request.POST.get('role')
         password = request.POST.get('password')
@@ -155,6 +156,7 @@ def create_user(request):
                     email=email,
                     first_name=first_name,
                     last_name=last_name,
+                    mobile_number=mobile_number,
                     initials=initials,
                     role=role,
                     password=password,
@@ -182,6 +184,7 @@ def edit_user(request, user_id):
         email = request.POST.get('email')
         first_name = request.POST.get('first_name')
         last_name = request.POST.get('last_name')
+        mobile_number = request.POST.get('mobile_number')
         initials = request.POST.get('initials', '').upper()  # Convert to uppercase
         role = request.POST.get('role')
         password = request.POST.get('password')
@@ -201,6 +204,7 @@ def edit_user(request, user_id):
                 user_obj.email = email
                 user_obj.first_name = first_name
                 user_obj.last_name = last_name
+                user_obj.mobile_number = mobile_number
                 user_obj.initials = initials
                 user_obj.role = role
                 user_obj.is_active = is_active

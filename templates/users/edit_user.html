@@ -37,6 +37,11 @@
                         <label for="last_name" class="form-label">Last Name</label>
                         <input type="text" class="form-control" id="last_name" name="last_name" value="{{ user_obj.last_name }}" required>
                     </div>
+
+                    <div class="mb-3">
+                        <label for="mobile_number" class="form-label">Mobile #</label>
+                        <input type="text" class="form-control" id="mobile_number" name="mobile_number" value="{{ user_obj.mobile_number|default:'' }}" placeholder="e.g., 09171234567">
+                    </div>
                     
                     <div class="mb-3">
                         <label for="initials" class="form-label">Initials</label>

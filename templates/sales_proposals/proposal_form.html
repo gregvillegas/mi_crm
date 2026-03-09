@@ -27,8 +27,14 @@
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-md-12">
+                    <div class="col-md-6">
                         {{ form.subject|as_crispy_field }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.currency|as_crispy_field }}
+                    </div>
+                    <div class="col-md-3" id="exchange-rate-group">
+                        {{ form.exchange_rate|as_crispy_field }}
                     </div>
                 </div>
                 <div class="row">
@@ -146,6 +152,9 @@
                 {{ form.closing|as_crispy_field }}
                 <div class="row">
                     <div class="col-md-4">
+                        {{ form.tax_type|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4" id="tax-rate-group">
                         {{ form.tax_rate|as_crispy_field }}
                     </div>
                 </div>
@@ -186,21 +195,77 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Items handling
     const container = document.getElementById('items-container');
     const addButton = document.getElementById('add-item-btn');
     const totalFormsInput = document.getElementById('id_items-TOTAL_FORMS');
-    const emptyFormHtml = document.getElementById('empty-form').innerHTML;
     
-    addButton.addEventListener('click', function() {
-        const formIdx = parseInt(totalFormsInput.value);
-        const newFormHtml = emptyFormHtml.replace(/__prefix__/g, formIdx);
+    // Check if elements exist before attaching listeners
+    if (addButton && container && totalFormsInput) {
+        const emptyFormTemplate = document.getElementById('empty-form');
+        const emptyFormHtml = emptyFormTemplate ? emptyFormTemplate.innerHTML : '';
         
-        const div = document.createElement('div');
-        div.innerHTML = newFormHtml;
-        container.appendChild(div.firstElementChild);
-        
-        totalFormsInput.value = formIdx + 1;
-    });
+        addButton.addEventListener('click', function() {
+            const formIdx = parseInt(totalFormsInput.value);
+            // Replace __prefix__ with the new index
+            const newFormHtml = emptyFormHtml.replace(/__prefix__/g, formIdx);
+            
+            // Create a temporary container to hold the new HTML
+            const div = document.createElement('div');
+            div.innerHTML = newFormHtml;
+            
+            // Find the actual item row inside the wrapper
+            const newRow = div.querySelector('.item-row');
+            if (newRow) {
+                container.appendChild(newRow);
+                totalFormsInput.value = formIdx + 1;
+            }
+        });
+    }
+
+    // Tax handling
+    const taxTypeSelect = document.getElementById('id_tax_type');
+    const taxRateGroup = document.getElementById('tax-rate-group');
+    const taxRateInput = document.getElementById('id_tax_rate');
+
+    function toggleTaxRate() {
+        if (taxTypeSelect.value === 'VAT') {
+            taxRateGroup.style.display = 'block';
+            if (parseFloat(taxRateInput.value) === 0) {
+                taxRateInput.value = '12.00';
+            }
+        } else {
+            taxRateGroup.style.display = 'none';
+            taxRateInput.value = '0.00';
+        }
+    }
+
+    if (taxTypeSelect) {
+        taxTypeSelect.addEventListener('change', toggleTaxRate);
+        toggleTaxRate(); // Initial state
+    }
+
+    // Currency handling
+    const currencySelect = document.getElementById('id_currency');
+    const exchangeRateGroup = document.getElementById('exchange-rate-group');
+    const exchangeRateInput = document.getElementById('id_exchange_rate');
+
+    function toggleExchangeRate() {
+        if (currencySelect.value === 'USD') {
+            exchangeRateGroup.style.display = 'block';
+            if (parseFloat(exchangeRateInput.value) === 1.0) {
+                 // Maybe suggest a rate or leave it?
+            }
+        } else {
+            exchangeRateGroup.style.display = 'none';
+            exchangeRateInput.value = '57.0';
+        }
+    }
+
+    if (currencySelect) {
+        currencySelect.addEventListener('change', toggleExchangeRate);
+        toggleExchangeRate(); // Initial state
+    }
 });
 </script>
 {% endblock %}

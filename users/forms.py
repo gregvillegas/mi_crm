@@ -10,7 +10,7 @@ class SalespersonCreationForm(UserCreationForm):
     
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name', 'email', 'initials', 'group',)
+        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name', 'email', 'mobile_number', 'initials', 'group',)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -35,10 +35,11 @@ class SalespersonCreationForm(UserCreationForm):
                 ),
                 Row(
                     Column('email', css_class='form-group col-md-6 mb-3'),
-                    Column('initials', css_class='form-group col-md-6 mb-3'),
+                    Column('mobile_number', css_class='form-group col-md-6 mb-3'),
                 ),
                 Row(
-                    Column('group', css_class='form-group col-md-12 mb-3'),
+                    Column('initials', css_class='form-group col-md-6 mb-3'),
+                    Column('group', css_class='form-group col-md-6 mb-3'),
                 ),
             ),
             HTML('<br>'),

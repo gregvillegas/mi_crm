@@ -21,6 +21,14 @@ class Proposal(models.Model):
     valid_until = models.DateField(null=True, blank=True)
     subject = models.CharField(max_length=200)
     
+    # Currency
+    CURRENCY_CHOICES = [
+        ('PHP', 'PHP - Philippine Peso'),
+        ('USD', 'USD - US Dollar'),
+    ]
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='PHP')
+    exchange_rate = models.DecimalField(max_digits=10, decimal_places=2, default=1.00, help_text="Exchange rate to PHP (1.0 for PHP)")
+
     # Terms
     payment_terms = models.CharField(max_length=200, default="30 days", help_text="e.g., 30 days, Cash on Delivery")
     delivery_lead_time = models.CharField(max_length=200, default="Within five (5) to ten (10) working days from receipt of confirmed purchased order.", help_text="e.g., 5-10 working days")
@@ -32,6 +40,13 @@ class Proposal(models.Model):
     
     # Financials
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    
+    TAX_TYPE_CHOICES = [
+        ('VAT', 'VAT (12%)'),
+        ('ZERO', 'Zero-Rated (0%)'),
+        ('EXEMPT', 'VAT-Exempt (0%)'),
+    ]
+    tax_type = models.CharField(max_length=10, choices=TAX_TYPE_CHOICES, default='VAT')
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal('12.00'), help_text="Tax rate in percentage (e.g. 12 for 12%)")
     tax_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
@@ -58,6 +73,12 @@ class Proposal(models.Model):
         self.subtotal = sum(item.amount for item in self.items.all())
         self.total_cost = sum(item.total_cost for item in self.items.all())
         
+        # Override tax_rate based on tax_type
+        if self.tax_type in ['ZERO', 'EXEMPT']:
+            self.tax_rate = Decimal('0.00')
+        elif self.tax_type == 'VAT' and self.tax_rate == 0:
+            self.tax_rate = Decimal('12.00')
+            
         self.tax_amount = self.subtotal * (self.tax_rate / 100)
         self.total_amount = self.subtotal + self.tax_amount
         
