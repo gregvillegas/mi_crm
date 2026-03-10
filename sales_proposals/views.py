@@ -394,23 +394,39 @@ def generate_pdf_buffer(proposal):
     elements.append(Spacer(1, 12))
     
     # --- NOTE ---
-    elements.append(Paragraph("NOTE:", styles['NormalSmall']))
-    elements.append(Paragraph("SUBJECT PRICE CHANGE WITHOUT PRIOR NOTICE", styles['NoteHeader']))
-    elements.append(Spacer(1, 12))
+    if proposal.special_note:
+        elements.append(Paragraph("Special Note:", styles['NormalSmall']))
+        elements.append(Paragraph(proposal.special_note, styles['NoteHeader']))
+        elements.append(Spacer(1, 12))
     
     # --- TERMS AND CONDITIONS ---
     tc_style = ParagraphStyle(name='TCText', parent=styles['NormalSmall'])
     tc_label = ParagraphStyle(name='TCLabel', parent=styles['NormalSmall'], fontName='Helvetica-Bold')
     
+    # Cancellation Text Logic
+    cancellation_texts = {
+        'professional': "To ensure we can commit the necessary resources to your project, please note that all confirmed Purchase Orders (POs) are considered final. As a result, any cancellation after confirmation will incur a fee equal to 100% of the total PO value.",
+        'process': "As part of our commitment to efficiency, we begin resource allocation immediately upon PO confirmation. Therefore, any cancellation at this stage will result in a charge for the full order amount.",
+        'polite': "Please be advised that once a Purchase Order is confirmed, it is firm and cannot be cancelled without liability. Should a cancellation occur, the client agrees to a fee amounting to 100% of the PO value.",
+        'partnership': "In order to best serve our clients and allocate our production capacity effectively, we treat all confirmed Purchase Orders as binding commitments. We trust you understand that any cancellation would require a charge covering the full value of the order."
+    }
+    
+    cancellation_text = cancellation_texts.get(proposal.cancellation_terms, cancellation_texts['professional'])
+    
     tc_data = [
         [Paragraph("Terms and Conditions:", tc_label), ''],
         [Paragraph("Price", tc_label), Paragraph(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.", tc_style)],
         [Paragraph("Payment", tc_label), Paragraph(proposal.payment_terms, tc_style)],
-        [Paragraph("Cancellation", tc_label), Paragraph("Once Purchase Order (PO) is issued and confirmed, it is considered firm. Micro Image reserves the right to charge the client a cancellation fee amounting to 100% of the total PO value.", tc_style)],
-        [Paragraph("Bank Details", tc_label), Paragraph("MICRO IMAGE INTERNATIONAL CORP.<br/>Banco De Oro - Salcedo Dela Rosa Branch<br/>Golden Rock Bldg. Salcedo St. Legaspi Village Makati City 1200 Phils.", tc_style)],
+        [Paragraph("Cancellation", tc_label), Paragraph(cancellation_text, tc_style)],
+    ]
+
+    if proposal.include_bank_details:
+        tc_data.append([Paragraph("Bank Details", tc_label), Paragraph("MICRO IMAGE INTERNATIONAL CORP.<br/>Banco De Oro - Salcedo Dela Rosa Branch<br/>Golden Rock Bldg. Salcedo St. Legaspi Village Makati City 1200 Phils.", tc_style)])
+
+    tc_data.extend([
         [Paragraph("Delivery Lead time", tc_label), Paragraph(proposal.delivery_lead_time, tc_style)],
         [Paragraph("Warranty", tc_label), Paragraph(proposal.warranty, tc_style)],
-    ]
+    ])
     
     if proposal.closing:
          tc_data.append([Paragraph("Other Terms", tc_label), Paragraph(proposal.closing.replace('\n', '<br/>'), tc_style)])

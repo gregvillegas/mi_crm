@@ -34,9 +34,21 @@ class Proposal(models.Model):
     delivery_lead_time = models.CharField(max_length=200, default="Within five (5) to ten (10) working days from receipt of confirmed purchased order.", help_text="e.g., 5-10 working days")
     warranty = models.CharField(max_length=200, default="1 year - Parts Warranty", help_text="e.g., 1 year - Parts Warranty")
     
+    CANCELLATION_CHOICES = [
+        ('professional', 'Professional and Direct'),
+        ('process', 'Process-Oriented'),
+        ('polite', 'Short and Polite'),
+        ('partnership', 'Partnership-focused'),
+    ]
+    cancellation_terms = models.CharField(max_length=20, choices=CANCELLATION_CHOICES, default='professional', help_text="Select the tone/wording for the cancellation policy")
+    
     # Content
+    special_note = models.TextField(help_text="Optional special note (e.g. SUBJECT PRICE CHANGE...)", blank=True)
     introduction = models.TextField(help_text="Opening text of the proposal", blank=True)
     closing = models.TextField(help_text="Terms and conditions or closing text", blank=True)
+    
+    # Optional Fields
+    include_bank_details = models.BooleanField(default=False, help_text="Include bank details in the proposal PDF")
     
     # Financials
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)

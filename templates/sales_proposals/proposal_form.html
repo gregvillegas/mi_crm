@@ -138,17 +138,26 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         {{ form.payment_terms|as_crispy_field }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         {{ form.delivery_lead_time|as_crispy_field }}
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         {{ form.warranty|as_crispy_field }}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.cancellation_terms|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12">
+                         {{ form.include_bank_details|as_crispy_field }}
                     </div>
                 </div>
                 {{ form.introduction|as_crispy_field }}
+                {{ form.special_note|as_crispy_field }}
                 {{ form.closing|as_crispy_field }}
                 <div class="row">
                     <div class="col-md-4">
