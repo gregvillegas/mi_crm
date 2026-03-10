@@ -18,6 +18,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import io
 from django.core.mail import EmailMessage
 import os
@@ -207,12 +209,21 @@ def generate_pdf_buffer(proposal):
     MIC_YELLOW = colors.HexColor('#FFFF00') # Yellow for the note
     
     # Custom Styles
-    styles.add(ParagraphStyle(name='HeaderContact', parent=styles['Normal'], textColor=colors.white, fontSize=8, leading=10, alignment=TA_RIGHT))
-    styles.add(ParagraphStyle(name='ProposalTitle', parent=styles['Heading1'], fontSize=14, spaceAfter=6))
-    styles.add(ParagraphStyle(name='NormalSmall', parent=styles['Normal'], fontSize=9, leading=11))
-    styles.add(ParagraphStyle(name='TableText', parent=styles['Normal'], fontSize=8, leading=10))
-    styles.add(ParagraphStyle(name='TableHeader', parent=styles['Normal'], fontSize=8, leading=10, textColor=colors.white, fontName='Helvetica-Bold', alignment=TA_CENTER))
-    styles.add(ParagraphStyle(name='NoteHeader', parent=styles['Normal'], fontSize=9, fontName='Helvetica-Bold', backColor=MIC_YELLOW))
+    try:
+        pdfmetrics.registerFont(TTFont('Arial', '/System/Library/Fonts/Supplemental/Arial.ttf'))
+        pdfmetrics.registerFont(TTFont('Arial-Bold', '/System/Library/Fonts/Supplemental/Arial Bold.ttf'))
+        font_normal = 'Arial'
+        font_bold = 'Arial-Bold'
+    except:
+        font_normal = 'Helvetica'
+        font_bold = 'Helvetica-Bold'
+
+    styles.add(ParagraphStyle(name='HeaderContact', parent=styles['Normal'], fontName=font_normal, textColor=colors.white, fontSize=8, leading=10, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle(name='ProposalTitle', parent=styles['Heading1'], fontName=font_bold, fontSize=14, spaceAfter=6))
+    styles.add(ParagraphStyle(name='NormalSmall', parent=styles['Normal'], fontName=font_normal, fontSize=9, leading=11))
+    styles.add(ParagraphStyle(name='TableText', parent=styles['Normal'], fontName=font_normal, fontSize=8, leading=10))
+    styles.add(ParagraphStyle(name='TableHeader', parent=styles['Normal'], fontName=font_bold, fontSize=8, leading=10, textColor=colors.white, alignment=TA_CENTER))
+    styles.add(ParagraphStyle(name='NoteHeader', parent=styles['Normal'], fontName=font_bold, fontSize=9, backColor=MIC_YELLOW))
 
     def draw_footer(canvas, doc):
         canvas.saveState()
@@ -319,7 +330,7 @@ def generate_pdf_buffer(proposal):
         Paragraph("AVAILABILITY", styles['TableHeader'])
     ]]
     
-    currency_symbol = proposal.currency
+    currency_symbol = '₱' if proposal.currency == 'PHP' else '$'
     
     for item in proposal.items.all():
         table_data.append([
@@ -372,7 +383,7 @@ def generate_pdf_buffer(proposal):
         ''
     ])
     
-    col_widths = [1.2*inch, 2.5*inch, 0.5*inch, 1.0*inch, 1.0*inch, 1.3*inch]
+    col_widths = [1.2*inch, 2.5*inch, 0.5*inch, 1.0*inch, 1.3*inch, 1.0*inch]
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
     
     # Styling
@@ -401,7 +412,7 @@ def generate_pdf_buffer(proposal):
     
     # --- TERMS AND CONDITIONS ---
     tc_style = ParagraphStyle(name='TCText', parent=styles['NormalSmall'])
-    tc_label = ParagraphStyle(name='TCLabel', parent=styles['NormalSmall'], fontName='Helvetica-Bold')
+    tc_label = ParagraphStyle(name='TCLabel', parent=styles['NormalSmall'], fontName=font_bold)
     
     # Cancellation Text Logic
     cancellation_texts = {
