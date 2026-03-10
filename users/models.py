@@ -19,6 +19,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='salesperson')
     initials = models.CharField(max_length=3, blank=True, help_text='3-letter initials for the user (e.g., JDO for John Doe)')
     mobile_number = models.CharField(max_length=20, blank=True, null=True, help_text='Mobile number of the user')
+    last_activity = models.DateTimeField(null=True, blank=True, help_text='Timestamp of last user activity')
     is_active = models.BooleanField(default=True, help_text='Designates whether this user should be treated as active. Unselect this instead of deleting accounts.')
 
     # Add related_name to resolve clashes with the default User model
@@ -41,3 +42,19 @@ class User(AbstractUser):
         related_name="custom_user_set", # <--- FIX
         related_query_name="user",
     )
+
+class UserActivityLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_activity_logs')
+    path = models.CharField(max_length=255)
+    method = models.CharField(max_length=10)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    details = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name = 'User Activity Log'
+        verbose_name_plural = 'User Activity Logs'
+
+    def __str__(self):
+        return f"{self.user.username} - {self.method} {self.path} at {self.timestamp}"
