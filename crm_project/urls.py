@@ -7,9 +7,21 @@ from core.views import home, logout_view
 from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
+from rest_framework import routers
+from users.api import UserViewSet, CustomAuthToken
+from crm_project.api_views import SalesFunnelViewSet, ProposalViewSet, SalesActivityViewSet
+
+# API Router
+router = routers.DefaultRouter()
+router.register(r'users', UserViewSet)
+router.register(r'funnel', SalesFunnelViewSet, basename='funnel')
+router.register(r'proposals', ProposalViewSet, basename='proposals')
+router.register(r'activities', SalesActivityViewSet, basename='activities')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/v1/', include(router.urls)),
+    path('api/v1/api-token-auth/', CustomAuthToken.as_view()),
     path('', home, name='home'),
     path('customers/', include('customers.urls')),
     path('users/', include('users.urls')), # <-- ADDED
