@@ -94,10 +94,81 @@ def proposal_list(request):
         except ValueError:
             salesperson_id = None
             
+    # Filter by Month if requested
+    selected_month = request.GET.get('month')
+    if selected_month:
+        try:
+            # selected_month format: YYYY-MM
+            year, month = map(int, selected_month.split('-'))
+            proposals = proposals.filter(date__year=year, date__month=month)
+        except ValueError:
+            selected_month = None
+
+    # Calculate Total Value of filtered proposals (in PHP)
+    total_proposals_value = 0
+    for proposal in proposals:
+        amount_php = proposal.total_amount
+        if proposal.currency == 'USD':
+            rate = proposal.exchange_rate if proposal.exchange_rate > 0 else 1.0
+            amount_php = proposal.total_amount * rate
+        total_proposals_value += amount_php
+
+    # Group by Team for Executive Roles
+    grouped_proposals = []
+    show_team_grouping = False
+    
+    if request.user.role in ['admin', 'president', 'asm', 'vp', 'avp', 'gm']:
+        show_team_grouping = True
+        
+        # Optimize query by prefetching related team info
+        proposals = proposals.select_related('created_by__team_membership__group__team')
+        
+        teams_dict = {}
+        
+        for proposal in proposals:
+            team_name = "Unassigned"
+            try:
+                if hasattr(proposal.created_by, 'team_membership'):
+                    group = proposal.created_by.team_membership.group
+                    if group and group.team:
+                        team_name = group.team.name
+            except Exception:
+                pass
+            
+            if team_name not in teams_dict:
+                teams_dict[team_name] = {
+                    'name': team_name,
+                    'proposals': [],
+                    'total_investment': 0
+                }
+            
+            teams_dict[team_name]['proposals'].append(proposal)
+            
+            # Calculate PHP equivalent for total
+            amount_php = proposal.total_amount
+            if proposal.currency == 'USD':
+                rate = proposal.exchange_rate if proposal.exchange_rate > 0 else 1.0
+                amount_php = proposal.total_amount * rate
+            
+            teams_dict[team_name]['total_investment'] += amount_php
+            
+        # Convert to list and sort
+        grouped_proposals = list(teams_dict.values())
+        # Sort by number of proposals (descending), then by team name
+        grouped_proposals.sort(key=lambda x: (-len(x['proposals']), x['name']))
+
+    # Get unique months for filter dropdown
+    proposal_months = Proposal.objects.dates('date', 'month', order='DESC')
+    
     context = {
         'proposals': proposals,
         'salespeople': salespeople,
-        'selected_salesperson': salesperson_id
+        'selected_salesperson': salesperson_id,
+        'proposal_months': proposal_months,
+        'selected_month': selected_month,
+        'total_proposals_value': total_proposals_value,
+        'show_team_grouping': show_team_grouping,
+        'grouped_proposals': grouped_proposals
     }
     
     return render(request, 'sales_proposals/proposal_list.html', context)
