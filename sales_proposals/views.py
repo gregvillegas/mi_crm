@@ -175,6 +175,11 @@ def proposal_list(request):
 
 @login_required
 def proposal_create(request):
+    customer_id = request.GET.get('customer')
+    customer = None
+    if customer_id:
+        customer = get_object_or_404(Customer, pk=customer_id)
+
     if request.method == 'POST':
         form = ProposalForm(request.POST, user=request.user)
         formset = ProposalItemFormSet(request.POST)
@@ -197,13 +202,18 @@ def proposal_create(request):
                 messages.success(request, 'Proposal created successfully.')
                 return redirect('proposal_detail', pk=proposal.pk)
     else:
-        form = ProposalForm(user=request.user)
+        initial_data = {}
+        if customer:
+            initial_data['customer'] = customer
+            
+        form = ProposalForm(initial=initial_data, user=request.user)
         formset = ProposalItemFormSet()
     
     return render(request, 'sales_proposals/proposal_form.html', {
         'form': form,
         'formset': formset,
-        'title': 'Create Proposal'
+        'title': 'Create Proposal',
+        'customer': customer
     })
 
 @login_required
@@ -281,11 +291,53 @@ def generate_pdf_buffer(proposal):
     
     # Custom Styles
     try:
-        pdfmetrics.registerFont(TTFont('Arial', '/System/Library/Fonts/Supplemental/Arial.ttf'))
-        pdfmetrics.registerFont(TTFont('Arial-Bold', '/System/Library/Fonts/Supplemental/Arial Bold.ttf'))
-        font_normal = 'Arial'
-        font_bold = 'Arial-Bold'
+        # Define potential font paths for different OS
+        # Note: prioritized order. Liberation Sans is preferred on Linux as it supports the Peso sign (₱).
+        # We check for Liberation Sans *before* Arial to avoid loading old Arial versions that lack the symbol.
+        arial_paths = [
+            os.path.join(settings.BASE_DIR, 'core/static/core/fonts/LiberationSans-Regular.ttf'),
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf', # Ubuntu/Debian (System)
+            os.path.join(settings.BASE_DIR, 'core/static/core/fonts/Arial.ttf'),
+            '/System/Library/Fonts/Supplemental/Arial.ttf', # macOS
+            '/usr/share/fonts/truetype/msttcorefonts/Arial.ttf', # Ubuntu/Debian (Often old version without Peso sign)
+            '/usr/share/fonts/truetype/msttcorefonts/arial.ttf', # Ubuntu/Debian (lowercase)
+            '/usr/share/fonts/TTF/Arial.ttf', # Arch/Manjaro
+        ]
+        
+        arial_bold_paths = [
+            os.path.join(settings.BASE_DIR, 'core/static/core/fonts/LiberationSans-Bold.ttf'),
+            '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf', # Ubuntu/Debian (System)
+            os.path.join(settings.BASE_DIR, 'core/static/core/fonts/Arial_Bold.ttf'),
+            '/System/Library/Fonts/Supplemental/Arial Bold.ttf', # macOS
+            '/usr/share/fonts/truetype/msttcorefonts/Arial_Bold.ttf', # Ubuntu/Debian
+            '/usr/share/fonts/truetype/msttcorefonts/arialbd.ttf', # Ubuntu/Debian (lowercase)
+            '/usr/share/fonts/TTF/Arialbd.ttf', # Arch/Manjaro
+        ]
+        
+        # Find first existing Arial font
+        arial_font = None
+        for path in arial_paths:
+            if os.path.exists(path):
+                arial_font = path
+                break
+                
+        # Find first existing Arial Bold font
+        arial_bold_font = None
+        for path in arial_bold_paths:
+            if os.path.exists(path):
+                arial_bold_font = path
+                break
+        
+        if arial_font and arial_bold_font:
+            pdfmetrics.registerFont(TTFont('Arial', arial_font))
+            pdfmetrics.registerFont(TTFont('Arial-Bold', arial_bold_font))
+            font_normal = 'Arial'
+            font_bold = 'Arial-Bold'
+        else:
+            raise Exception("Arial font not found")
+            
     except:
+        # Fallback if Arial is not found anywhere
         font_normal = 'Helvetica'
         font_bold = 'Helvetica-Bold'
 

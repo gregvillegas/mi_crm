@@ -10,16 +10,18 @@ from django.db import models
 from .models import (
     SalesActivity, ActivityType, ActivityLog, SupervisorReport,
     ActivityReminder, CallActivity, MeetingActivity, EmailActivity,
-    ProposalActivity, TaskActivity
+    ProposalActivity, TaskActivity, ProofOfConcept
 )
 from .forms import (
     SalesActivityForm, ActivityFilterForm, QuickActivityForm,
     ActivityUpdateForm, SupervisorReviewForm, BulkActivityUpdateForm,
     ReportGenerationForm, CallActivityForm, MeetingActivityForm,
-    EmailActivityForm, ProposalActivityForm, TaskActivityForm
+    EmailActivityForm, ProposalActivityForm, TaskActivityForm,
+    ProofOfConceptForm
 )
 from teams.models import Group, TeamMembership, SupervisorCommitment
 from users.models import User
+from customers.models import Customer
 
 @login_required
 def dashboard(request):
@@ -683,6 +685,12 @@ def create_activity(request):
     """Create a new sales activity"""
     user = request.user
     
+    # Check if customer ID is provided in query params
+    customer_id = request.GET.get('customer')
+    customer = None
+    if customer_id:
+        customer = get_object_or_404(Customer, pk=customer_id)
+    
     if request.method == 'POST':
         form = SalesActivityForm(request.POST, user=user)
         if form.is_valid():
@@ -702,14 +710,53 @@ def create_activity(request):
             messages.success(request, 'Activity created successfully!')
             return redirect('sales_monitoring:activity_detail', pk=activity.pk)
     else:
-        form = SalesActivityForm(user=user)
+        initial_data = {}
+        if customer:
+            initial_data['customer'] = customer
+            
+        form = SalesActivityForm(initial=initial_data, user=user)
     
     context = {
         'form': form,
         'title': 'Create New Activity',
+        'customer': customer
     }
     
     return render(request, 'sales_monitoring/activity_form.html', context)
+
+@login_required
+def create_poc(request):
+    """Create a new Proof of Concept"""
+    user = request.user
+    
+    # Check if customer ID is provided in query params
+    customer_id = request.GET.get('customer')
+    customer = None
+    if customer_id:
+        customer = get_object_or_404(Customer, pk=customer_id)
+    
+    if request.method == 'POST':
+        form = ProofOfConceptForm(request.POST, user=user)
+        if form.is_valid():
+            poc = form.save()
+            messages.success(request, 'Proof of Concept created successfully!')
+            return redirect('customer_detail', pk=poc.customer.pk)
+    else:
+        initial_data = {}
+        if customer:
+            initial_data['customer'] = customer
+            if hasattr(customer, 'salesperson') and customer.salesperson:
+                initial_data['salesperson'] = customer.salesperson
+            
+        form = ProofOfConceptForm(initial=initial_data, user=user)
+    
+    context = {
+        'form': form,
+        'title': 'Create Proof of Concept',
+        'customer': customer
+    }
+    
+    return render(request, 'sales_monitoring/poc_form.html', context)
 
 @login_required
 def activity_detail(request, pk):

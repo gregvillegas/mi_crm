@@ -5,12 +5,52 @@ from django.http import JsonResponse, HttpResponse
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.core.management import call_command
 from django.db.models import Q
-from .forms import SalespersonCreationForm
-from .models import User
+from .forms import SalespersonCreationForm, UserProfileForm
+from .models import User, UserActivityLog
 from teams.models import TeamMembership, Group
 import tempfile
 import os
+import json
 from datetime import datetime
+
+# ... existing code ...
+
+@login_required
+def profile_view(request):
+    """Allow users to view and update their own profile"""
+    user = request.user
+    
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, request.FILES, instance=user)
+        if form.is_valid():
+            # Check for changes to log
+            if form.has_changed():
+                changes = {}
+                for field in form.changed_data:
+                    changes[field] = {
+                        'old': form.initial.get(field),
+                        'new': form.cleaned_data.get(field)
+                    }
+                
+                # Save changes
+                form.save()
+                
+                # Log the activity
+                UserActivityLog.objects.create(
+                    user=user,
+                    path=request.path,
+                    method='POST',
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    details=f"User updated profile. Changes: {json.dumps(changes, default=str)}"
+                )
+                
+                messages.success(request, 'Your profile has been updated successfully.')
+                return redirect('profile')
+    else:
+        form = UserProfileForm(instance=user)
+    
+    return render(request, 'users/profile.html', {'form': form})
+
 
 def is_manager(user):
     return user.role in ['admin', 'vp', 'avp', 'supervisor', 'asm', 'teamlead']

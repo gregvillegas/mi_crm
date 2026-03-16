@@ -3,10 +3,15 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.db import models
-from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord
+from django.db.models import Sum
+from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord, CustomerNote
 from .forms import CustomerForm
 from users.models import User
 from teams.models import Team, Group, TeamMembership
+from sales_funnel.models import SalesFunnel
+from sales_proposals.models import Proposal
+from sales_monitoring.models import SalesActivity, ProofOfConcept
+from customer_service.models import Ticket
 import csv
 import io
 
@@ -18,6 +23,22 @@ def is_executive(user):
 
 def is_admin_or_exec(user):
     return user.role in ['admin', 'gm', 'vp']
+
+@login_required
+def add_customer_note(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    if request.method == 'POST':
+        content = request.POST.get('content')
+        if content:
+            CustomerNote.objects.create(
+                customer=customer,
+                author=request.user,
+                content=content
+            )
+            messages.success(request, 'Note added successfully.')
+        else:
+            messages.error(request, 'Note content cannot be empty.')
+    return redirect('customer_detail', pk=pk)
 
 @login_required
 def customer_list(request):
@@ -89,11 +110,16 @@ def customer_list(request):
     # Order by VIP status first, then by creation date
     customers = customers.select_related('salesperson').order_by('-is_vip', '-created_at')
     
+    # Determine if user can see admin actions column
+    # Admin, VP, GM: Full access
+    # AVP, ASM, Supervisor: Transfer access
+    can_manage_customers = user.role in ['admin', 'gm', 'vp', 'avp', 'asm', 'supervisor']
+
     # Get filter options for the template
     context = {
         'customers': customers,
         'view_mode': view_mode,
-        'show_actions': (user.role in ['admin','gm','vp']),
+        'show_actions': can_manage_customers,
         'industry_choices': Customer.INDUSTRY_CHOICES,
         'territory_choices': Customer.TERRITORY_CHOICES,
         'current_filters': {
@@ -157,49 +183,34 @@ def delinquent_list(request):
 def create_customer(request):
     user = request.user
     
-    # Check permissions - managers can create any customer, salespeople can only create customers for themselves
-    if user.role not in ['admin', 'gm', 'vp', 'avp', 'supervisor', 'asm', 'teamlead', 'salesperson']:
+    # Check permissions - managers can create any customer
+    # Salespeople are temporarily restricted from adding customers
+    if user.role not in ['admin', 'gm', 'vp', 'avp', 'supervisor', 'asm', 'teamlead']:
         messages.error(request, "You don't have permission to create customers.")
         return redirect('customer_list')
     
     if request.method == 'POST':
-        if user.role == 'salesperson':
-            # Salespeople use the restricted form and are auto-assigned
-            from .forms import SalespersonCustomerForm
-            form = SalespersonCustomerForm(request.POST, salesperson=user)
-            if form.is_valid():
-                customer = form.save()
-                messages.success(request, f'Customer "{customer.company_name}" has been added successfully! You are now assigned as their salesperson.')
-                return redirect('customer_list')
-        else:
-            # Managers use the full form
-            form = CustomerForm(request.POST)
-            if form.is_valid():
-                customer = form.save()
-                messages.success(request, f'Customer "{customer.company_name}" has been created successfully!')
-                return redirect('customer_list')
+        # Managers use the full form
+        form = CustomerForm(request.POST)
+        if form.is_valid():
+            customer = form.save()
+            messages.success(request, f'Customer "{customer.company_name}" has been created successfully!')
+            return redirect('customer_list')
     else:
-        if user.role == 'salesperson':
-            from .forms import SalespersonCustomerForm
-            form = SalespersonCustomerForm(salesperson=user)
-            context = {
-                'form': form,
-                'title': 'Add New Customer',
-                'is_salesperson_form': True
-            }
-        else:
-            form = CustomerForm()
-            context = {
-                'form': form,
-                'title': 'Create New Customer',
-                'is_salesperson_form': False
-            }
+        form = CustomerForm()
+        context = {
+            'form': form,
+            'title': 'Create New Customer',
+            'is_salesperson_form': False
+        }
     
     return render(request, 'customers/customer_form.html', context)
 
 @login_required
 def transfer_customer(request, pk):
-    if not request.user.role == 'admin':
+    # Permission check: Admin, VP, GM, AVP, Supervisor, ASM
+    if request.user.role not in ['admin', 'vp', 'gm', 'avp', 'supervisor', 'asm']:
+        messages.error(request, "You don't have permission to transfer customers.")
         return redirect('customer_list')
 
     customer = get_object_or_404(Customer, pk=pk)
@@ -208,8 +219,10 @@ def transfer_customer(request, pk):
         new_salesperson = get_object_or_404(User, id=new_salesperson_id, role='salesperson')
         customer.salesperson = new_salesperson
         customer.save()
+        messages.success(request, f'Customer "{customer.company_name}" has been transferred to {new_salesperson.get_full_name()}.')
         return redirect('customer_list')
 
+    # Get available salespeople based on role (could be filtered by team in future)
     salespeople = User.objects.filter(role='salesperson', is_active=True)
     return render(request, 'customers/transfer_customer.html', {'customer': customer, 'salespeople': salespeople})
 
@@ -986,3 +999,53 @@ def toggle_customer_active(request, pk):
             })
     
     return JsonResponse({'success': False, 'message': 'Invalid request method.'})
+
+@login_required
+def customer_detail(request, pk):
+    """360-degree view of a customer"""
+    customer = get_object_or_404(Customer, pk=pk)
+    
+    # Check permissions (reuse existing logic or simplify)
+    # For now, allow access if user can see customer_list or is owner
+    
+    # Gather Data
+    active_deals = SalesFunnel.objects.filter(customer=customer).exclude(deal_outcome__in=['won', 'lost', 'cancelled'])
+    all_deals = SalesFunnel.objects.filter(customer=customer).order_by('-created_at')
+    won_deals = SalesFunnel.objects.filter(customer=customer, deal_outcome='won')
+    
+    proposals = Proposal.objects.filter(customer=customer).order_by('-created_at')
+    
+    # Get all activities for this customer
+    all_activities = SalesActivity.objects.filter(customer=customer).select_related('activity_type', 'salesperson').order_by('-scheduled_start')
+    recent_activities = all_activities[:5]
+    
+    # Get POCs
+    pocs = ProofOfConcept.objects.filter(customer=customer).select_related('lead_engineer').order_by('-created_at')
+    active_pocs_count = pocs.filter(status__in=['planned', 'ongoing']).count()
+    
+    # Get Tickets
+    tickets = Ticket.objects.filter(customer=customer).select_related('assigned_to').order_by('-created_at')
+    open_tickets_count = tickets.exclude(status__in=['resolved', 'closed', 'rejected']).count()
+    
+    # Get Notes
+    notes = CustomerNote.objects.filter(customer=customer).select_related('author').order_by('-created_at')
+    
+    # Stats
+    total_won_value = won_deals.aggregate(total=Sum('retail'))['total'] or 0
+    
+    context = {
+        'customer': customer,
+        'active_deals': active_deals,
+        'all_deals': all_deals,
+        'active_deals_count': active_deals.count(),
+        'proposals': proposals,
+        'activities': all_activities,
+        'recent_activities': recent_activities,
+        'pocs': pocs,
+        'pocs_count': active_pocs_count,
+        'tickets': tickets,
+        'open_tickets_count': open_tickets_count,
+        'notes': notes,
+        'total_won_value': total_won_value,
+    }
+    return render(request, 'customers/customer_detail.html', context)

@@ -181,6 +181,19 @@ class Customer(models.Model):
             reason=reason
         )
 
+class CustomerNote(models.Model):
+    """Model for salespersons to add notes about customers"""
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='notes')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='customer_notes')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        
+    def __str__(self):
+        return f"Note on {self.customer} by {self.author}"
 
 class CustomerHistory(models.Model):
     """Model to track all changes made to customers for audit trail and salesperson credit"""
@@ -309,9 +322,6 @@ class DelinquencyRecord(models.Model):
     def __str__(self):
         return f"{self.customer.company_name} - {self.get_status_display()} ₱{self.amount_due}"
     
-    def __str__(self):
-        return f"{self.customer.company_name} - {self.get_action_display()} - {self.timestamp.strftime('%Y-%m-%d %H:%M:%S')}"
-    
     @property
     def action_icon(self):
         """Return FontAwesome icon for the action"""
@@ -329,7 +339,8 @@ class DelinquencyRecord(models.Model):
             'imported': 'fas fa-file-import text-primary',
             'field_updated': 'fas fa-pencil-alt text-secondary',
         }
-        return icons.get(self.action, 'fas fa-circle text-secondary')
+        # Fallback if action is not in the list, though action field is on CustomerHistory
+        return icons.get('created', 'fas fa-circle text-secondary')
     
     @property
     def action_color(self):
@@ -348,29 +359,7 @@ class DelinquencyRecord(models.Model):
             'imported': 'primary',
             'field_updated': 'secondary',
         }
-        return colors.get(self.action, 'secondary')
-    
-    @classmethod
-    def log_customer_change(cls, customer, action, description, changed_by=None, 
-                           old_value=None, new_value=None, request=None):
-        """Convenience method to log a customer change"""
-        history_entry = cls(
-            customer=customer,
-            action=action,
-            description=description,
-            changed_by=changed_by,
-            salesperson_at_time=customer.salesperson,
-            old_value=old_value,
-            new_value=new_value
-        )
-        
-        # Extract request info if available
-        if request:
-            history_entry.ip_address = request.META.get('REMOTE_ADDR')
-            history_entry.user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]  # Truncate if too long
-        
-        history_entry.save()
-        return history_entry
+        return colors.get('created', 'secondary')
 
 
 class CustomerBackup(models.Model):

@@ -31,6 +31,8 @@ urlpatterns = [
     path('leads/', include('lead_generation.urls')), # <-- ADDED
     path('files/', include('file_sharing.urls')), # <-- ADDED
     path('proposals/', include('sales_proposals.urls')), # <-- ADDED
+    path('gamification/', include('gamification.urls')), # <-- ADDED
+    path('service/', include('customer_service.urls')),
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
     path('logout/', logout_view, name='logout'),
     path('accounts/', include(('django.contrib.auth.urls', 'auth'), namespace='auth')),

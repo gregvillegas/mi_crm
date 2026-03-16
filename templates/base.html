@@ -121,12 +121,34 @@
                 display: none;
             }
         }
+        .navbar-nav .nav-link {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 0.8rem !important;
+        }
+        .navbar-nav .nav-link i {
+            font-size: 1.2rem;
+        }
+        .navbar-nav .nav-link span {
+            display: none;
+            margin-left: 0.5rem;
+            white-space: nowrap;
+        }
+        .navbar-nav .nav-link:hover span {
+            display: inline-block;
+        }
+        @media (max-width: 991.98px) {
+            .navbar-nav .nav-link span {
+                display: inline-block;
+            }
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'home' %}">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand me-4" href="{% url 'home' %}">
 		    <img src="{% static 'core/images/mi-logo-wht.png' %}" alt="Micro Image" class="logo-img desktop-logo">
 		    <img src="{% static 'core/images/logo.png' %}" alt="Micro Image" class="logo-img mobile-logo">
 		    CRM</a>
@@ -134,47 +156,55 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0 align-items-center">
                     {% if user.is_authenticated %}
-                       {% if user.role in 'avp,admin,president,gm,vp' %}
-                       <li class="nav-item"><a class="nav-link" href="{% url 'customer_list' %}">Customers</a></li>
-                       {% endif %}
-                        <li class="nav-item"><a class="nav-link" href="{% url 'delinquent_list' %}"></i> Delinquent</a></li>
+                      {% if user.role in 'avp,admin,president,gm,vp,salesperson,supervisor,teamlead,asm' %}
+                       <li class="nav-item">
+                           <a class="nav-link" href="{% url 'customer_list' %}" title="Customers">
+                               <i class="fas fa-users"></i><span>Customers</span>
+                           </a>
+                       </li>
+                      {% endif %} 
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'delinquent_list' %}" title="Delinquent Accounts">
+                                <i class="fas fa-user-times text-danger"></i><span>Delinquent</span>
+                            </a>
+                        </li>
                         {% if user.role in 'salesperson,supervisor,teamlead,asm,avp,admin,president,gm,vp' %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="leadsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-user-plus"></i> Lead
+                                <a class="nav-link dropdown-toggle" href="#" id="leadsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Lead Management">
+                                    <i class="fas fa-user-plus"></i><span>Leads</span>
                                 </a>
-                                <ul class="dropdown-menu" aria-labelledby="leadsDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'lead_generation:dashboard' %}">Lead Dashboard</a></li>
+                                <ul class="dropdown-menu shadow" aria-labelledby="leadsDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'lead_generation:dashboard' %}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
                                     {% if user.role == 'salesperson' %}
-                                        <li><a class="dropdown-item" href="{% url 'lead_generation:my_leads' %}">My Leads</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'lead_generation:my_leads' %}"><i class="fas fa-user-tag me-2"></i>My Leads</a></li>
                                     {% else %}
-                                        <li><a class="dropdown-item" href="{% url 'lead_generation:lead_list' %}">All Leads</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'lead_generation:lead_list' %}"><i class="fas fa-list me-2"></i>All Leads</a></li>
                                     {% endif %}
-                                    <li><a class="dropdown-item" href="{% url 'lead_generation:hot_leads' %}">🔥 Hot Leads</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'lead_generation:hot_leads' %}"><i class="fas fa-fire text-danger me-2"></i>Hot Leads</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     {% if user.role == 'salesperson' %}
-                                        <li><a class="dropdown-item" href="{% url 'lead_generation:lead_create' %}">Add New Lead</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'lead_generation:lead_create' %}"><i class="fas fa-plus me-2"></i>Add New Lead</a></li>
                                     {% endif %}
                                     {% if user.role in 'supervisor,teamlead,asm,avp,admin,president,gm,vp' %}
-                                        <li><a class="dropdown-item" href="{% url 'lead_generation:analytics' %}">Analytics & Reports</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'lead_generation:lead_sources' %}">Lead Sources</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'lead_generation:analytics' %}"><i class="fas fa-chart-pie me-2"></i>Analytics</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'lead_generation:lead_sources' %}"><i class="fas fa-bullhorn me-2"></i>Lead Sources</a></li>
                                     {% endif %}
                                 </ul>
                             </li>
                         {% endif %}
                         {% if user.role in 'salesperson,supervisor,teamlead,asm,avp,admin,president,gm,vp' %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="salesFunnelDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-chart-line"></i> Funnel
+                                <a class="nav-link dropdown-toggle" href="#" id="salesFunnelDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Sales Funnel">
+                                    <i class="fas fa-filter"></i><span>Funnel</span>
                                 </a>
-                                <ul class="dropdown-menu" aria-labelledby="salesFunnelDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'sales_funnel:dashboard' %}">Dashboard</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'sales_funnel:deals_history' %}">Deals History</a></li>
+                                <ul class="dropdown-menu shadow" aria-labelledby="salesFunnelDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'sales_funnel:dashboard' %}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'sales_funnel:deals_history' %}"><i class="fas fa-history me-2"></i>Deals History</a></li>
                                     {% if user.role in 'salesperson,supervisor,asm,avp' %}
                                         <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{% url 'sales_funnel:add_entry' %}">Add New Entry</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'sales_funnel:add_entry' %}"><i class="fas fa-plus me-2"></i>Add New Entry</a></li>
                                     {% endif %}
                                     {% if user.role in 'admin,president,gm,vp' %}
                                         <li><hr class="dropdown-divider"></li>
@@ -183,56 +213,63 @@
                                 </ul>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{% url 'proposal_list' %}">
-                                    <i class="fas fa-file-invoice"></i> Proposals
+                                <a class="nav-link" href="{% url 'proposal_list' %}" title="Proposals">
+                                    <i class="fas fa-file-invoice-dollar"></i><span>Proposals</span>
                                 </a>
                             </li>
                         {% endif %}
                         {% if user.role in 'salesperson,avp,supervisor,teamlead,asm,admin,president,gm,vp' %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="salesMonitoringDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    <i class="fas fa-chart-bar"></i> Monitoring
+                                <a class="nav-link dropdown-toggle" href="#" id="salesMonitoringDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Monitoring">
+                                    <i class="fas fa-desktop"></i><span>Monitoring</span>
                                 </a>
-                                <ul class="dropdown-menu" aria-labelledby="salesMonitoringDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'sales_monitoring:dashboard' %}">Dashboard</a></li>
+                                <ul class="dropdown-menu shadow" aria-labelledby="salesMonitoringDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'sales_monitoring:dashboard' %}"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a></li>
                                     {% if user.role in 'admin,president,gm,vp' %}
                                         <li><a class="dropdown-item" href="{% url 'sales_monitoring:executive_dashboard' %}"><i class="fas fa-crown me-2"></i>Executive Dashboard</a></li>
                                     {% endif %}
                                     {% if user.role in 'avp,admin,president,gm,vp' %}
-                                        <li><a class="dropdown-item" href="{% url 'sales_monitoring:team_performance' %}">Team Performance</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'sales_monitoring:team_performance' %}"><i class="fas fa-users me-2"></i>Team Performance</a></li>
                                     {% endif %}
                                     {% if user.role in 'supervisor,asm,teamlead' %}
-                                        <li><a class="dropdown-item" href="{% url 'sales_monitoring:group_performance' %}">Group Performance</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'sales_monitoring:group_performance' %}"><i class="fas fa-user-friends me-2"></i>Group Performance</a></li>
                                     {% endif %}
 				    {% if user.role in 'supervisor,teamlead,asm,avp,admin,president,gm,vp' %}
-                                    <li><a class="dropdown-item" href="{% url 'sales_monitoring:activity_reports' %}">Reports</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'sales_monitoring:activity_reports' %}"><i class="fas fa-clipboard-list me-2"></i>Reports</a></li>
 				    {% endif %}
                                 </ul>
                             </li>
                         {% endif %}
                         {% if user.role in 'admin,president,gm,vp,avp,asm' %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="teamsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    Teams
+                                <a class="nav-link dropdown-toggle" href="#" id="teamsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Teams">
+                                    <i class="fas fa-sitemap"></i><span>Teams</span>
                                 </a>
-                                <ul class="dropdown-menu" aria-labelledby="teamsDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'team_list' %}">All Teams</a></li>
+                                <ul class="dropdown-menu shadow" aria-labelledby="teamsDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'team_list' %}"><i class="fas fa-network-wired me-2"></i>All Teams</a></li>
                                     {% if user.role in 'admin,president,gm,vp' %}
-                                        <li><a class="dropdown-item" href="{% url 'create_team' %}">Create Team</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'create_team' %}"><i class="fas fa-plus-square me-2"></i>Create Team</a></li>
                                     {% endif %}
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'group_list' %}">All Groups</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'group_list' %}"><i class="fas fa-layer-group me-2"></i>All Groups</a></li>
                                     {% if user.role in 'admin,avp,asm,supervisor' %}
-                                        <li><a class="dropdown-item" href="{% url 'create_group' %}">Create Group</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'create_group' %}"><i class="fas fa-plus-circle me-2"></i>Create Group</a></li>
                                     {% endif %}
                                 </ul>
                             </li>
                         {% endif %}
+                        {% if user.role == 'avp' %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'quota_management' %}" title="Quota Management">
+                                    <i class="fas fa-chart-pie text-warning"></i><span>Quotas</span>
+                                </a>
+                            </li>
+                        {% endif %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="filesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="fas fa-file-alt"></i> Files
+                            <a class="nav-link dropdown-toggle" href="#" id="filesDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Files">
+                                <i class="fas fa-folder"></i><span>Files</span>
                             </a>
-                            <ul class="dropdown-menu" aria-labelledby="filesDropdown">
+                            <ul class="dropdown-menu shadow" aria-labelledby="filesDropdown">
                                 <li><a class="dropdown-item" href="{% url 'all_files' %}"><i class="fas fa-folder-open me-2"></i>All Group Files</a></li>
                                 <li><a class="dropdown-item" href="{% url 'my_files' %}"><i class="fas fa-user me-2"></i>My Uploaded Files</a></li>
                                 <li><hr class="dropdown-divider"></li>
@@ -242,34 +279,53 @@
                         </li>
                         {% if user.role == 'admin' %}
                             <li class="nav-item dropdown">
-                                <a class="nav-link dropdown-toggle" href="#" id="usersDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                    Users
+                                <a class="nav-link dropdown-toggle" href="#" id="usersDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="User Management">
+                                    <i class="fas fa-users-cog"></i><span>Users</span>
                                 </a>
-                                <ul class="dropdown-menu" aria-labelledby="usersDropdown">
-                                    <li><a class="dropdown-item" href="{% url 'user_management' %}">Manage Users</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'create_user' %}">Create User</a></li>
+                                <ul class="dropdown-menu shadow" aria-labelledby="usersDropdown">
+                                    <li><a class="dropdown-item" href="{% url 'user_management' %}"><i class="fas fa-users me-2"></i>Manage Users</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'create_user' %}"><i class="fas fa-user-plus me-2"></i>Create User</a></li>
                                 </ul>
                             </li>
                         {% endif %}
                         {% if user.role in 'asm,avp' %}
-                            <li class="nav-item"><a class="nav-link" href="{% url 'create_salesperson' %}"><i class="fas fa-user-plus"></i>AE</a></li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'create_salesperson' %}" title="Create Salesperson">
+                                    <i class="fas fa-user-tie"></i><span>Add AE</span>
+                                </a>
+                            </li>
                         {% endif %}
                     {% endif %}
                 </ul>
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav ms-auto align-items-center">
                     {% if user.is_authenticated %}
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                {{ user.username }} ({{ user.get_role_display }})
+                            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                {% if user.profile_picture %}
+                                    <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" class="rounded-circle me-2" style="width: 32px; height: 32px; object-fit: cover;">
+                                {% else %}
+                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                        {{ user.initials|default:user.username|make_list|first|upper }}
+                                    </div>
+                                {% endif %}
+                                <div class="d-flex flex-column align-items-start">
+                                    <span class="fw-bold">{{ user.username }}</span>
+                                    <span class="badge bg-warning text-dark" style="font-size: 0.7rem;">Lvl {{ user_level }} • {{ user_points }} pts</span>
+                                </div>
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown">
+                                <li><h6 class="dropdown-header">{{ user.get_role_display }}</h6></li>
+                                <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-user-circle me-2"></i>My Profile</a></li>
+                                <li><a class="dropdown-item" href="{% url 'leaderboard' %}"><i class="fas fa-trophy me-2"></i>Leaderboard</a></li>
+                                <li><a class="dropdown-item" href="{% url 'badges' %}"><i class="fas fa-medal me-2"></i>My Badges</a></li>
+                                <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'auth:password_change' %}"><i class="fas fa-key me-2"></i>Change Password</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
+                                <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                             </ul>
                         </li>
                     {% else %}
-                        <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'login' %}"><i class="fas fa-sign-in-alt me-2"></i><span>Login</span></a></li>
                     {% endif %}
                 </ul>
             </div>

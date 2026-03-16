@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Leaderboard | CRM{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="fas fa-trophy text-warning me-2"></i>Leaderboard</h2>
+            <p class="text-muted">Top Sales Performers</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <div class="card bg-primary text-white">
+                <div class="card-body py-2">
+                    <h5 class="mb-0">Your Rank: {% if user_rank %}#{{ user_rank }}{% else %}<span style="font-size: 0.8em;">Observer</span>{% endif %}</h5>
+                    <small>Total Points: {{ my_profile.total_points|intcomma }}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center" style="width: 80px;">Rank</th>
+                                <th>User</th>
+                                <th>Level</th>
+                                <th>Streak</th>
+                                <th class="text-end">Total Points</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for profile in top_users %}
+                            <tr {% if profile.user == request.user %}class="table-primary fw-bold"{% endif %}>
+                                <td class="text-center">
+                                    {% if forloop.counter == 1 %}
+                                        <i class="fas fa-medal text-warning fa-lg"></i>
+                                    {% elif forloop.counter == 2 %}
+                                        <i class="fas fa-medal text-secondary fa-lg"></i>
+                                    {% elif forloop.counter == 3 %}
+                                        <i class="fas fa-medal text-danger fa-lg" style="color: #cd7f32 !important;"></i>
+                                    {% else %}
+                                        #{{ forloop.counter }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        {% if profile.user.profile_picture %}
+                                            <img src="{{ profile.user.profile_picture.url }}" alt="{{ profile.user.username }}" class="rounded-circle me-3" style="width: 40px; height: 40px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                                {{ profile.user.initials|default:profile.user.username|make_list|first|upper }}
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <div class="fw-bold">{{ profile.user.get_full_name }}</div>
+                                            <small class="text-muted">@{{ profile.user.username }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-info text-dark">Lvl {{ profile.current_level }}</span>
+                                </td>
+                                <td>
+                                    {% if profile.current_streak > 0 %}
+                                        <span class="text-danger fw-bold"><i class="fas fa-fire me-1"></i>{{ profile.current_streak }} days</span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-end fw-bold text-primary">
+                                    {{ profile.total_points|intcomma }}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center py-4">No data available yet.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

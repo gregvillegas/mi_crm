@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0">Ticket #{{ ticket.id }}: {{ ticket.title }}</h1>
+            <div class="mt-2 text-muted">
+                Customer: <a href="{% url 'customer_detail' ticket.customer.id %}" class="text-decoration-none">{{ ticket.customer.company_name }}</a>
+                {% if ticket.redmine_ticket_id %}
+                | Redmine Issue: #{{ ticket.redmine_ticket_id }}
+                {% endif %}
+            </div>
+        </div>
+        <div>
+            <a href="{% url 'customer_detail' ticket.customer.id %}#support" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Customer
+            </a>
+            {% if ticket.redmine_ticket_id %}
+            <a href="{% url 'sync_ticket_status' ticket.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-sync me-1"></i> Sync Status
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Description</h5>
+                </div>
+                <div class="card-body">
+                    {% if redmine_data %}
+                        {{ redmine_data.description|linebreaksbr }}
+                    {% else %}
+                        {{ ticket.description|linebreaksbr }}
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if redmine_data and redmine_data.journals %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Activity / Comments</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        {% for journal in redmine_data.journals %}
+                            {% if journal.notes or journal.details %}
+                            <div class="card mb-3 border-0 border-start border-4 border-info bg-light">
+                                <div class="card-body py-2">
+                                    <div class="d-flex justify-content-between">
+                                        <h6 class="mb-1 fw-bold">{{ journal.user.name }}</h6>
+                                        <small class="text-muted">{{ journal.created_on|date:"M d, Y H:i"|default:journal.created_on }}</small>
+                                    </div>
+                                    {% if journal.notes %}
+                                        <p class="mb-2 small">{{ journal.notes|linebreaksbr }}</p>
+                                    {% endif %}
+                                    {% if journal.details %}
+                                        <ul class="mb-0 small text-muted list-unstyled">
+                                            {% for detail in journal.details %}
+                                                <li><em>Updated {{ detail.name }}: {% if detail.old_value %}{{ detail.old_value }} &rarr; {% endif %}{{ detail.new_value }}</em></li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tbody>
+                            <tr>
+                                <th class="text-muted" style="width: 40%">Status:</th>
+                                <td>
+                                    {% if redmine_data %}
+                                        <span class="badge bg-secondary">{{ redmine_data.status.name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ ticket.get_status_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Priority:</th>
+                                <td>
+                                    {% if redmine_data %}
+                                        <span class="badge bg-info">{{ redmine_data.priority.name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-info">{{ ticket.get_priority_display }}</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Assigned To:</th>
+                                <td>
+                                    {% if redmine_data %}
+                                        {{ redmine_data.assigned_to.name|default:"Unassigned" }}
+                                    {% else %}
+                                        {{ ticket.assigned_to.get_full_name|default:"Unassigned" }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Author:</th>
+                                <td>
+                                    {% if redmine_data %}
+                                        {{ redmine_data.author.name }}
+                                    {% else %}
+                                        {{ ticket.created_by.get_full_name }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="text-muted">Created:</th>
+                                <td>
+                                    {% if redmine_data %}
+                                        {{ redmine_data.created_on|date:"M d, Y"|default:ticket.created_at|date:"M d, Y" }}
+                                    {% else %}
+                                        {{ ticket.created_at|date:"M d, Y" }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% if redmine_data.updated_on %}
+                            <tr>
+                                <th class="text-muted">Updated:</th>
+                                <td>{{ redmine_data.updated_on|date:"M d, Y"|default:redmine_data.updated_on }}</td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -395,3 +395,53 @@ def update_company_target(request):
             form = CompanyAnnualTargetForm(initial={'year': current_year})
     logs = CompanyAnnualTargetLog.objects.filter(target__year=current_year)[:10]
     return render(request, 'teams/update_company_target.html', {'form': form, 'logs': logs, 'title': f'Update Company Annual Target ({current_year})'})
+
+@login_required
+def quota_management(request):
+    if request.user.role != 'avp':
+         from django.http import HttpResponseForbidden
+         return HttpResponseForbidden("You don't have permission to access this page.")
+    
+    from .models import RoleMonthlyQuota
+    
+    # Get AVP's Teams
+    teams = Team.objects.filter(avp=request.user)
+    
+    today = timezone.now().date()
+    month_start = today.replace(day=1)
+    
+    team_data = []
+    for team in teams:
+        asm_quota = None
+        if team.asm:
+             asm_quota = RoleMonthlyQuota.objects.filter(user=team.asm, month=month_start).first()
+        
+        groups = Group.objects.filter(team=team)
+        group_data = []
+        for group in groups:
+            supervisor_quota = None
+            if group.supervisor:
+                supervisor_quota = RoleMonthlyQuota.objects.filter(user=group.supervisor, month=month_start).first()
+            
+            memberships = TeamMembership.objects.filter(group=group)
+            
+            group_data.append({
+                'group': group,
+                'supervisor_quota': supervisor_quota,
+                'memberships': memberships
+            })
+            
+        team_data.append({
+            'team': team,
+            'asm_quota': asm_quota,
+            'groups': group_data
+        })
+    
+    # Also get AVP's own quota
+    avp_quota = RoleMonthlyQuota.objects.filter(user=request.user, month=month_start).first()
+
+    return render(request, 'teams/quota_management.html', {
+        'team_data': team_data, 
+        'month': month_start,
+        'avp_quota': avp_quota
+    })

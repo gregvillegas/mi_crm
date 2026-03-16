@@ -55,3 +55,37 @@ class SalespersonCreationForm(UserCreationForm):
             from teams.models import TeamMembership
             TeamMembership.objects.create(user=user, group=self.cleaned_data['group'])
         return user
+
+class UserProfileForm(forms.ModelForm):
+    """Form for users to update their own profile"""
+    class Meta:
+        model = User
+        fields = ['profile_picture', 'first_name', 'last_name', 'email', 'mobile_number', 'initials']
+        help_texts = {
+            'initials': 'Your initials (e.g., JD)',
+            'mobile_number': 'Your contact number',
+            'profile_picture': 'Upload a profile picture (optional)'
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.attrs = {'enctype': 'multipart/form-data'}
+        self.helper.layout = Layout(
+            Row(
+                Column('profile_picture', css_class='form-group col-md-12 mb-3'),
+            ),
+            Row(
+                Column('first_name', css_class='form-group col-md-6 mb-3'),
+                Column('last_name', css_class='form-group col-md-6 mb-3'),
+            ),
+            Row(
+                Column('email', css_class='form-group col-md-6 mb-3'),
+                Column('mobile_number', css_class='form-group col-md-6 mb-3'),
+            ),
+            Row(
+                Column('initials', css_class='form-group col-md-6 mb-3'),
+            ),
+            HTML('<br>'),
+            Submit('submit', 'Update Profile', css_class='btn btn-primary')
+        )

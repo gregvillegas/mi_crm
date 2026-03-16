@@ -16,6 +16,7 @@ urlpatterns = [
     
     # Activity management
     path('activity/create/', views.create_activity, name='create_activity'),
+    path('poc/create/', views.create_poc, name='create_poc'),
     path('activity/<int:pk>/', views.activity_detail, name='activity_detail'),
     path('activity/<int:pk>/update/', views.update_activity, name='update_activity'),
     path('quick-log/', views.quick_log_activity, name='quick_log_activity'),

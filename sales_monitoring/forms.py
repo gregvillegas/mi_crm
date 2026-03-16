@@ -5,7 +5,8 @@ from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Fieldset, Row, Column, Submit, Button, Div
 from .models import (
     SalesActivity, ActivityType, CallActivity, MeetingActivity,
-    EmailActivity, ProposalActivity, TaskActivity, ActivityReminder
+    EmailActivity, ProposalActivity, TaskActivity, ActivityReminder,
+    ProofOfConcept
 )
 from customers.models import Customer
 from users.models import User
@@ -91,6 +92,77 @@ class SalesActivityForm(forms.ModelForm):
         # Validate customer requirement
         if activity_type and activity_type.requires_customer and not customer:
             raise ValidationError(f'Customer is required for {activity_type.name} activities.')
+        
+        return cleaned_data
+
+class ProofOfConceptForm(forms.ModelForm):
+    class Meta:
+        model = ProofOfConcept
+        fields = [
+            'title', 'customer', 'sales_funnel', 'lead_engineer',
+            'salesperson', 'start_date', 'end_date', 'success_criteria',
+            'status', 'notes'
+        ]
+        widgets = {
+            'start_date': forms.DateInput(attrs={'type': 'date'}),
+            'end_date': forms.DateInput(attrs={'type': 'date'}),
+            'success_criteria': forms.Textarea(attrs={'rows': 3}),
+            'notes': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # If customer is provided in initial, lock it
+        if self.initial.get('customer'):
+            self.fields['customer'].disabled = True
+            
+        # Limit salespeople and engineers
+        self.fields['salesperson'].queryset = User.objects.filter(role='salesperson', is_active=True)
+        self.fields['lead_engineer'].queryset = User.objects.filter(
+            role__in=['engineer', 'presales', 'salesperson'], 
+            is_active=True
+        )
+
+        self.helper = FormHelper()
+        self.helper.layout = Layout(
+            Fieldset(
+                'POC Details',
+                'title',
+                Row(
+                    Column('customer', css_class='form-group col-md-6'),
+                    Column('sales_funnel', css_class='form-group col-md-6'),
+                ),
+                Row(
+                    Column('salesperson', css_class='form-group col-md-6'),
+                    Column('lead_engineer', css_class='form-group col-md-6'),
+                ),
+            ),
+            Fieldset(
+                'Schedule & Status',
+                Row(
+                    Column('start_date', css_class='form-group col-md-4'),
+                    Column('end_date', css_class='form-group col-md-4'),
+                    Column('status', css_class='form-group col-md-4'),
+                ),
+            ),
+            Fieldset(
+                'Objectives',
+                'success_criteria',
+                'notes',
+            ),
+            Submit('submit', 'Save POC', css_class='btn btn-primary'),
+            Button('cancel', 'Cancel', css_class='btn btn-secondary', onclick='history.back()'),
+        )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        start_date = cleaned_data.get('start_date')
+        end_date = cleaned_data.get('end_date')
+
+        if start_date and end_date and end_date < start_date:
+            raise ValidationError('End date cannot be before start date.')
         
         return cleaned_data
 

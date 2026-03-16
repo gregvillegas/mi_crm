@@ -6,13 +6,24 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.contrib import messages
 from django.db.models import Sum, Count
+from django.utils import timezone
 from sales_funnel.models import SalesFunnel
 from teams.models import Team, Group, TeamMembership
+from gamification.models import UserMissionProgress
 
 @login_required
 def home(request):
     user = request.user
     context = {'user': user}
+    
+    # Gamification: Get Daily Missions
+    today = timezone.now().date()
+    my_missions = UserMissionProgress.objects.filter(
+        user=user, 
+        date_assigned=today
+    ).select_related('mission')
+    
+    context['my_missions'] = my_missions
     
     # Add sales funnel data for eligible users
     if user.role in ['salesperson', 'supervisor', 'teamlead', 'asm', 'avp', 'admin', 'president', 'gm', 'vp']:

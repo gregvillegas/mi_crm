@@ -19,7 +19,7 @@
                 </a>
             </div>
         {% endif %}
-        {% if user.role == 'admin' or user.role == 'vp' or user.role == 'gm' or user.role == 'avp' or user.role == 'supervisor' or user.role == 'asm' or user.role == 'teamlead' or user.role == 'salesperson' %}
+        {% if user.role == 'admin' or user.role == 'vp' or user.role == 'gm' or user.role == 'avp' or user.role == 'supervisor' or user.role == 'asm' or user.role == 'teamlead' %}
             <a href="{% url 'create_customer' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Add Customer
             </a>
@@ -162,67 +162,32 @@
 {% if view_mode == 'table' %}
 <!-- Customer Table -->
 <div class="table-responsive">
-    <table class="table table-striped table-hover">
+    <table class="table table-striped table-hover align-middle">
         <thead class="table-dark">
             <tr>
                 <th>Company</th>
                 <th>Contact</th>
-                <th>Business Info</th>
                 <th>Status</th>
                 <th>Salesperson</th>
-                <th>History</th>
-                {% if show_actions %}
-                    <th>Admin Actions</th>
-                {% endif %}
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
             {% for customer in customers %}
                 <tr class="{% if customer.is_vip %}table-warning{% elif not customer.is_active %}table-secondary{% endif %}">
                     <td>
-                        <div class="d-flex align-items-center">
-                            <div>
-                                <strong>{{ customer.company_name }}</strong>
-                                {% if customer.is_vip %}
-                                    <span class="badge bg-warning text-dark ms-1">VIP</span>
-                                {% endif %}
-                                {% if not customer.is_active %}
-                                    <span class="badge bg-secondary ms-1">Inactive</span>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </td>
-                    <td>
-                        <div>
-                            <small class="text-muted">Contact Person:</small><br>
-                            <strong>{{ customer.contact_person_name }}</strong>
-                            {% if customer.contact_person_position %}
-                                <br><small class="text-muted">{{ customer.contact_person_position }}</small>
-                            {% endif %}
-                        </div>
-                        <div class="mt-1">
-                            <small class="text-muted">Email:</small><br>
-                            <a href="mailto:{{ customer.email }}">{{ customer.email }}</a>
-                        </div>
-                        {% if customer.phone_number %}
-                            <div class="mt-1">
-                                <small class="text-muted">Phone:</small><br>
-                                <a href="tel:{{ customer.phone_number }}">{{ customer.phone_number }}</a>
-                            </div>
+                        <a href="{% url 'customer_detail' customer.pk %}" class="text-decoration-none fw-bold text-dark">{{ customer.company_name }}</a>
+                        {% if customer.is_vip %}
+                            <span class="badge bg-warning text-dark ms-1">VIP</span>
+                        {% endif %}
+                        {% if not customer.is_active %}
+                            <span class="badge bg-secondary ms-1">Inactive</span>
                         {% endif %}
                     </td>
                     <td>
-                        {% if customer.industry %}
-                            <div>
-                                <small class="text-muted">Industry:</small><br>
-                                {{ customer.get_industry_display }}
-                            </div>
-                        {% endif %}
-                        {% if customer.territory %}
-                            <div class="mt-1">
-                                <small class="text-muted">Territory:</small><br>
-                                {{ customer.get_territory_display }}
-                            </div>
+                        <strong>{{ customer.contact_person_name }}</strong>
+                        {% if customer.contact_person_position %}
+                            <small class="text-muted">({{ customer.contact_person_position }})</small>
                         {% endif %}
                     </td>
                     <td>
@@ -232,64 +197,69 @@
                     </td>
                     <td>
                         {% if customer.salesperson %}
-                            <div class="text-center">
+                            <div class="d-flex align-items-center">
                                 {% if customer.salesperson.initials %}
-                                    <span class="badge bg-primary fs-6 px-3 py-2">{{ customer.salesperson.initials }}</span>
+                                    <span class="badge bg-primary me-2">{{ customer.salesperson.initials }}</span>
                                 {% else %}
-                                    <span class="badge bg-secondary fs-6 px-3 py-2">{{ customer.salesperson.first_name|first|upper }}{{ customer.salesperson.last_name|first|upper }}{{ customer.salesperson.username|first|upper }}</span>
+                                    <span class="badge bg-secondary me-2">{{ customer.salesperson.username|slice:":2"|upper }}</span>
                                 {% endif %}
-                                <br><small class="text-muted">@{{ customer.salesperson.username }}</small>
+                                <small class="text-muted">@{{ customer.salesperson.username }}</small>
                             </div>
                         {% else %}
                             <span class="text-muted">Unassigned</span>
                         {% endif %}
                     </td>
-                    <td class="text-center">
-                        <a href="{% url 'customer_history' customer.pk %}" 
-                           class="btn btn-sm btn-outline-primary" title="View Customer History">
-                            <i class="fas fa-history"></i>
-                        </a>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <!-- Quick Action Buttons (Restricted to Admin/Exec) -->
+                            {% if user.role in 'admin,gm,vp' %}
+                            <button class="btn btn-sm {% if customer.is_vip %}btn-warning{% else %}btn-outline-warning{% endif %} toggle-vip-btn" 
+                                    data-customer-id="{{ customer.pk }}" 
+                                    data-customer-name="{{ customer.full_name }}"
+                                    title="{% if customer.is_vip %}Remove VIP status{% else %}Make VIP{% endif %}">
+                                <i class="fas fa-star"></i>
+                            </button>
+                            <button class="btn btn-sm {% if customer.is_active %}btn-success{% else %}btn-danger{% endif %} toggle-active-btn" 
+                                    data-customer-id="{{ customer.pk }}" 
+                                    data-customer-name="{{ customer.full_name }}"
+                                    title="{% if customer.is_active %}Deactivate{% else %}Activate{% endif %}">
+                                <i class="fas {% if customer.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                            </button>
+                            {% endif %}
+                            
+                            <!-- Management Buttons -->
+                            <a href="{% url 'customer_detail' customer.pk %}" 
+                               class="btn btn-sm btn-outline-info" title="View Details">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            
+                            {% if user.role in 'admin,gm,vp' %}
+                            <a href="{% url 'edit_customer' customer.pk %}" 
+                               class="btn btn-sm btn-outline-primary" title="Edit Customer Details">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <a href="{% url 'customer_history' customer.pk %}" 
+                               class="btn btn-sm btn-outline-success" title="View History">
+                                <i class="fas fa-timeline"></i>
+                            </a>
+                            <a href="{% url 'customer_backups' customer.pk %}" 
+                               class="btn btn-sm btn-outline-info" title="View Backups">
+                                <i class="fas fa-database"></i>
+                            </a>
+                            {% endif %}
+                            
+                            {% if user.role in 'admin,gm,vp,avp,asm,supervisor' %}
+                            <a href="{% url 'transfer_customer' customer.pk %}" 
+                               class="btn btn-sm btn-outline-secondary" title="Transfer Customer">
+                                <i class="fas fa-exchange-alt"></i>
+                            </a>
+                            {% endif %}
+                        </div>
                     </td>
-                    {% if show_actions %}
-                        <td>
-                            <div class="btn-group" role="group">
-                                <!-- Quick Action Buttons -->
-                                <button class="btn btn-sm {% if customer.is_vip %}btn-warning{% else %}btn-outline-warning{% endif %} toggle-vip-btn" 
-                                        data-customer-id="{{ customer.pk }}" 
-                                        data-customer-name="{{ customer.full_name }}"
-                                        title="{% if customer.is_vip %}Remove VIP status{% else %}Make VIP{% endif %}">
-                                    <i class="fas fa-star"></i>
-                                </button>
-                                <button class="btn btn-sm {% if customer.is_active %}btn-success{% else %}btn-danger{% endif %} toggle-active-btn" 
-                                        data-customer-id="{{ customer.pk }}" 
-                                        data-customer-name="{{ customer.full_name }}"
-                                        title="{% if customer.is_active %}Deactivate{% else %}Activate{% endif %}">
-                                    <i class="fas {% if customer.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
-                                </button>
-                                <!-- Management Buttons -->
-                                <a href="{% url 'edit_customer' customer.pk %}" 
-                                   class="btn btn-sm btn-outline-primary" title="Edit Customer Details">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <a href="{% url 'customer_history' customer.pk %}" 
-                                   class="btn btn-sm btn-outline-success" title="View History">
-                                    <i class="fas fa-timeline"></i>
-                                </a>
-                                <a href="{% url 'customer_backups' customer.pk %}" 
-                                   class="btn btn-sm btn-outline-info" title="View Backups">
-                                    <i class="fas fa-database"></i>
-                                </a>
-                                <a href="{% url 'transfer_customer' customer.pk %}" 
-                                   class="btn btn-sm btn-outline-secondary" title="Transfer Customer">
-                                    <i class="fas fa-exchange-alt"></i>
-                                </a>
-                            </div>
-                        </td>
-                    {% endif %}
                 </tr>
             {% empty %}
                 <tr>
-                    <td colspan="{% if show_actions %}7{% else %}6{% endif %}" class="text-center py-4">
+                    <td colspan="5" class="text-center py-4">
                         <div class="text-muted">
                             <i class="fas fa-users fa-3x mb-3"></i>
                             <h5>No customers found</h5>
@@ -309,7 +279,7 @@
         <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
-                    <strong>{{ customer.company_name }}</strong>
+                    <a href="{% url 'customer_detail' customer.pk %}" class="text-decoration-none fw-bold text-dark">{{ customer.company_name }}</a>
                     {% if customer.is_vip %}
                         <span class="badge bg-warning text-dark ms-1">VIP</span>
                     {% endif %}
@@ -356,8 +326,8 @@
                 <span class="badge bg-{% if customer.is_vip and customer.is_active %}warning text-dark{% elif customer.is_vip and not customer.is_active %}secondary{% elif customer.is_active %}success{% else %}danger{% endif %}">
                     {{ customer.display_status }}
                 </span>
-                {% if show_actions %}
                 <div class="btn-group" role="group">
+                    {% if user.role in 'admin,gm,vp' %}
                     <button class="btn btn-sm {% if customer.is_vip %}btn-warning{% else %}btn-outline-warning{% endif %} toggle-vip-btn" 
                             data-customer-id="{{ customer.pk }}" 
                             data-customer-name="{{ customer.full_name }}"
@@ -370,12 +340,20 @@
                             title="{% if customer.is_active %}Deactivate{% else %}Activate{% endif %}">
                         <i class="fas {% if customer.is_active %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
                     </button>
+                    {% endif %}
+                    
+                    <a href="{% url 'customer_detail' customer.pk %}" 
+                       class="btn btn-sm btn-outline-info" title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    
+                    {% if user.role in 'admin,gm,vp' %}
                     <a href="{% url 'edit_customer' customer.pk %}" 
                        class="btn btn-sm btn-outline-primary" title="Edit Customer">
                         <i class="fas fa-edit"></i>
                     </a>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
         </div>
     </div>

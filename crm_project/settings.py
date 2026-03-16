@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     'lead_generation',
     'file_sharing',
     'sales_proposals',
+    'customer_service',
+    'gamification',
 ]
 
 MIDDLEWARE = [
@@ -79,6 +81,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'gamification.context_processors.gamification_status',
             ],
         },
     },
@@ -202,3 +205,9 @@ if not EMAIL_HOST_USER:
     EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
     print("WARNING: EMAIL_HOST_USER not set. Using filebased email backend (sent_emails/).")
 
+# Redmine Configuration
+REDMINE_URL = 'http://10.30.30.131'
+REDMINE_USERNAME = 'customer_service'
+REDMINE_API_KEY = 'ddb91980bc4a2f2197bc99c14c175752707459da'
+REDMINE_PROJECT_ID = 14 # Support Project
+REDMINE_TRACKER_ID = 7 # On-site Support (Change to 13 for Remote Support if needed)

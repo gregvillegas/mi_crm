@@ -588,8 +588,19 @@
                                         {% endif %}
                                     </td>
                                     <td>
-                                        <strong>{{ performer.name }}</strong><br>
-                                        <small class="text-muted">{{ performer.salesperson.username }}</small>
+                                        <div class="d-flex align-items-center">
+                                            {% if performer.salesperson.profile_picture %}
+                                                <img src="{{ performer.salesperson.profile_picture.url }}" alt="{{ performer.salesperson.username }}" class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% else %}
+                                                <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px; font-size: 0.9rem;">
+                                                    {{ performer.salesperson.initials|default:performer.salesperson.username|make_list|first|upper }}
+                                                </div>
+                                            {% endif %}
+                                            <div>
+                                                <strong>{{ performer.name }}</strong><br>
+                                                <small class="text-muted">{{ performer.salesperson.username }}</small>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>{{ performer.team_name }}</td>
                                     <td>{{ performer.group_name }}</td>

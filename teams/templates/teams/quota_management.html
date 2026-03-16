@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Quota Management - {{ user.get_full_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="fas fa-chart-pie me-2"></i>Quota Management</h1>
+        <div class="text-muted">
+            <i class="fas fa-calendar-alt me-1"></i> {{ month|date:"F Y" }}
+        </div>
+    </div>
+
+    <!-- AVP Personal Quota -->
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">My Personal Quota (AVP)</h5>
+            <span class="badge bg-light text-dark">
+                {{ month|date:"F Y" }}
+            </span>
+        </div>
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="mb-0">₱{{ avp_quota.amount|default:0|floatformat:2|intcomma }}</h2>
+                <small class="text-muted">Target for this month</small>
+            </div>
+            <a href="{% url 'update_role_quota' user.id %}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-1"></i> Update My Quota
+            </a>
+        </div>
+    </div>
+
+    {% for data in team_data %}
+    <div class="card mb-5 shadow-sm">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="h4 mb-0 text-primary">{{ data.team.name }}</h3>
+                {% if data.team.asm %}
+                <div class="d-flex align-items-center gap-3">
+                    <div class="text-end">
+                        <div class="small text-muted">ASM: {{ data.team.asm.get_full_name }}</div>
+                        <div class="fw-bold">Quota: ₱{{ data.asm_quota.amount|default:0|floatformat:2|intcomma }}</div>
+                    </div>
+                    <a href="{% url 'update_role_quota' data.team.asm.id %}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                </div>
+                {% else %}
+                <span class="badge bg-secondary">No ASM Assigned</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                {% for g_data in data.groups %}
+                <div class="col-lg-6 mb-4">
+                    <div class="card h-100 border-0 shadow-sm bg-light">
+                        <div class="card-header bg-white border-bottom-0 pt-3 pb-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <h5 class="card-title text-dark mb-0">{{ g_data.group.name }}</h5>
+                                {% if g_data.group.supervisor %}
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="text-end lh-1">
+                                        <div class="small fw-bold">{{ g_data.group.supervisor.get_full_name }}</div>
+                                        <div class="badge bg-info text-dark mt-1">Sup. Quota: ₱{{ g_data.supervisor_quota.amount|default:0|floatformat:2|intcomma }}</div>
+                                    </div>
+                                    <a href="{% url 'update_role_quota' g_data.group.supervisor.id %}" class="btn btn-xs btn-link text-secondary p-0">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </a>
+                                </div>
+                                {% else %}
+                                <span class="badge bg-warning text-dark">No Supervisor</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-muted small text-uppercase fw-bold mb-3 border-bottom pb-2">Salespeople Quotas</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm table-hover mb-0" style="font-size: 0.9rem;">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th class="text-end">Quota</th>
+                                            <th style="width: 50px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for membership in g_data.memberships %}
+                                        {% if membership.user.role == 'salesperson' %}
+                                        <tr>
+                                            <td class="align-middle">
+                                                <div class="d-flex align-items-center">
+                                                    {% if membership.user.profile_picture %}
+                                                        <img src="{{ membership.user.profile_picture.url }}" class="rounded-circle me-2" width="24" height="24">
+                                                    {% else %}
+                                                        <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" style="width: 24px; height: 24px; font-size: 0.7rem;">
+                                                            {{ membership.user.initials|default:membership.user.username|make_list|first|upper }}
+                                                        </div>
+                                                    {% endif %}
+                                                    {{ membership.user.get_full_name }}
+                                                </div>
+                                            </td>
+                                            <td class="text-end align-middle fw-bold">₱{{ membership.quota|floatformat:2|intcomma }}</td>
+                                            <td class="text-end align-middle">
+                                                <a href="{% url 'update_member_quota' membership.id %}" class="btn btn-sm btn-link text-primary p-0">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="3" class="text-center text-muted fst-italic py-3">No salespeople in this group</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center text-muted py-5">
+                    No groups found in this team.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i> You are not assigned to manage any teams yet.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

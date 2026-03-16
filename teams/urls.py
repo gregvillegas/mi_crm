@@ -15,5 +15,6 @@ urlpatterns = [
     path('groups/<int:pk>/contribution/', views.update_personal_contribution, name='update_personal_contribution'),
     path('teams/<int:pk>/asm-target/', views.update_asm_target, name='update_asm_target'),
     path('quota/<int:user_id>/', views.update_role_quota, name='update_role_quota'),
+    path('quota-management/', views.quota_management, name='quota_management'),
     path('company-target/', views.update_company_target, name='update_company_target'),
 ]

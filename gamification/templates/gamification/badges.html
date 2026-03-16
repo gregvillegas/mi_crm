@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block title %}My Badges | CRM{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h2><i class="fas fa-medal text-warning me-2"></i>My Badges</h2>
+            <p class="text-muted">Achievements and milestones you've unlocked</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'leaderboard' %}" class="btn btn-outline-primary">View Leaderboard</a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        {% for badge in all_badges %}
+        <div class="col-md-3 col-sm-6">
+            <div class="card h-100 text-center {% if badge.id in earned_badge_ids %}border-warning shadow-sm{% else %}bg-light text-muted border-0{% endif %}">
+                <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mb-3" 
+                         style="width: 80px; height: 80px; font-size: 2rem; 
+                         {% if badge.id in earned_badge_ids %}background-color: #ffc107; color: white;{% else %}background-color: #e9ecef; color: #adb5bd;{% endif %}">
+                        <i class="{{ badge.icon }}"></i>
+                    </div>
+                    <h5 class="card-title">{{ badge.name }}</h5>
+                    <p class="card-text small">{{ badge.description }}</p>
+                    {% if badge.point_reward > 0 %}
+                        <span class="badge rounded-pill {% if badge.id in earned_badge_ids %}bg-success{% else %}bg-secondary{% endif %}">
+                            +{{ badge.point_reward }} pts
+                        </span>
+                    {% endif %}
+                    
+                    {% if badge.id not in earned_badge_ids %}
+                        <div class="mt-2 text-muted small"><i class="fas fa-lock me-1"></i>Locked</div>
+                    {% else %}
+                        <div class="mt-2 text-success small"><i class="fas fa-check-circle me-1"></i>Earned</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <p class="text-muted">No badges defined yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

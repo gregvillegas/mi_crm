@@ -422,3 +422,33 @@ class ActivityReminder(models.Model):
         self.is_read = True
         self.read_at = timezone.now()
         self.save(update_fields=['is_read', 'read_at'])
+
+class ProofOfConcept(models.Model):
+    """Tracks Proof of Concept (POC) engagements with customers"""
+    STATUS_CHOICES = [
+        ('planned', 'Planned'),
+        ('ongoing', 'Ongoing'),
+        ('completed_success', 'Completed - Successful'),
+        ('completed_fail', 'Completed - Failed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    
+    title = models.CharField(max_length=200)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='pocs')
+    sales_funnel = models.ForeignKey('sales_funnel.SalesFunnel', on_delete=models.SET_NULL, null=True, blank=True, related_name='pocs')
+    
+    lead_engineer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='led_pocs', limit_choices_to={'role__in': ['engineer', 'presales', 'salesperson']})
+    salesperson = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sales_pocs')
+    
+    start_date = models.DateField()
+    end_date = models.DateField()
+    
+    success_criteria = models.TextField(help_text="What defines a successful POC?")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='planned')
+    notes = models.TextField(blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"POC: {self.title} - {self.customer.company_name}"
