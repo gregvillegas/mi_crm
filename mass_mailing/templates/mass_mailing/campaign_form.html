@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Create Campaign{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .select2-container .select2-selection--multiple {
+        min-height: 100px;
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-envelope-open-text text-primary me-2"></i>{% if campaign %}Edit{% else %}Create New{% endif %} Campaign</h2>
+                <a href="{% if campaign %}{% url 'mass_mailing:campaign_detail' campaign.pk %}{% else %}{% url 'mass_mailing:campaign_list' %}{% endif %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-4">
+                    <form method="post" id="campaignForm">
+                        {% csrf_token %}
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                {{ form.name|as_crispy_field }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form.scheduled_for|as_crispy_field }}
+                                <small class="text-muted">Leave blank to schedule for immediate sending.</small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3 mt-2">
+                            {{ form.subject|as_crispy_field }}
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-end mb-2">
+                                <label class="form-label fw-bold mb-0">Email Body</label>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="templateDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-file-code me-1"></i> Load Template
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="templateDropdown">
+                                        <li><h6 class="dropdown-header">Sales Templates</h6></li>
+                                        <li><a class="dropdown-item template-btn" href="#" data-template="product_update">New Product Update</a></li>
+                                        <li><a class="dropdown-item template-btn" href="#" data-template="check_in">Quarterly Check-in</a></li>
+                                        <li><a class="dropdown-item template-btn" href="#" data-template="promo">Special Promotion</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item text-danger template-btn" href="#" data-template="clear">Clear Editor</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="alert alert-info py-2 small mb-2">
+                                <i class="fas fa-info-circle"></i> <strong>Personalization Tags:</strong> You can use <code>{% verbatim %}{{ contact_name }}{% endverbatim %}</code> and <code>{% verbatim %}{{ company_name }}{% endverbatim %}</code> to personalize the email for each recipient.
+                            </div>
+                            {{ form.body_html }}
+                        </div>
+
+                        <div class="mb-4">
+                            {{ form.customers|as_crispy_field }}
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllBtn">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">Deselect All</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4 p-3 bg-light rounded border border-warning">
+                            <div class="form-check">
+                                {{ form.include_unsubscribe }}
+                                <label class="form-check-label fw-bold" for="{{ form.include_unsubscribe.id_for_label }}">
+                                    Include Unsubscribe Link & DPA Notice (Recommended)
+                                </label>
+                            </div>
+                            <small class="text-muted d-block mt-1 ms-4">
+                                In compliance with the Data Privacy Act of 2012, marketing emails must include an easy way for users to opt-out.
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="{% if campaign %}{% url 'mass_mailing:campaign_detail' campaign.pk %}{% else %}{% url 'mass_mailing:campaign_list' %}{% endif %}" class="btn btn-light">Cancel</a>
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="fas fa-save me-1"></i> {% if campaign %}Update{% else %}Save{% endif %} Campaign
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('.select2').select2({
+            placeholder: "Search and select customers...",
+            allowClear: true,
+            width: '100%'
+        });
+
+        $('#selectAllBtn').click(function() {
+            $('.select2 > option').prop("selected", "selected");
+            $('.select2').trigger("change");
+        });
+
+        $('#deselectAllBtn').click(function() {
+            $('.select2 > option').prop("selected", false);
+            $('.select2').trigger("change");
+        });
+
+        // Email Templates
+        const templates = {
+            'product_update': `Hi {{ contact_name }},\n\nI hope this email finds you well at {{ company_name }}.\n\nI am writing to share some exciting news regarding our latest product updates at Micro Image International Corp. We have recently introduced several new features designed to help streamline your operations and improve overall efficiency.\n\nKey highlights include:\n- [Feature 1: e.g., Enhanced Reporting]\n- [Feature 2: e.g., Faster Integration]\n- [Feature 3: e.g., Advanced Security]\n\nI would love to schedule a quick 10-minute call next week to show you how these updates can specifically benefit {{ company_name }}.\n\nPlease let me know what day works best for you.\n\nBest regards,\n\n[Your Name]\nMicro Image International Corp.`,
+            
+            'check_in': `Dear {{ contact_name }},\n\nIt’s been a while since we last connected, and I wanted to check in to see how things are going at {{ company_name }}.\n\nAt Micro Image, we are continuously evolving our solutions to better serve our clients. I'd love to hear about any new challenges or goals your team is currently focusing on for this quarter.\n\nAre you available for a brief catch-up call sometime next week? Feel free to reply directly to this email with a time that suits your schedule.\n\nLooking forward to reconnecting!\n\nWarm regards,\n\n[Your Name]\nMicro Image International Corp.`,
+            
+            'promo': `Hi {{ contact_name }},\n\nGreat news for {{ company_name }}!\n\nFor a limited time, Micro Image International Corp. is offering an exclusive promotion on our premier IT solutions. If you upgrade or renew your service before the end of the month, you will receive a [Insert Discount/Bonus, e.g., 15% discount or free implementation support].\n\nThis is a great opportunity to maximize your IT infrastructure while keeping costs down.\n\nLet me know if you're interested in taking advantage of this offer, and I can send over a customized proposal right away.\n\nBest regards,\n\n[Your Name]\nAccount Manager\nMicro Image International Corp.`,
+            
+            'clear': ''
+        };
+
+        $('.template-btn').click(function(e) {
+            e.preventDefault();
+            const templateKey = $(this).data('template');
+            
+            if(templateKey === 'clear' || confirm('Loading a template will overwrite your current email body. Continue?')) {
+                $('#id_body_html').val(templates[templateKey]);
+                
+                // Auto-fill subject if empty or if changing template
+                if(templateKey === 'product_update') $('#id_subject').val('Exciting New Product Updates from Micro Image');
+                if(templateKey === 'check_in') $('#id_subject').val('Quarterly Check-in: How are things at {{ company_name }}?');
+                if(templateKey === 'promo') $('#id_subject').val('Exclusive Offer for {{ company_name }}');
+                if(templateKey === 'clear') $('#id_subject').val('');
+            }
+        });
+    });
+</script>
+{% endblock %}

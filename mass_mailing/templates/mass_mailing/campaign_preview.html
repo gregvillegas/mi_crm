@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preview: {{ campaign.subject }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #f4f5f7;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #333;
+        }
+        .preview-toolbar {
+            background-color: #ffffff;
+            border-bottom: 1px solid #ddd;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .email-client-wrapper {
+            max-width: 800px;
+            margin: 40px auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .email-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+            background-color: #fafafa;
+        }
+        .email-subject {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        .email-meta {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #0d6efd;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .meta-details {
+            flex-grow: 1;
+        }
+        .sender-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+        .sender-email {
+            color: #666;
+            font-size: 0.85rem;
+        }
+        .recipient-info {
+            color: #666;
+            font-size: 0.85rem;
+            margin-top: 2px;
+        }
+        .email-body-container {
+            padding: 30px 25px;
+            min-height: 200px;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+        .email-footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            font-size: 12px;
+            color: #777;
+            text-align: center;
+        }
+        .email-footer a {
+            color: #0d6efd;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="preview-toolbar">
+        <div class="d-flex align-items-center gap-3">
+            <span class="badge bg-primary px-3 py-2"><i class="fas fa-eye me-1"></i> Preview Mode</span>
+            <span class="text-muted small">This is how your email will appear to recipients.</span>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" onclick="window.close()">Close Preview</button>
+    </div>
+
+    <div class="email-client-wrapper">
+        <div class="email-header">
+            <div class="email-subject">{{ campaign.subject }}</div>
+            <div class="email-meta">
+                <div class="avatar">
+                    {{ campaign.created_by.first_name|first|default:"M" }}{{ campaign.created_by.last_name|first|default:"I" }}
+                </div>
+                <div class="meta-details">
+                    <div class="sender-name">{{ campaign.created_by.get_full_name }} <span class="sender-email">&lt;{{ campaign.created_by.email }}&gt;</span></div>
+                    <div class="recipient-info">To: <strong>Sample Customer</strong></div>
+                </div>
+                <div class="text-muted small">
+                    {% now "M d, Y, h:i A" %}
+                </div>
+            </div>
+        </div>
+
+        <div class="email-body-container">
+            {{ rendered_body|safe }}
+
+            {% if campaign.include_unsubscribe %}
+            <div class="email-footer">
+                This email was sent to you because you are a valued contact of <strong>Micro Image International Corp.</strong><br>
+                In accordance with the Data Privacy Act of 2012 (R.A. 10173), you have the right to opt-out of receiving these marketing communications.<br><br>
+                <a href="#">Click here to Unsubscribe safely</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'sales_proposals',
     'customer_service',
     'gamification',
+    'mass_mailing',
 ]
 
 MIDDLEWARE = [

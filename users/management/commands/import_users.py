@@ -44,6 +44,11 @@ class Command(BaseCommand):
             action='store_true',
             help='Force import even if validation warnings exist',
         )
+        parser.add_argument(
+            '--role',
+            type=str,
+            help='Filter import to only include users with a specific role (e.g., salesperson)',
+        )
 
     def handle(self, *args, **options):
         try:
@@ -154,6 +159,10 @@ class Command(BaseCommand):
             username = user['username']
             role = user['role']
             
+            # Apply role filter if specified
+            if options['role'] and role != options['role']:
+                continue
+            
             if User.objects.filter(username=username).exists():
                 if options['update_existing']:
                     self.stdout.write(f'  🔄 Would update user: {username} ({role})')
@@ -209,6 +218,10 @@ class Command(BaseCommand):
         self.stdout.write('👥 Importing users...')
         
         for user_data in users_data:
+            # Skip if role filter doesn't match
+            if options['role'] and user_data['role'] != options['role']:
+                continue
+                
             try:
                 username = user_data['username']
                 existing_user = User.objects.filter(username=username).first()

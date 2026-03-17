@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+
+{% block title %}Campaign: {{ campaign.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-0">{{ campaign.name }}</h2>
+            <div class="text-muted">
+                Status: 
+                {% if campaign.status == 'draft' %}
+                    <span class="badge bg-secondary">Draft</span>
+                {% elif campaign.status == 'scheduled' %}
+                    <span class="badge bg-info text-dark">Scheduled</span>
+                {% elif campaign.status == 'sending' %}
+                    <span class="badge bg-warning text-dark">Sending</span>
+                {% elif campaign.status == 'completed' %}
+                    <span class="badge bg-success">Completed</span>
+                {% else %}
+                    <span class="badge bg-dark">{{ campaign.status|title }}</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'mass_mailing:campaign_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back
+            </a>
+            
+            {% if campaign.status == 'draft' or campaign.status == 'scheduled' %}
+                <a href="{% url 'mass_mailing:campaign_edit' campaign.pk %}" class="btn btn-outline-primary">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+            {% endif %}
+
+            <a href="{% url 'mass_mailing:campaign_preview' campaign.pk %}" class="btn btn-outline-info" target="_blank">
+                <i class="fas fa-eye"></i> Preview
+            </a>
+
+            {% if campaign.status == 'draft' %}
+                <a href="{% url 'mass_mailing:campaign_send' campaign.pk %}" class="btn btn-success" onclick="return confirm('Are you sure you want to schedule this campaign for sending?');">
+                    <i class="fas fa-paper-plane"></i> Send Campaign
+                </a>
+            {% endif %}
+            
+            {% if campaign.status in 'draft,scheduled,sending' %}
+                <a href="{% url 'mass_mailing:campaign_cancel' campaign.pk %}" class="btn btn-danger">
+                    <i class="fas fa-times-circle"></i> Cancel
+                </a>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <!-- Overview Card -->
+        <div class="col-md-4 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Campaign Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4 text-muted">Subject</dt>
+                        <dd class="col-sm-8">{{ campaign.subject }}</dd>
+
+                        <dt class="col-sm-4 text-muted">Scheduled</dt>
+                        <dd class="col-sm-8">{{ campaign.scheduled_for|default:"Immediate" }}</dd>
+
+                        <dt class="col-sm-4 text-muted">Created By</dt>
+                        <dd class="col-sm-8">{{ campaign.created_by.get_full_name }}</dd>
+
+                        <dt class="col-sm-4 text-muted">DPA Notice</dt>
+                        <dd class="col-sm-8">
+                            {% if campaign.include_unsubscribe %}
+                                <span class="text-success"><i class="fas fa-check"></i> Included</span>
+                            {% else %}
+                                <span class="text-danger"><i class="fas fa-times"></i> Excluded</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Card -->
+        <div class="col-md-8 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Delivery Statistics</h5>
+                </div>
+                <div class="card-body d-flex align-items-center">
+                    <div class="row w-100 text-center">
+                        <div class="col-3">
+                            <div class="h2 mb-0 fw-bold text-primary">{{ campaign.total_recipients }}</div>
+                            <div class="text-muted small text-uppercase">Total Recipients</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="h2 mb-0 fw-bold text-success">{{ campaign.sent_count }}</div>
+                            <div class="text-muted small text-uppercase">Sent</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="h2 mb-0 fw-bold text-danger">{{ campaign.failed_count }}</div>
+                            <div class="text-muted small text-uppercase">Failed</div>
+                        </div>
+                        <div class="col-3">
+                            {% widthratio campaign.sent_count campaign.total_recipients 100 as percent %}
+                            <div class="h2 mb-0 fw-bold text-info">{{ percent|default:"0" }}%</div>
+                            <div class="text-muted small text-uppercase">Progress</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipients List -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Recipient List</h5>
+            {% if campaign.status == 'sending' %}
+                <button class="btn btn-sm btn-outline-secondary" onclick="location.reload();">
+                    <i class="fas fa-sync-alt"></i> Refresh Status
+                </button>
+            {% endif %}
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Customer</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Sent At</th>
+                            <th class="pe-4">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for recipient in recipients %}
+                        <tr>
+                            <td class="ps-4">{{ recipient.customer.company_name }}<br><small class="text-muted">{{ recipient.customer.contact_person_name }}</small></td>
+                            <td>{{ recipient.email }}</td>
+                            <td>
+                                {% if recipient.status == 'pending' %}
+                                    <span class="badge bg-secondary">Pending</span>
+                                {% elif recipient.status == 'sent' %}
+                                    <span class="badge bg-success">Sent</span>
+                                {% elif recipient.status == 'opted_out' %}
+                                    <span class="badge bg-warning text-dark">Opted Out</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Failed</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ recipient.sent_at|date:"M d, H:i"|default:"-" }}</td>
+                            <td class="pe-4 text-danger small">{{ recipient.error_message|default:"" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

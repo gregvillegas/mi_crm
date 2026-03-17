@@ -240,6 +240,11 @@
                                 </ul>
                             </li>
                         {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'mass_mailing:campaign_list' %}" title="Mass Mailing">
+                                <i class="fas fa-paper-plane"></i><span>Mass Mailing</span>
+                            </a>
+                        </li>
                         {% if user.role in 'admin,president,gm,vp,avp,asm' %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="teamsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Teams">

@@ -398,9 +398,73 @@ def lead_source_create(request):
 def analytics_dashboard(request):
     """Lead generation analytics and reporting"""
     
+    # Date range filtering (Default: Last 30 days)
+    end_date = timezone.now()
+    start_date = (end_date - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Leads QuerySet
+    leads = Lead.objects.filter(created_at__gte=start_date)
+    
+    # 1. Lead Performance Overview
+    total_leads = leads.count()
+    converted_leads = leads.filter(status='converted').count()
+    conversion_rate = (converted_leads / total_leads * 100) if total_leads > 0 else 0
+    avg_lead_score = leads.aggregate(Avg('lead_score'))['lead_score__avg'] or 0
+    
+    # 2. Leads by Status
+    status_distribution = list(leads.values('status').annotate(count=Count('id')).order_by('-count'))
+    # Map status codes to labels for display
+    status_labels = dict(Lead.STATUS_CHOICES)
+    for item in status_distribution:
+        item['label'] = status_labels.get(item['status'], item['status'])
+        
+    # 3. Leads by Source
+    source_distribution = list(leads.values('source__name').annotate(count=Count('id')).order_by('-count'))
+    
+    # 4. Leads by Salesperson (Top 10)
+    salesperson_performance = list(leads.exclude(assigned_to=None).values(
+        'assigned_to__username', 
+        'assigned_to__first_name', 
+        'assigned_to__last_name'
+    ).annotate(
+        total=Count('id'),
+        converted=Count('id', filter=Q(status='converted')),
+        avg_score=Avg('lead_score')
+    ).order_by('-total')[:10])
+    
+    for sp in salesperson_performance:
+        name = f"{sp['assigned_to__first_name']} {sp['assigned_to__last_name']}".strip()
+        sp['name'] = name if name else sp['assigned_to__username']
+        sp['conversion_rate'] = (sp['converted'] / sp['total'] * 100) if sp['total'] > 0 else 0
+
+    # 5. Timeline Data (Daily creation)
+    # Using python to group by date to ensure compatibility with all DB backends (SQLite/MySQL)
+    timeline_data = {}
+    current_day = start_date
+    while current_day <= end_date:
+        date_str = current_day.strftime('%Y-%m-%d')
+        timeline_data[date_str] = 0
+        current_day += timedelta(days=1)
+        
+    leads_timeline = leads.values('created_at__date').annotate(count=Count('id'))
+    for entry in leads_timeline:
+        date_str = entry['created_at__date'].strftime('%Y-%m-%d')
+        if date_str in timeline_data:
+            timeline_data[date_str] = entry['count']
+            
     context = {
         'page_title': 'Lead Analytics',
-        'message': 'Analytics dashboard coming soon!'
+        'total_leads': total_leads,
+        'converted_leads': converted_leads,
+        'conversion_rate': conversion_rate,
+        'avg_lead_score': avg_lead_score,
+        'status_distribution_json': json.dumps(status_distribution),
+        'source_distribution_json': json.dumps(source_distribution),
+        'salesperson_performance_json': json.dumps(salesperson_performance),
+        'timeline_labels_json': json.dumps(list(timeline_data.keys())),
+        'timeline_values_json': json.dumps(list(timeline_data.values())),
+        'start_date': start_date,
+        'end_date': end_date,
     }
     
     return render(request, 'lead_generation/analytics.html', context)

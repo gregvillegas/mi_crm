@@ -1,74 +1,241 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
-{% block content %}
-<div class="row">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2><i class="fas fa-chart-bar text-primary"></i> {{ page_title }}</h2>
-            <a href="{% url 'lead_generation:dashboard' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left"></i> Back to Dashboard
-            </a>
-        </div>
-    </div>
-</div>
+{% block title %}Lead Analytics{% endblock %}
 
-<!-- Coming Soon Message -->
-<div class="row">
-    <div class="col-12">
-        <div class="card shadow">
-            <div class="card-body text-center py-5">
-                <i class="fas fa-chart-line fa-5x text-muted mb-4"></i>
-                <h3 class="text-muted mb-3">{{ message }}</h3>
-                <p class="text-muted mb-4">
-                    Advanced analytics and reporting features are being developed and will include:
-                </p>
-                
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-chart-pie text-info"></i> Lead Performance</h5>
-                                <p class="card-text small">Source performance, conversion rates, and lead quality metrics</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-users text-success"></i> Sales Team Analytics</h5>
-                                <p class="card-text small">Individual and team performance, pipeline analysis</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-calendar-alt text-warning"></i> Time-based Reports</h5>
-                                <p class="card-text small">Monthly, quarterly, and yearly performance trends</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card border-0 bg-light">
-                            <div class="card-body">
-                                <h5 class="card-title"><i class="fas fa-download text-primary"></i> Export Options</h5>
-                                <p class="card-text small">PDF reports, Excel exports, and scheduled reporting</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-4">
-                    <a href="{% url 'lead_generation:dashboard' %}" class="btn btn-primary me-2">
-                        <i class="fas fa-chart-pie"></i> View Dashboard
-                    </a>
-                    <a href="{% url 'lead_generation:lead_list' %}" class="btn btn-outline-primary">
-                        <i class="fas fa-list"></i> View Leads
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="fas fa-chart-bar text-primary"></i> {{ page_title }}</h2>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted small">
+                        <i class="fas fa-calendar"></i> Last 30 Days ({{ start_date|date:"M d" }} - {{ end_date|date:"M d" }})
+                    </span>
+                    <a href="{% url 'lead_generation:dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-arrow-left"></i> Back to Dashboard
                     </a>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Key Metrics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-4 border-primary h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase mb-2">Total Leads</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="h2 mb-0 fw-bold text-dark">{{ total_leads }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-4 border-success h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase mb-2">Converted</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="h2 mb-0 fw-bold text-success">{{ converted_leads }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-4 border-info h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase mb-2">Conversion Rate</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="h2 mb-0 fw-bold text-info">{{ conversion_rate|floatformat:1 }}%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm border-start border-4 border-warning h-100">
+                <div class="card-body">
+                    <h6 class="text-muted text-uppercase mb-2">Avg Lead Score</h6>
+                    <div class="d-flex align-items-center">
+                        <div class="h2 mb-0 fw-bold text-warning">{{ avg_lead_score|floatformat:0 }}</div>
+                        <span class="text-muted ms-2">/ 100</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Leads by Status</h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Leads by Source</h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="sourceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Lead Acquisition Trend (Last 30 Days)</h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 300px;">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Salesperson Performance -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Salesperson Performance (Top 10)</h5>
+                </div>
+                <div class="card-body">
+                    <div style="height: 350px;">
+                        <canvas id="salespersonChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    // Data from Django view
+    const statusData = {{ status_distribution_json|safe }};
+    const sourceData = {{ source_distribution_json|safe }};
+    const timelineLabels = {{ timeline_labels_json|safe }};
+    const timelineValues = {{ timeline_values_json|safe }};
+    const salespersonData = {{ salesperson_performance_json|safe }};
+
+    // Colors
+    const colors = [
+        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', 
+        '#858796', '#5a5c69', '#2e59d9', '#17a673', '#2c9faf'
+    ];
+
+    // Status Chart
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'doughnut',
+        data: {
+            labels: statusData.map(item => item.label),
+            datasets: [{
+                data: statusData.map(item => item.count),
+                backgroundColor: colors,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+
+    // Source Chart
+    const sourceCtx = document.getElementById('sourceChart').getContext('2d');
+    new Chart(sourceCtx, {
+        type: 'pie',
+        data: {
+            labels: sourceData.map(item => item.source__name),
+            datasets: [{
+                data: sourceData.map(item => item.count),
+                backgroundColor: colors,
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }
+            }
+        }
+    });
+
+    // Timeline Chart
+    const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+    new Chart(timelineCtx, {
+        type: 'line',
+        data: {
+            labels: timelineLabels,
+            datasets: [{
+                label: 'New Leads',
+                data: timelineValues,
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+
+    // Salesperson Chart
+    const spCtx = document.getElementById('salespersonChart').getContext('2d');
+    new Chart(spCtx, {
+        type: 'bar',
+        data: {
+            labels: salespersonData.map(item => item.name),
+            datasets: [
+                {
+                    label: 'Total Leads',
+                    data: salespersonData.map(item => item.total),
+                    backgroundColor: '#4e73df'
+                },
+                {
+                    label: 'Converted',
+                    data: salespersonData.map(item => item.converted),
+                    backgroundColor: '#1cc88a'
+                }
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } }
+            }
+        }
+    });
+</script>
 {% endblock %}

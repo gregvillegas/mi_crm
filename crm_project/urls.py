@@ -36,6 +36,7 @@ urlpatterns = [
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
     path('logout/', logout_view, name='logout'),
     path('accounts/', include(('django.contrib.auth.urls', 'auth'), namespace='auth')),
+    path('mass-mailing/', include('mass_mailing.urls')),
 ]
 
 # Serve media files during development
