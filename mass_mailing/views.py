@@ -9,13 +9,48 @@ from .models import Campaign, CampaignRecipient, OptOut
 from .forms import CampaignForm, UnsubscribeForm
 from customers.models import Customer
 
+def get_allowed_campaigns(user):
+    """Returns a queryset of campaigns the user is allowed to see based on their role."""
+    if user.role == 'salesperson':
+        return Campaign.objects.filter(created_by=user)
+        
+    elif user.role == 'supervisor':
+        member_ids = [user.id]
+        for group in user.managed_groups.all():
+            member_ids.extend(group.members.values_list('user_id', flat=True))
+        return Campaign.objects.filter(created_by_id__in=member_ids)
+        
+    elif user.role == 'teamlead':
+        member_ids = [user.id]
+        for group in user.led_groups.all():
+            member_ids.extend(group.members.values_list('user_id', flat=True))
+        return Campaign.objects.filter(created_by_id__in=member_ids)
+        
+    elif user.role == 'asm':
+        member_ids = [user.id]
+        for team in user.asm_teams.all():
+            for group in team.groups.all():
+                member_ids.extend(group.members.values_list('user_id', flat=True))
+                if group.supervisor:
+                    member_ids.append(group.supervisor.id)
+        return Campaign.objects.filter(created_by_id__in=member_ids)
+        
+    elif user.role == 'avp':
+        member_ids = [user.id]
+        for team in user.managed_teams.all():
+            for group in team.groups.all():
+                member_ids.extend(group.members.values_list('user_id', flat=True))
+                if group.supervisor:
+                    member_ids.append(group.supervisor.id)
+        return Campaign.objects.filter(created_by_id__in=member_ids)
+        
+    else:
+        # Admins, Presidents, VPs, GMs can see all
+        return Campaign.objects.all()
+
 @login_required
 def campaign_list(request):
-    if request.user.role == 'salesperson':
-        campaigns = Campaign.objects.filter(created_by=request.user).order_by('-created_at')
-    else:
-        campaigns = Campaign.objects.all().order_by('-created_at')
-        
+    campaigns = get_allowed_campaigns(request.user).order_by('-created_at')
     return render(request, 'mass_mailing/campaign_list.html', {'campaigns': campaigns})
 
 @login_required
@@ -50,7 +85,8 @@ def campaign_create(request):
 @login_required
 def campaign_detail(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
-    if request.user.role == 'salesperson' and campaign.created_by != request.user:
+    
+    if not get_allowed_campaigns(request.user).filter(pk=pk).exists():
         return HttpResponseForbidden("You are not allowed to view this campaign.")
         
     recipients = campaign.recipients.all()
@@ -64,7 +100,7 @@ def campaign_detail(request, pk):
 def campaign_edit(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
     
-    if request.user.role == 'salesperson' and campaign.created_by != request.user:
+    if not get_allowed_campaigns(request.user).filter(pk=pk).exists():
         return HttpResponseForbidden("You are not allowed to edit this campaign.")
         
     if campaign.status not in ['draft', 'scheduled']:
@@ -105,7 +141,7 @@ def campaign_edit(request, pk):
 def campaign_cancel(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
     
-    if request.user.role == 'salesperson' and campaign.created_by != request.user:
+    if not get_allowed_campaigns(request.user).filter(pk=pk).exists():
         return HttpResponseForbidden("You are not allowed to cancel this campaign.")
         
     if campaign.status in ['completed', 'cancelled']:
@@ -130,7 +166,8 @@ def campaign_cancel(request, pk):
 @login_required
 def campaign_preview(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
-    if request.user.role == 'salesperson' and campaign.created_by != request.user:
+    
+    if not get_allowed_campaigns(request.user).filter(pk=pk).exists():
         return HttpResponseForbidden("You are not allowed to preview this campaign.")
         
     # Get a sample recipient to preview
@@ -166,7 +203,8 @@ def campaign_preview(request, pk):
 @login_required
 def campaign_send(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
-    if request.user.role == 'salesperson' and campaign.created_by != request.user:
+    
+    if not get_allowed_campaigns(request.user).filter(pk=pk).exists():
         return HttpResponseForbidden("You are not allowed to send this campaign.")
         
     if campaign.status != 'draft':
@@ -184,8 +222,24 @@ def campaign_send(request, pk):
     # In a real production environment, a Cron job or Celery worker would pick this up.
     # For demonstration/sandbox purposes, we will trigger a background thread to process it.
     from django.core.management import call_command
+    
+    # If the campaign is scheduled for the future, we need to wait.
+    # In a proper setup, a cron job runs every minute to check this.
+    # Here, we'll spawn a thread that waits until the scheduled time.
     def run_worker():
         try:
+            campaign.refresh_from_db()
+            if campaign.status == 'cancelled':
+                return
+                
+            # Calculate how long to wait
+            now = timezone.now()
+            if campaign.scheduled_for and campaign.scheduled_for > now:
+                wait_seconds = (campaign.scheduled_for - now).total_seconds()
+                if wait_seconds > 0:
+                    import time
+                    time.sleep(wait_seconds)
+            
             call_command('process_mail_queue')
         except Exception as e:
             print(f"Background worker error: {e}")

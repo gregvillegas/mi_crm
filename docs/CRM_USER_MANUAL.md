@@ -21,6 +21,7 @@
     *   [Sales Proposals](#sales-proposals)
     *   [Activity Monitoring](#activity-monitoring)
     *   [Team Management](#team-management)
+    *   [Mass Mailing (New!)](#mass-mailing)
     *   [Gamification](#gamification)
     *   [Customer Service](#customer-service)
     *   [File Sharing](#file-sharing)
@@ -66,6 +67,7 @@ The top navigation bar provides quick access to all major modules:
 *   **Proposals**: Quote generation tool.
 *   **Activities**: Calendar and activity logs.
 *   **Teams**: (For Managers) Team structure and quotas.
+*   **Mass Mailing**: Send personalized bulk emails to clients.
 *   **Files**: Document repository.
 
 ---
@@ -117,6 +119,19 @@ Create professional, branded PDF proposals in minutes.
 *   **Quota Management (AVP Only)**:
     *   AVPs have a dedicated "Quotas" link in the navbar.
     *   Manage monthly quotas for ASMs, Supervisors, and Salespeople from a single interface.
+
+### Mass Mailing
+The Mass Mailing module allows salespersons to send personalized bulk emails to their assigned customers while adhering to Data Privacy Act (DPA) standards and preventing spam.
+
+*   **Campaign Creation**: Create email campaigns with custom subject lines and HTML bodies. 
+    *   **Personalization Tags**: Use `{{ contact_name }}` and `{{ company_name }}` to automatically personalize each email.
+    *   **Templates**: Use the "Load Template" button to quickly insert best-practice B2B sales templates (e.g., Product Updates, Quarterly Check-ins, Promotions).
+*   **Live Preview**: Click the "Preview" button to see exactly how the email will render in a client's inbox before sending.
+*   **DPA Compliance & Opt-Outs**: 
+    *   All emails include a mandatory company footer and a secure "Unsubscribe" link.
+    *   If a customer unsubscribes, the system automatically adds them to an Opt-Out list and blocks them from receiving future mass mailings.
+*   **Rate-Limited Sending**: Once scheduled, emails are processed in the background using a rate-limited queue. This prevents server blocking and ensures high deliverability by avoiding spam filters.
+*   **Tracking**: Monitor the progress of your campaign in real-time on the dashboard (Total Sent, Failed, and Progress %).
 
 ### Gamification
 *   **Leaderboard**: See who the top performers are in real-time.

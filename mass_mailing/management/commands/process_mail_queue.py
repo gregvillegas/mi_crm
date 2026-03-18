@@ -6,6 +6,8 @@ from django.utils import timezone
 from django.urls import reverse
 from django.conf import settings
 from mass_mailing.models import Campaign, CampaignRecipient, OptOut
+from sales_monitoring.models import SalesActivity, ActivityType, EmailActivity
+from gamification.models import PointLog, GamificationProfile
 
 class Command(BaseCommand):
     help = 'Process the email queue for scheduled mass mailing campaigns'
@@ -20,14 +22,15 @@ class Command(BaseCommand):
         
         self.stdout.write(f"Starting to process email queue (Limit: {limit}, Delay: {delay}s)...")
         
-        # Get campaigns that are ready to send
+        # Get campaigns that are ready to send (scheduled for past or present)
+        now = timezone.now()
         active_campaigns = Campaign.objects.filter(
             status__in=['scheduled', 'sending'],
-            scheduled_for__lte=timezone.now()
+            scheduled_for__lte=now
         )
         
         if not active_campaigns.exists():
-            self.stdout.write("No campaigns scheduled to send right now.")
+            self.stdout.write(f"No campaigns scheduled to send at this time ({now}).")
             return
 
         emails_sent = 0
@@ -122,6 +125,9 @@ class Command(BaseCommand):
                         
                         self.stdout.write(f"  ✓ Sent to {recipient.email}")
                         
+                        # Log Sales Activity
+                        self.log_sales_activity(campaign, recipient)
+                        
                         # Rate limiting delay
                         if delay > 0 and emails_sent < limit:
                             time.sleep(delay)
@@ -135,3 +141,60 @@ class Command(BaseCommand):
                 campaign.update_counts()
 
         self.stdout.write(self.style.SUCCESS(f"Finished processing. Total emails sent: {emails_sent}"))
+
+    def log_sales_activity(self, campaign, recipient):
+        """Log the email as a sales activity and award points"""
+        try:
+            # 1. Create/Get Activity Type
+            activity_type, _ = ActivityType.objects.get_or_create(
+                name='Email Campaign',
+                defaults={
+                    'description': 'Mass mailing campaign sent to customers',
+                    'icon': 'fas fa-mail-bulk',
+                    'color': 'info',
+                    'requires_customer': True
+                }
+            )
+            
+            # 2. Create Sales Activity
+            activity = SalesActivity.objects.create(
+                title=f"Campaign Email: {campaign.subject}",
+                description=f"Sent via mass mailing campaign '{campaign.name}'",
+                activity_type=activity_type,
+                salesperson=campaign.created_by,
+                customer=recipient.customer,
+                status='completed',
+                priority='medium',
+                scheduled_start=timezone.now(),
+                scheduled_end=timezone.now(),
+                actual_start=timezone.now(),
+                actual_end=timezone.now()
+            )
+            
+            # 3. Create Email Details
+            EmailActivity.objects.create(
+                sales_activity=activity,
+                email_type='newsletter',
+                subject=campaign.subject,
+                recipients=recipient.email,
+                has_attachments=False # Future enhancement: check campaign attachments
+            )
+            
+            # 4. Gamification Points
+            points = 5 # Standard points for sending a campaign email
+            
+            # Update user profile
+            profile, created = GamificationProfile.objects.get_or_create(user=campaign.created_by)
+            profile.add_points(points)
+            
+            # Log points
+            PointLog.objects.create(
+                user=campaign.created_by,
+                action_type='sent_campaign_email',
+                points_amount=points,
+                content_type=None, # Optional: could link to SalesActivity content type
+                object_id=activity.id
+            )
+            
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f"  ⚠️ Failed to log activity/points: {e}"))
