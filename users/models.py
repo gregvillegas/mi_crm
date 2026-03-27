@@ -20,6 +20,7 @@ class User(AbstractUser):
     initials = models.CharField(max_length=3, blank=True, help_text='3-letter initials for the user (e.g., JDO for John Doe)')
     mobile_number = models.CharField(max_length=20, blank=True, null=True, help_text='Mobile number of the user')
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, help_text='Profile picture for the user')
+    signature_image = models.ImageField(upload_to='signatures/', blank=True, null=True, help_text='Digital signature image for proposals')
     last_activity = models.DateTimeField(null=True, blank=True, help_text='Timestamp of last user activity')
     is_active = models.BooleanField(default=True, help_text='Designates whether this user should be treated as active. Unselect this instead of deleting accounts.')
 

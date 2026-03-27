@@ -14,7 +14,7 @@ class Proposal(models.Model):
     ]
 
     proposal_number = models.CharField(max_length=50, unique=True, editable=False)
-    reference_number = models.CharField(max_length=50, blank=True, null=True, help_text="Optional manual reference number (e.g., Ref No: MVD03022026 155)")
+    reference_number = models.CharField(max_length=50, blank=True, null=True, help_text="Optional manual reference number (e.g., Ref No: GGV03022026155)")
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='proposals')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_proposals')
     date = models.DateField(default=timezone.now)
@@ -79,6 +79,26 @@ class Proposal(models.Model):
             # Simple counter, might have race conditions in high concurrency but fine for this scale
             count = Proposal.objects.filter(created_at__year=today.year).count() + 1
             self.proposal_number = f"PROP-{today.year}-{count:04d}"
+        # Autogenerate Reference Number: III + MMDDYYYY + ### (per-salesperson sequence)
+        if not self.reference_number and self.created_by_id:
+            # Initials
+            initials = (self.created_by.initials or "").upper()
+            if not initials:
+                parts = [self.created_by.first_name, self.created_by.last_name]
+                initials = "".join((p[:1] or "").upper() for p in parts)[:3].ljust(3, "X")
+            elif len(initials) < 3:
+                initials = initials.ljust(3, "X")
+            # Date string from proposal date
+            date_obj = self.date or timezone.now().date()
+            date_str = date_obj.strftime("%m%d%Y")
+            # Sequence per salesperson
+            seq = Proposal.objects.filter(created_by_id=self.created_by_id).count() + 1
+            ref = f"{initials}{date_str}{seq:03d}"
+            # Ensure uniqueness in rare race conditions
+            while Proposal.objects.filter(reference_number=ref).exists():
+                seq += 1
+                ref = f"{initials}{date_str}{seq:03d}"
+            self.reference_number = ref
         super().save(*args, **kwargs)
     
     def calculate_totals(self):
@@ -112,7 +132,7 @@ class ProposalItem(models.Model):
     description = models.TextField(help_text="Item description and specifications")
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
-    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Cost per unit (Internal)")
+    unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Internal")
     availability = models.CharField(max_length=100, blank=True, help_text="Product availability (e.g. In Stock, 2-3 weeks)")
     amount = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)

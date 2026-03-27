@@ -549,8 +549,8 @@ def generate_pdf_buffer(proposal):
     
     tc_data = [
         [Paragraph("Terms and Conditions:", tc_label), ''],
-        [Paragraph("Price", tc_label), Paragraph(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.", tc_style)],
-        [Paragraph("Payment", tc_label), Paragraph(proposal.payment_terms, tc_style)],
+        [Paragraph("Price Validity", tc_label), Paragraph(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.", tc_style)],
+        [Paragraph("Payment Terms", tc_label), Paragraph(proposal.payment_terms, tc_style)],
         [Paragraph("Cancellation", tc_label), Paragraph(cancellation_text, tc_style)],
     ]
 
@@ -565,10 +565,13 @@ def generate_pdf_buffer(proposal):
     if proposal.closing:
          tc_data.append([Paragraph("Other Terms", tc_label), Paragraph(proposal.closing.replace('\n', '<br/>'), tc_style)])
 
-    tc_table = Table(tc_data, colWidths=[1.5*inch, 6*inch])
+    tc_table = Table(tc_data, colWidths=[1.8*inch, 5.7*inch])
     tc_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('ALIGN', (0,0), (0,-1), 'LEFT'),
+        # Make the section header span both columns to avoid wrapping
+        ('SPAN', (0,0), (1,0)),
+        ('BOTTOMPADDING', (0,0), (1,0), 6),
     ]))
     elements.append(tc_table)
     elements.append(Spacer(1, 12))
@@ -586,9 +589,17 @@ def generate_pdf_buffer(proposal):
     closing_elements.append(Paragraph("Very truly yours,", styles['NormalSmall']))
     closing_elements.append(Spacer(1, 30))
     
+    signature_img = None
+    try:
+        if hasattr(proposal.created_by, 'signature_image') and proposal.created_by.signature_image and proposal.created_by.signature_image.path:
+            # Slightly smaller height and let the image sit closer to the line
+            signature_img = Image(proposal.created_by.signature_image.path, width=2*inch, height=0.5*inch)
+    except Exception:
+        signature_img = None
+    
     sig_data = [
         ['', 'Conforme:'],
-        ['', ''],
+        [signature_img or '', ''],
         ['__________________________', '__________________________'],
         [Paragraph(f"<b>{proposal.created_by.get_full_name()}</b><br/>Account Manager<br/>Mobile #: {proposal.created_by.mobile_number or ''}", styles['NormalSmall']), 
          Paragraph("Print Name & Sign<br/>Served as Order if signed by Authorized <br/>Representative", styles['NormalSmall'])]
@@ -597,7 +608,10 @@ def generate_pdf_buffer(proposal):
     sig_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-        ('BOTTOMPADDING', (0,1), (-1,1), 30), # Space for signature
+        # Place the signature image closer to the line below
+        ('VALIGN', (0,1), (0,1), 'BOTTOM'),
+        ('BOTTOMPADDING', (0,1), (-1,1), 6),
+        ('TOPPADDING', (0,2), (-1,2), 2),
     ]))
     closing_elements.append(sig_table)
     

@@ -60,7 +60,7 @@ class UserProfileForm(forms.ModelForm):
     """Form for users to update their own profile"""
     class Meta:
         model = User
-        fields = ['profile_picture', 'first_name', 'last_name', 'email', 'mobile_number', 'initials']
+        fields = ['profile_picture', 'signature_image', 'first_name', 'last_name', 'email', 'mobile_number', 'initials']
         help_texts = {
             'initials': 'Your initials (e.g., JD)',
             'mobile_number': 'Your contact number',
@@ -74,6 +74,9 @@ class UserProfileForm(forms.ModelForm):
         self.helper.layout = Layout(
             Row(
                 Column('profile_picture', css_class='form-group col-md-12 mb-3'),
+            ),
+            Row(
+                Column('signature_image', css_class='form-group col-md-12 mb-3'),
             ),
             Row(
                 Column('first_name', css_class='form-group col-md-6 mb-3'),

@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if mission %}Edit Mission{% else %}New Mission{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-list-check text-primary me-2"></i>{% if mission %}Edit Mission{% else %}Create Mission{% endif %}</h2>
+        <a href="{% url 'missions_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back</a>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Mission Template</label>
+                            <div class="input-group">
+                                <select class="form-select" id="missionTemplate">
+                                    <option value="">Select a template...</option>
+                                    <option value="leads_5_daily">Create 5 Leads (Daily)</option>
+                                    <option value="emails_10_daily">Send 10 Follow-up Emails (Daily)</option>
+                                    <option value="meetings_2_weekly">Book 2 Meetings (Weekly)</option>
+                                    <option value="proposal_1_weekly">Submit 1 Proposal (Weekly)</option>
+                                    <option value="campaign_20_daily">Send Campaign to 20 Recipients (Daily)</option>
+                                </select>
+                                <button class="btn btn-outline-secondary" type="button" id="clearTemplate">Clear</button>
+                            </div>
+                            <small class="text-muted">Load a template, then adjust fields as needed.</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <div class="form-check mt-4">
+                            {{ form.is_active }}
+                            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Active</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">{{ form.title }}</div>
+                    <div class="col-md-6">{{ form.mission_type }}</div>
+                </div>
+
+                <div class="mb-3 mt-2">{{ form.description }}</div>
+
+                <div class="row">
+                    <div class="col-md-4">{{ form.target_action }}</div>
+                    <div class="col-md-4">{{ form.target_count }}</div>
+                    <div class="col-md-4">{{ form.reward_points }}</div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-4">
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i> Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const templates = {
+    'leads_5_daily': {
+        title: 'Create 5 Leads',
+        description: 'Add 5 new qualified leads today.',
+        mission_type: 'daily',
+        target_action: 'create_lead',
+        target_count: 5,
+        reward_points: 50
+    },
+    'emails_10_daily': {
+        title: 'Send 10 Follow-up Emails',
+        description: 'Send 10 personalized follow-ups to prospects today.',
+        mission_type: 'daily',
+        target_action: 'email_followup',
+        target_count: 10,
+        reward_points: 60
+    },
+    'meetings_2_weekly': {
+        title: 'Book 2 Meetings',
+        description: 'Schedule 2 qualified meetings this week.',
+        mission_type: 'weekly',
+        target_action: 'book_meeting',
+        target_count: 2,
+        reward_points: 100
+    },
+    'proposal_1_weekly': {
+        title: 'Submit 1 Proposal',
+        description: 'Send one tailored sales proposal this week.',
+        mission_type: 'weekly',
+        target_action: 'create_proposal',
+        target_count: 1,
+        reward_points: 120
+    },
+    'campaign_20_daily': {
+        title: 'Send Campaign to 20 Recipients',
+        description: 'Run a targeted campaign to 20 contacts today.',
+        mission_type: 'daily',
+        target_action: 'sent_campaign_email',
+        target_count: 20,
+        reward_points: 80
+    }
+};
+
+function setField(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+}
+
+document.getElementById('missionTemplate').addEventListener('change', function() {
+    const t = templates[this.value];
+    if (!t) return;
+    setField('id_title', t.title);
+    setField('id_description', t.description);
+    setField('id_mission_type', t.mission_type);
+    setField('id_target_action', t.target_action);
+    setField('id_target_count', t.target_count);
+    setField('id_reward_points', t.reward_points);
+});
+
+document.getElementById('clearTemplate').addEventListener('click', function() {
+    setField('id_title', '');
+    setField('id_description', '');
+    setField('id_mission_type', '');
+    setField('id_target_action', '');
+    setField('id_target_count', '');
+    setField('id_reward_points', '');
+    document.getElementById('missionTemplate').value = '';
+});
+</script>
+{% endblock %}

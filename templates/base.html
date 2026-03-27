@@ -245,6 +245,13 @@
                                 <i class="fas fa-paper-plane"></i><span>Mass Mailing</span>
                             </a>
                         </li>
+                        {% if user.role in 'admin,president,gm,vp,avp' %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'missions_list' %}" title="Missions">
+                                <i class="fas fa-list-check"></i><span>Missions</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         {% if user.role in 'admin,president,gm,vp,avp,asm' %}
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle" href="#" id="teamsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Teams">

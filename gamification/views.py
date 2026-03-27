@@ -1,7 +1,10 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
-from .models import GamificationProfile, Badge, UserBadge, PointLog
+from django.http import HttpResponseForbidden
+from django.contrib import messages
+from .models import GamificationProfile, Badge, UserBadge, PointLog, Mission
+from .forms import MissionForm
 
 @login_required
 def leaderboard_view(request):
@@ -36,3 +39,42 @@ def badge_list_view(request):
         'earned_badge_ids': earned_badge_ids
     }
     return render(request, 'gamification/badges.html', context)
+
+def can_manage_missions(user):
+    return user.is_authenticated and user.role in ['admin','president','gm','vp','avp']
+
+@login_required
+def mission_list_view(request):
+    if not can_manage_missions(request.user):
+        return HttpResponseForbidden("Not allowed")
+    missions = Mission.objects.all().order_by('-is_active','title')
+    return render(request, 'gamification/mission_list.html', {'missions': missions})
+
+@login_required
+def mission_create_view(request):
+    if not can_manage_missions(request.user):
+        return HttpResponseForbidden("Not allowed")
+    if request.method == 'POST':
+        form = MissionForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Mission created.")
+            return redirect('missions_list')
+    else:
+        form = MissionForm()
+    return render(request, 'gamification/mission_form.html', {'form': form})
+
+@login_required
+def mission_edit_view(request, pk):
+    if not can_manage_missions(request.user):
+        return HttpResponseForbidden("Not allowed")
+    mission = get_object_or_404(Mission, pk=pk)
+    if request.method == 'POST':
+        form = MissionForm(request.POST, instance=mission)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Mission updated.")
+            return redirect('missions_list')
+    else:
+        form = MissionForm(instance=mission)
+    return render(request, 'gamification/mission_form.html', {'form': form, 'mission': mission})

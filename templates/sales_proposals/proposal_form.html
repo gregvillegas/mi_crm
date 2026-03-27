@@ -77,6 +77,11 @@
                                 {{ form.unit_cost|as_crispy_field }}
                             </div>
                             <div class="col-md-1">
+                                <label class="form-label" title="Margin (%)"><i class="fas fa-percent"></i>Margin</label>
+                                <input type="number" class="form-control margin-input" step="0.01" min="0" placeholder="%">
+                                <small class="text-muted"></small>
+                            </div>
+                            <div class="col-md-1">
                                 {{ form.unit_price|as_crispy_field }}
                             </div>
                             <div class="col-md-2">
@@ -111,6 +116,11 @@
                         </div>
                         <div class="col-md-1">
                             {{ formset.empty_form.unit_cost|as_crispy_field }}
+                        </div>
+                        <div class="col-md-1">
+                            <label class="form-label" title="Margin (%)"><i class="fas fa-percent"></i></label>
+                            <input type="number" class="form-control margin-input" step="0.01" min="0" placeholder="%">
+                            <small class="text-muted">Auto-computes SRP</small>
                         </div>
                         <div class="col-md-1">
                             {{ formset.empty_form.unit_price|as_crispy_field }}
@@ -202,6 +212,27 @@
     </form>
 </div>
 
+{% block extra_css %}
+<style>
+/* Hide spinners for unit_cost and unit_price only */
+input.no-spin::-webkit-outer-spin-button,
+input.no-spin::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input.no-spin {
+  -moz-appearance: textfield;
+}
+/* Professional spacing/alignment for item rows */
+.item-row .form-control {
+  height: 38px;
+}
+.item-row label {
+  font-weight: 600;
+}
+</style>
+{% endblock %}
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Items handling
@@ -228,6 +259,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (newRow) {
                 container.appendChild(newRow);
                 totalFormsInput.value = formIdx + 1;
+                attachMarginHandlers(newRow);
             }
         });
     }
@@ -275,6 +307,49 @@ document.addEventListener('DOMContentLoaded', function() {
         currencySelect.addEventListener('change', toggleExchangeRate);
         toggleExchangeRate(); // Initial state
     }
+
+    // Margin -> Unit price auto computation
+    function computeUnitPrice(row) {
+        const costInput = row.querySelector('input[name$="unit_cost"]');
+        const priceInput = row.querySelector('input[name$="unit_price"]');
+        const marginInput = row.querySelector('.margin-input');
+        if (!costInput || !priceInput || !marginInput) return;
+        const cost = parseFloat(costInput.value) || 0;
+        const margin = parseFloat(marginInput.value) || 0;
+        if (margin > 0) {
+            const price = cost * (1 + margin / 100);
+            priceInput.value = price.toFixed(2);
+        }
+    }
+    function initMarginFromExisting(row) {
+        const costInput = row.querySelector('input[name$="unit_cost"]');
+        const priceInput = row.querySelector('input[name$="unit_price"]');
+        const marginInput = row.querySelector('.margin-input');
+        if (!costInput || !priceInput || !marginInput) return;
+        const cost = parseFloat(costInput.value);
+        const price = parseFloat(priceInput.value);
+        if (marginInput.value === '' && cost > 0 && price >= 0) {
+            const margin = ((price - cost) / cost) * 100;
+            if (isFinite(margin)) {
+                marginInput.value = margin.toFixed(2);
+            }
+        }
+    }
+    function attachMarginHandlers(scope) {
+        const rows = scope ? [scope] : Array.from(document.querySelectorAll('.item-row'));
+        rows.forEach(row => {
+            const costInput = row.querySelector('input[name$="unit_cost"]');
+            const marginInput = row.querySelector('.margin-input');
+            if (marginInput) {
+                marginInput.addEventListener('input', () => computeUnitPrice(row));
+            }
+            if (costInput) {
+                costInput.addEventListener('input', () => computeUnitPrice(row));
+            }
+            initMarginFromExisting(row);
+        });
+    }
+    attachMarginHandlers();
 });
 </script>
 {% endblock %}
