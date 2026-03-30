@@ -4,7 +4,7 @@
 <div class="jumbotron mb-4">
     <h1 class="display-4">Welcome to the Micro Image CRM</h1>
     <p class="lead">Manage your customers and sales teams effectively.</p>
-    <p class="text-muted">Logged in as: <strong>{{ user.get_full_name|default:user.username }}</strong> ({{ user.get_role_display }})</p>
+    <p class="text-muted">Logged in as: <strong>{{ user.get_full_name|default:user.username }}</strong> ({% if user.job_title %}{{ user.get_job_title_display }}{% elif user.role in 'president,gm,vp' %}Executive{% else %}{{ user.get_role_display }}{% endif %})</p>
 </div>
 
 <!-- Gamification Widget -->

@@ -425,12 +425,15 @@ def generate_pdf_buffer(proposal):
     elements.append(Spacer(1, 12))
     
     # --- CUSTOMER INFO ---
-    elements.append(Paragraph(f"Ms./Mr. {proposal.customer.contact_person_name}", styles['NormalSmall']))
+    contact_name = proposal.contact_name or proposal.customer.contact_person_name
+    contact_email = proposal.contact_email or proposal.customer.email
+    contact_phone = proposal.contact_phone or proposal.customer.phone_number
+    elements.append(Paragraph(f"Ms./Mr. {contact_name}", styles['NormalSmall']))
     elements.append(Paragraph(f"<b>{proposal.customer.company_name}</b>", styles['NormalSmall']))
-    if proposal.customer.phone_number:
-        elements.append(Paragraph(proposal.customer.phone_number, styles['NormalSmall']))
-    if proposal.customer.email:
-        elements.append(Paragraph(f"<a href='mailto:{proposal.customer.email}'>{proposal.customer.email}</a>", styles['NormalSmall']))
+    if contact_phone:
+        elements.append(Paragraph(contact_phone, styles['NormalSmall']))
+    if contact_email:
+        elements.append(Paragraph(f"<a href='mailto:{contact_email}'>{contact_email}</a>", styles['NormalSmall']))
     elements.append(Spacer(1, 12))
     
     # --- SALUTATION ---
@@ -645,21 +648,60 @@ def proposal_email(request, pk):
     except Exception:
         pass
     
+    # Build CC contacts list (main + additional with emails)
+    try:
+        from customers.models import CustomerContact
+        additional_contacts = list(CustomerContact.objects.filter(customer=proposal.customer).order_by('-is_primary','name'))
+    except Exception:
+        additional_contacts = []
+    cc_contacts = []
+    # Main contact option
+    if proposal.customer.email:
+        cc_contacts.append({
+            'label': f"{proposal.customer.contact_person_name or 'Main Contact'}",
+            'email': proposal.customer.email
+        })
+    # Additional contact options
+    for c in additional_contacts:
+        if c.email:
+            cc_contacts.append({
+                'label': c.name,
+                'email': c.email
+            })
+    
     if request.method == 'POST':
         # Get recipient email (allow override)
-        recipient_email = request.POST.get('customer_email', proposal.customer.email)
+        recipient_email = request.POST.get('customer_email', proposal.contact_email or proposal.customer.email)
         
         # Check for CC Supervisor
         cc_list = []
         if request.POST.get('cc_supervisor') == 'on' and supervisor_email:
             cc_list.append(supervisor_email)
+        
+        # Selected CC contacts
+        for email in request.POST.getlist('cc_contact'):
+            if email:
+                cc_list.append(email.strip())
+        
+        # Free-form CCs (comma/semicolon separated)
+        extra_cc = (request.POST.get('cc_emails') or '').strip()
+        if extra_cc:
+            import re
+            pieces = re.split(r'[,\s;]+', extra_cc)
+            for e in pieces:
+                e = e.strip()
+                if e:
+                    cc_list.append(e)
+        
+        # Deduplicate and avoid duplicating To:
+        cc_list = [e for i, e in enumerate(cc_list) if e and e.lower() != (recipient_email or '').lower() and e not in cc_list[:i]]
             
         # Generate PDF
         buffer = generate_pdf_buffer(proposal)
         
         # Send Email
         subject = f"Proposal: {proposal.subject} - {proposal.proposal_number}"
-        message = f"""Dear {proposal.customer.contact_person_name},
+        message = f"""Dear {proposal.contact_name or proposal.customer.contact_person_name},
 
 Please find attached our proposal for {proposal.subject}.
 
@@ -697,8 +739,9 @@ Best regards,
         return redirect('proposal_detail', pk=pk)
     
     return render(request, 'sales_proposals/proposal_email_confirm.html', {
-        'proposal': proposal, 
-        'supervisor_email': supervisor_email
+        'proposal': proposal,
+        'supervisor_email': supervisor_email,
+        'cc_contacts': cc_contacts
     })
 
 def log_sales_activity(proposal, user):

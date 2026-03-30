@@ -8,9 +8,9 @@
             <h5 class="mb-0">Email Proposal</h5>
         </div>
         <div class="card-body">
-            <p class="lead">You are about to send proposal <strong>{{ proposal.proposal_number }}</strong> to <strong>{{ proposal.customer.email }}</strong>.</p>
+            <p class="lead">You are about to send proposal <strong>{{ proposal.proposal_number }}</strong> to <strong>{{ proposal.contact_email|default:proposal.customer.email }}</strong>.</p>
             <p>Subject: <strong>{{ proposal.subject }}</strong></p>
-            <p>Customer: {{ proposal.customer.company_name }} ({{ proposal.customer.contact_person_name }})</p>
+            <p>Customer: {{ proposal.customer.company_name }} ({{ proposal.contact_name|default:proposal.customer.contact_person_name }})</p>
             
             <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i> This will also:
@@ -26,8 +26,30 @@
                 
                 <div class="mb-3">
                     <label for="customer_email" class="form-label fw-bold">Send To:</label>
-                    <input type="email" class="form-control" id="customer_email" name="customer_email" value="{{ proposal.customer.email }}" required>
+                    <input type="email" class="form-control" id="customer_email" name="customer_email" value="{{ proposal.contact_email|default:proposal.customer.email }}" required>
                     <div class="form-text">You can modify the recipient email address here.</div>
+                </div>
+
+                {% if cc_contacts %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">CC Recipients:</label>
+                    <div class="row">
+                        {% for c in cc_contacts %}
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="cc_contact_{{ forloop.counter }}" name="cc_contact" value="{{ c.email }}">
+                                <label class="form-check-label" for="cc_contact_{{ forloop.counter }}">{{ c.label }} &lt;{{ c.email }}&gt;</label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="form-text">Select any customer contacts to CC.</div>
+                </div>
+                {% endif %}
+
+                <div class="mb-3">
+                    <label for="cc_emails" class="form-label fw-bold">Additional CCs (comma-separated):</label>
+                    <input type="text" class="form-control" id="cc_emails" name="cc_emails" placeholder="e.g. approver@company.com, finance@company.com">
                 </div>
 
                 {% if supervisor_email %}

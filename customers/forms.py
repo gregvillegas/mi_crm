@@ -1,8 +1,9 @@
 from django import forms
-from .models import Customer, DelinquencyRecord, DelinquentCustomer
+from .models import Customer, DelinquencyRecord, DelinquentCustomer, CustomerContact
 from users.models import User
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Submit, HTML
+from django.forms import inlineformset_factory
 
 class CustomerForm(forms.ModelForm):
     class Meta:
@@ -36,6 +37,8 @@ class CustomerForm(forms.ModelForm):
         self.fields['territory'].widget.attrs.update({'class': 'form-select'})
         
         self.helper = FormHelper()
+        # Render fields only; outer template provides the <form> tag to include the contact formset
+        self.helper.form_tag = False
         self.helper.layout = Layout(
             HTML('<h5 class="mb-3">Basic Information</h5>'),
             Row(
@@ -74,6 +77,26 @@ class CustomerForm(forms.ModelForm):
             HTML('<br>'),
             Submit('submit', 'Save Customer', css_class='btn btn-primary')
         )
+
+class CustomerContactForm(forms.ModelForm):
+    class Meta:
+        model = CustomerContact
+        fields = ['name','position','email','phone','is_primary']
+        widgets = {
+            'name': forms.TextInput(attrs={'placeholder':'Full name'}),
+            'position': forms.TextInput(attrs={'placeholder':'Title/Role'}),
+            'email': forms.EmailInput(attrs={'placeholder':'email@example.com'}),
+            'phone': forms.TextInput(attrs={'placeholder':'+63...'}),
+        }
+
+CustomerContactFormSet = inlineformset_factory(
+    Customer, CustomerContact,
+    form=CustomerContactForm,
+    fields=['name','position','email','phone','is_primary'],
+    extra=1,
+    can_delete=True,
+    max_num=4
+)
 
 class SalespersonCustomerForm(forms.ModelForm):
     """Form for salespeople to add new customers - automatically assigns them as salesperson"""

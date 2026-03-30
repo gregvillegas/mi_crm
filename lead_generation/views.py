@@ -167,6 +167,7 @@ def lead_create(request):
         form = LeadForm(request.POST, user=request.user)
         if form.is_valid():
             lead = form.save(commit=False)
+            lead.created_by = request.user
             
             # Auto-assign to current user if they're a salesperson
             if request.user.role == 'salesperson' and not lead.assigned_to:
@@ -197,6 +198,96 @@ def lead_create(request):
         'title': 'Create New Lead'
     })
 
+@login_required
+def lead_import(request):
+    created = 0
+    errors = []
+    if request.method == 'POST':
+        form = LeadImportForm(request.POST, request.FILES, user=request.user)
+        if form.is_valid():
+            f = form.cleaned_data['file']
+            calculate_scores = form.cleaned_data.get('calculate_scores', True)
+            default_assigned = form.cleaned_data.get('default_assigned_to')
+            try:
+                data = f.read().decode('utf-8')
+            except Exception:
+                errors.append('Unable to read the uploaded file. Ensure it is UTF-8 encoded CSV.')
+                return render(request, 'lead_generation/lead_import.html', {'form': form, 'created': created, 'errors': errors})
+            reader = csv.DictReader(data.splitlines())
+            for i, row in enumerate(reader, start=2):
+                try:
+                    first_name = (row.get('first_name') or '').strip()
+                    last_name = (row.get('last_name') or '').strip()
+                    email = (row.get('email') or '').strip()
+                    source_name = (row.get('source') or '').strip()
+                    if not first_name or not last_name or not email or not source_name:
+                        raise ValueError('first_name, last_name, email, and source are required')
+                    source, _ = LeadSource.objects.get_or_create(name=source_name, defaults={'source_type': 'other'})
+                    assigned = default_assigned
+                    assigned_username = (row.get('assigned_to_username') or '').strip()
+                    if assigned_username:
+                        try:
+                            assigned = User.objects.get(username=assigned_username, role='salesperson', is_active=True)
+                        except User.DoesNotExist:
+                            assigned = default_assigned or (request.user if request.user.role == 'salesperson' else None)
+                    if request.user.role == 'salesperson':
+                        assigned = request.user
+                    lead = Lead(
+                        first_name=first_name,
+                        last_name=last_name,
+                        email=email,
+                        phone_number=(row.get('phone_number') or '').strip(),
+                        company_name=(row.get('company_name') or '').strip(),
+                        job_title=(row.get('job_title') or '').strip(),
+                        address=(row.get('address') or '').strip(),
+                        city=(row.get('city') or '').strip(),
+                        territory=(row.get('territory') or '').strip(),
+                        industry=(row.get('industry') or '').strip(),
+                        company_size=(row.get('company_size') or '').strip(),
+                        annual_revenue=(row.get('annual_revenue') or '').strip(),
+                        status=(row.get('status') or 'new').strip() or 'new',
+                        priority=(row.get('priority') or 'medium').strip() or 'medium',
+                        source=source,
+                        assigned_to=assigned,
+                        initial_interest=(row.get('initial_interest') or '').strip(),
+                        requirements=(row.get('requirements') or '').strip(),
+                        budget_range=(row.get('budget_range') or '').strip(),
+                        timeline=(row.get('timeline') or '').strip(),
+                        notes=(row.get('notes') or '').strip(),
+                        created_by=request.user
+                    )
+                    lead.save()
+                    if calculate_scores:
+                        try:
+                            lead.calculate_lead_score()
+                        except Exception:
+                            pass
+                    created += 1
+                except Exception as e:
+                    errors.append(f'Row {i}: {e}')
+            return render(request, 'lead_generation/lead_import.html', {'form': form, 'created': created, 'errors': errors, 'done': True})
+    else:
+        form = LeadImportForm(user=request.user)
+    return render(request, 'lead_generation/lead_import.html', {'form': form})
+
+@login_required
+def lead_import_template(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="leads_import_template.csv"'
+    writer = csv.writer(response)
+    writer.writerow([
+        'first_name','last_name','email','phone_number','company_name','job_title',
+        'address','city','territory','industry','company_size','annual_revenue',
+        'status','priority','source','assigned_to_username','initial_interest',
+        'requirements','budget_range','timeline','notes'
+    ])
+    writer.writerow([
+        'Juan','Dela Cruz','juan.dela@example.com','+63-2-555-1234','ABC Corp','IT Manager',
+        '123 Ayala Ave','Makati','makati','technology','51-200','10m_50m',
+        'new','medium','Website','salesuser1','Interested in network upgrade',
+        'Needs 10 switches','100k_500k','short_term',''
+    ])
+    return response
 
 @login_required
 def lead_detail(request, lead_id):

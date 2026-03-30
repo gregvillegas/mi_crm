@@ -1,0 +1,2 @@
+first_name,last_name,email,phone_number,company_name,job_title,address,city,territory,industry,company_size,annual_revenue,status,priority,source,assigned_to_username,initial_interest,requirements,budget_range,timeline,notes
+Juan,Dela Cruz,juan.dela@example.com,+63-2-555-1234,ABC Corp,IT Manager,123 Ayala Ave,Makati,makati,technology,51-200,10m_50m,new,medium,Website,salesuser1,Interested in network upgrade,Needs 10 switches,100k_500k,short_term,

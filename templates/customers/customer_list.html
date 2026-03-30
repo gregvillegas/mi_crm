@@ -142,6 +142,18 @@
                 </select>
             </div>
             <div class="col-md-2">
+                <label for="salesperson" class="form-label">Salesperson</label>
+                <select class="form-select" id="salesperson" name="salesperson">
+                    <option value="">All Salespeople</option>
+                    <option value="unassigned" {% if current_filters.salesperson == 'unassigned' %}selected{% endif %}>Unassigned</option>
+                    {% for sp in available_salespeople %}
+                        <option value="{{ sp.id }}" {% if current_filters.salesperson|add:'0' == sp.id|add:'0' %}selected{% endif %}>
+                            {% if sp.initials %}{{ sp.initials }}{% else %}{{ sp.username|slice:":2"|upper }}{% endif %} — {{ sp.get_full_name|default:sp.username }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
                 <label for="view" class="form-label">View</label>
                 <select class="form-select" id="view" name="view">
                     <option value="table" {% if current_filters.view == 'table' or not current_filters.view %}selected{% endif %}>Table</option>

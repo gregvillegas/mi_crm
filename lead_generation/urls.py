@@ -13,6 +13,8 @@ urlpatterns = [
     path('leads/create/', views.lead_create, name='lead_create'),
     path('leads/<int:lead_id>/', views.lead_detail, name='lead_detail'),
     path('leads/<int:lead_id>/edit/', views.lead_edit, name='lead_edit'),
+    path('import/', views.lead_import, name='lead_import'),
+    path('import/template/', views.lead_import_template, name='lead_import_template'),
     
     # Lead actions
     path('leads/<int:lead_id>/convert/', views.convert_lead, name='convert_lead'),

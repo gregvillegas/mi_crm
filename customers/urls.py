@@ -6,6 +6,7 @@ from . import views
 
 urlpatterns = [
     path('', views.customer_list, name='customer_list'),
+    path('<int:pk>/contacts/', views.customer_contacts, name='customer_contacts'),
     path('delinquent/', views.delinquent_list, name='delinquent_list'),
     path('delinquent/add/', views.create_delinquency, name='create_delinquency'),
     path('delinquent/import/', views.import_delinquencies, name='import_delinquencies'),

@@ -20,6 +20,10 @@ class Proposal(models.Model):
     date = models.DateField(default=timezone.now)
     valid_until = models.DateField(null=True, blank=True)
     subject = models.CharField(max_length=200)
+    # Attention contact snapshot
+    contact_name = models.CharField(max_length=120, blank=True)
+    contact_email = models.EmailField(blank=True)
+    contact_phone = models.CharField(max_length=50, blank=True)
     
     # Currency
     CURRENCY_CHOICES = [
@@ -74,11 +78,23 @@ class Proposal(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.proposal_number:
-            # Generate ID: PROP-YYYY-XXXX
             today = timezone.now()
-            # Simple counter, might have race conditions in high concurrency but fine for this scale
-            count = Proposal.objects.filter(created_at__year=today.year).count() + 1
-            self.proposal_number = f"PROP-{today.year}-{count:04d}"
+            prefix = f"PROP-{today.year}-"
+            existing = Proposal.objects.filter(proposal_number__startswith=prefix).values_list('proposal_number', flat=True)
+            max_seq = 0
+            for num in existing:
+                try:
+                    seq = int(num.split('-')[-1])
+                    if seq > max_seq:
+                        max_seq = seq
+                except Exception:
+                    continue
+            next_seq = max_seq + 1
+            candidate = f"{prefix}{next_seq:04d}"
+            while Proposal.objects.filter(proposal_number=candidate).exists():
+                next_seq += 1
+                candidate = f"{prefix}{next_seq:04d}"
+            self.proposal_number = candidate
         # Autogenerate Reference Number: III + MMDDYYYY + ### (per-salesperson sequence)
         if not self.reference_number and self.created_by_id:
             # Initials

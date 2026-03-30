@@ -21,6 +21,30 @@ class User(AbstractUser):
     mobile_number = models.CharField(max_length=20, blank=True, null=True, help_text='Mobile number of the user')
     profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True, help_text='Profile picture for the user')
     signature_image = models.ImageField(upload_to='signatures/', blank=True, null=True, help_text='Digital signature image for proposals')
+    JOB_TITLE_CHOICES = (
+        ('account_manager', 'Account Manager'),
+        ('sales_supervisor', 'Sales Supervisor'),
+        ('president', 'President'),
+        ('vice_president', 'Vice President'),
+        ('general_manager', 'General Manager'),
+        ('assistant_vp', 'Assistant VP'),
+        ('sales_manager', 'Sales Manager'),
+        ('accounting_manager', 'Accounting Manager'),
+        ('operation_manager', 'Operation Manager'),
+        ('cto', 'CTO'),
+        ('ceo', 'CEO'),
+        ('chairman', 'Chairman'),
+        ('warehouse_supervisor', 'Warehouse Supervisor'),
+        ('purchasing_supervisor', 'Purchasing Supervisor'),
+        ('technical_manager', 'Technical Manager'),
+        ('assistant_technical_manager', 'Assistant Technical Manager'),
+        ('sr_teamlead', 'Sr. Teamlead'),
+        ('purchasing_staff', 'Purchasing Staff'),
+        ('accounting_staff', 'Accounting Staff'),
+        ('warehouse_staff', 'Warehouse Staff'),
+        ('hr_officer', 'HR Officer'),
+    )
+    job_title = models.CharField(max_length=50, choices=JOB_TITLE_CHOICES, blank=True)
     last_activity = models.DateTimeField(null=True, blank=True, help_text='Timestamp of last user activity')
     is_active = models.BooleanField(default=True, help_text='Designates whether this user should be treated as active. Unselect this instead of deleting accounts.')
 

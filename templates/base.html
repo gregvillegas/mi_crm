@@ -326,7 +326,9 @@
                                 </div>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown">
-                                <li><h6 class="dropdown-header">{{ user.get_role_display }}</h6></li>
+                                <li><h6 class="dropdown-header">
+                                    {% if user.job_title %}{{ user.get_job_title_display }}{% elif user.role in 'president,gm,vp' %}Executive{% else %}{{ user.get_role_display }}{% endif %}
+                                </h6></li>
                                 <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="fas fa-user-circle me-2"></i>My Profile</a></li>
                                 <li><a class="dropdown-item" href="{% url 'leaderboard' %}"><i class="fas fa-trophy me-2"></i>Leaderboard</a></li>
                                 <li><a class="dropdown-item" href="{% url 'badges' %}"><i class="fas fa-medal me-2"></i>My Badges</a></li>

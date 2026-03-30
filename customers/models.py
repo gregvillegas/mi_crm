@@ -444,3 +444,31 @@ class CustomerBackup(models.Model):
             changed_by=restored_by,
             reason=f"Restored from backup {self.id}"
         )
+
+class CustomerContact(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='contacts')
+    name = models.CharField(max_length=120)
+    position = models.CharField(max_length=120, blank=True)
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=50, blank=True)
+    is_primary = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-is_primary', 'name']
+    
+    def __str__(self):
+        return f"{self.name} ({self.customer.company_name})"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Ensure max 4 contacts per customer (soft enforcement)
+        contacts = CustomerContact.objects.filter(customer=self.customer).order_by('-created_at')
+        if contacts.count() > 4:
+            # Keep newest 4; delete oldest extras
+            for extra in contacts[4:]:
+                extra.delete()
+        # Ensure only one primary
+        if self.is_primary:
+            CustomerContact.objects.filter(customer=self.customer).exclude(id=self.id).update(is_primary=False)

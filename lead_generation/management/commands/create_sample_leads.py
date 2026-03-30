@@ -108,6 +108,7 @@ class Command(BaseCommand):
                 'territory': random.choice(territories),
                 'source': random.choice(lead_sources),
                 'assigned_to': random.choice(users),
+                'created_by': random.choice(users),
                 'company_size': random.choice(company_sizes),
                 'annual_revenue': random.choice(annual_revenues),
                 'budget_range': random.choice(budget_ranges),

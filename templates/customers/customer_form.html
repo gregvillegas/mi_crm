@@ -47,6 +47,56 @@
                 <form method="post">
                     {% csrf_token %}
                     {% crispy form %}
+                    
+                    <hr class="my-4">
+                    <h5 class="mb-3"><i class="fas fa-address-book me-2"></i>Additional Contact Persons (max 4)</h5>
+                    <p class="text-muted small">Primary contact will be pre-selected in proposals. You can add up to 4 contacts.</p>
+                    
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            {% if contact_formset %}
+                                {{ contact_formset.management_form }}
+                                <div id="contacts-container">
+                                    {% for cform in contact_formset %}
+                                        <div class="row gx-2 gy-1 align-items-end contact-row mb-2">
+                                            <div class="col-md-3">{{ cform.name|as_crispy_field }}</div>
+                                            <div class="col-md-3">{{ cform.position|as_crispy_field }}</div>
+                                            <div class="col-md-3">{{ cform.email|as_crispy_field }}</div>
+                                            <div class="col-md-2">{{ cform.phone|as_crispy_field }}</div>
+                                            <div class="col-md-1">
+                                                <div class="form-check">
+                                                    {{ cform.is_primary }} <label class="form-check-label">Pri</label>
+                                                </div>
+                                            </div>
+                                            {% if cform.DELETE %}
+                                            <div class="col-md-12 mt-1">
+                                                <div class="form-check">
+                                                    {{ cform.DELETE }} <label class="form-check-label text-danger">Delete</label>
+                                                </div>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <button type="button" id="add-contact-btn" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-plus"></i> Add Contact
+                                </button>
+                                <div id="contact-empty-template" class="d-none">
+                                    <div class="row gx-2 gy-1 align-items-end contact-row mb-2">
+                                        <div class="col-md-3">{{ contact_formset.empty_form.name|as_crispy_field }}</div>
+                                        <div class="col-md-3">{{ contact_formset.empty_form.position|as_crispy_field }}</div>
+                                        <div class="col-md-3">{{ contact_formset.empty_form.email|as_crispy_field }}</div>
+                                        <div class="col-md-2">{{ contact_formset.empty_form.phone|as_crispy_field }}</div>
+                                        <div class="col-md-1">
+                                            <div class="form-check">{{ contact_formset.empty_form.is_primary }} <label class="form-check-label">Primary</label></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="text-muted">Contact form not available.</div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -98,6 +148,36 @@
     </div>
     {% endif %}
 </div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const addBtn = document.getElementById('add-contact-btn');
+  const container = document.getElementById('contacts-container');
+  // Minor CSS fix for overlapping fields
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .contact-row .form-group { margin-bottom: 0.25rem; }
+    .contact-row .form-control { width: 100%; }
+  `;
+  document.head.appendChild(style);
+  const emptyHtml = document.getElementById('contact-empty-template')?.innerHTML || '';
+  const totalInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+  if (addBtn && container && totalInput) {
+    addBtn.addEventListener('click', function() {
+      let count = parseInt(totalInput.value, 10) || 0;
+      if (count >= 4) return;
+      const html = emptyHtml.replace(/__prefix__/g, count);
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = html;
+      const row = wrapper.querySelector('.contact-row');
+      container.appendChild(row);
+      totalInput.value = count + 1;
+    });
+  }
+});
+</script>
+{% endblock %}
 
 <!-- Manual Backup Modal -->
 {% if is_edit and user.role == 'admin' %}

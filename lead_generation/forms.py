@@ -6,6 +6,7 @@ from crispy_forms.bootstrap import FormActions
 from .models import Lead, LeadSource, LeadActivity, ConversionTracking, LeadNurturingCampaign
 from customers.models import Customer
 from users.models import User
+from django import forms as dj_forms
 
 class LeadForm(forms.ModelForm):
     """Form for creating and editing leads"""
@@ -112,6 +113,32 @@ class LeadForm(forms.ModelForm):
             )
         )
 
+
+class LeadImportForm(forms.Form):
+    file = forms.FileField()
+    calculate_scores = forms.BooleanField(required=False, initial=True)
+    default_assigned_to = forms.ModelChoiceField(
+        queryset=User.objects.none(),
+        required=False
+    )
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        qs = User.objects.filter(role='salesperson', is_active=True)
+        if user and user.role == 'salesperson':
+            qs = qs.filter(id=user.id)
+        elif user and user.role in ['supervisor', 'asm', 'avp']:
+            if user.role == 'supervisor':
+                groups = user.managed_groups.all()
+            elif user.role == 'asm':
+                from teams.models import Group
+                groups = Group.objects.filter(team__in=user.asm_teams.all())
+            else:
+                from teams.models import Group, Team
+                groups = Group.objects.filter(team__in=Team.objects.filter(avp=user))
+            qs = User.objects.filter(team_membership__group__in=groups, role='salesperson')
+        self.fields['default_assigned_to'].queryset = qs
 
 class LeadActivityForm(forms.ModelForm):
     """Form for logging lead activities"""
@@ -297,15 +324,3 @@ class BulkLeadActionForm(forms.Form):
     )
     priority = forms.ChoiceField(choices=Lead.PRIORITY_CHOICES, required=False)
     status = forms.ChoiceField(choices=Lead.STATUS_CHOICES, required=False)
-
-
-class LeadImportForm(forms.Form):
-    """Form for importing leads from CSV"""
-    
-    csv_file = forms.FileField(
-        help_text="Upload a CSV file with lead data. Required columns: first_name, last_name, email"
-    )
-    default_source = forms.ModelChoiceField(
-        queryset=LeadSource.objects.filter(is_active=True),
-        help_text="Default source for imported leads if not specified in CSV"
-    )

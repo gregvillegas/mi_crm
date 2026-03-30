@@ -149,6 +149,13 @@ class Lead(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='new')
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
     source = models.ForeignKey(LeadSource, on_delete=models.CASCADE, related_name='leads')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='leads_created'
+    )
     assigned_to = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 

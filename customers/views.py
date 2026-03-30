@@ -4,8 +4,8 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.db import models
 from django.db.models import Sum
-from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord, CustomerNote
-from .forms import CustomerForm
+from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord, CustomerNote, CustomerContact
+from .forms import CustomerForm, CustomerContactFormSet
 from users.models import User
 from teams.models import Team, Group, TeamMembership
 from sales_funnel.models import SalesFunnel
@@ -83,6 +83,7 @@ def customer_list(request):
     industry_filter = request.GET.get('industry')
     territory_filter = request.GET.get('territory')
     search_query = request.GET.get('search')
+    salesperson_filter = request.GET.get('salesperson')
     
     if status_filter == 'active':
         customers = customers.filter(is_active=True)
@@ -107,8 +108,22 @@ def customer_list(request):
             models.Q(email__icontains=search_query)
         )
     
+    # Salesperson filter
+    if salesperson_filter:
+        if salesperson_filter == 'unassigned':
+            customers = customers.filter(salesperson__isnull=True)
+        else:
+            try:
+                sp_id = int(salesperson_filter)
+                customers = customers.filter(salesperson_id=sp_id)
+            except ValueError:
+                pass
+    
     # Order by VIP status first, then by creation date
     customers = customers.select_related('salesperson').order_by('-is_vip', '-created_at')
+    
+    # Available salespeople for filter dropdown (active only)
+    available_salespeople = User.objects.filter(role='salesperson', is_active=True).order_by('first_name','last_name','username')
     
     # Determine if user can see admin actions column
     # Admin, VP, GM: Full access
@@ -122,12 +137,14 @@ def customer_list(request):
         'show_actions': can_manage_customers,
         'industry_choices': Customer.INDUSTRY_CHOICES,
         'territory_choices': Customer.TERRITORY_CHOICES,
+        'available_salespeople': available_salespeople,
         'current_filters': {
             'status': status_filter,
             'vip': vip_filter,
             'industry': industry_filter,
             'territory': territory_filter,
             'search': search_query or '',
+            'salesperson': salesperson_filter or '',
             'view': view_mode,
         },
         'stats': {
@@ -139,6 +156,35 @@ def customer_list(request):
     }
     
     return render(request, 'customers/customer_list.html', context)
+
+@login_required
+def customer_contacts(request, pk):
+    """Return up to 4 contacts for a customer in JSON for dependent dropdowns."""
+    customer = get_object_or_404(Customer, pk=pk)
+    # Convert queryset to list of dicts
+    additional = list(CustomerContact.objects.filter(customer=customer).order_by('-is_primary','name').values('id','name','position','email','phone','is_primary'))
+    # Always include legacy main contact as an option
+    main_contact = {
+        'id': 'main',
+        'name': customer.contact_person_name or '',
+        'position': customer.contact_person_position or '',
+        'email': customer.email or '',
+        'phone': customer.phone_number or '',
+        'is_primary': False
+    }
+    # If no additional primary is set, make main contact primary by default
+    if not any(c.get('is_primary') for c in additional):
+        main_contact['is_primary'] = True
+    # Build final list with main first, then additional (de-duplicate by name+email)
+    seen = set()
+    contacts = []
+    for c in [main_contact] + additional:
+        key = (c.get('name','').strip().lower(), (c.get('email') or '').strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        contacts.append(c)
+    return JsonResponse({'contacts': contacts})
 
 @login_required
 def delinquent_list(request):
@@ -190,16 +236,38 @@ def create_customer(request):
         return redirect('customer_list')
     
     if request.method == 'POST':
-        # Managers use the full form
         form = CustomerForm(request.POST)
         if form.is_valid():
             customer = form.save()
-            messages.success(request, f'Customer "{customer.company_name}" has been created successfully!')
-            return redirect('customer_list')
+            contact_formset = CustomerContactFormSet(request.POST, instance=customer)
+            if contact_formset.is_valid():
+                contact_formset.save()
+                messages.success(request, f'Customer "{customer.company_name}" has been created successfully!')
+                return redirect('customer_list')
+            else:
+                # Show errors with the saved instance bound formset
+                context = {
+                    'form': form,
+                    'contact_formset': contact_formset,
+                    'title': 'Create New Customer',
+                    'is_salesperson_form': False
+                }
+                return render(request, 'customers/customer_form.html', context)
+        else:
+            contact_formset = CustomerContactFormSet(request.POST)
+            context = {
+                'form': form,
+                'contact_formset': contact_formset,
+                'title': 'Create New Customer',
+                'is_salesperson_form': False
+            }
+            return render(request, 'customers/customer_form.html', context)
     else:
         form = CustomerForm()
+        contact_formset = CustomerContactFormSet()
         context = {
             'form': form,
+            'contact_formset': contact_formset,
             'title': 'Create New Customer',
             'is_salesperson_form': False
         }
@@ -584,14 +652,17 @@ def edit_customer(request, pk):
         )
         
         form = CustomerForm(request.POST, instance=customer)
-        if form.is_valid():
+        contact_formset = CustomerContactFormSet(request.POST, instance=customer)
+        if form.is_valid() and contact_formset.is_valid():
             form.save()
+            contacts = contact_formset.save()
             messages.success(request, f'Customer "{customer.full_name}" has been updated successfully. Backup created automatically.')
             return redirect('customer_list')
         else:
             messages.error(request, 'Please correct the errors below.')
     else:
         form = CustomerForm(instance=customer)
+        contact_formset = CustomerContactFormSet(instance=customer)
     
     # Get recent backups for this customer
     recent_backups = CustomerBackup.objects.filter(customer=customer)[:5]
@@ -599,6 +670,7 @@ def edit_customer(request, pk):
     context = {
         'form': form,
         'customer': customer,
+        'contact_formset': contact_formset,
         'recent_backups': recent_backups,
         'is_edit': True
     }

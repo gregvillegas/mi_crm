@@ -5,7 +5,7 @@ from django.forms import inlineformset_factory
 class ProposalForm(forms.ModelForm):
     class Meta:
         model = Proposal
-        fields = ['reference_number', 'customer', 'date', 'valid_until', 'subject', 'currency', 'exchange_rate', 'introduction', 'special_note', 'closing', 'tax_type', 'tax_rate', 'payment_terms', 'delivery_lead_time', 'warranty', 'cancellation_terms', 'include_bank_details']
+        fields = ['reference_number', 'customer', 'contact_name', 'contact_email', 'contact_phone', 'date', 'valid_until', 'subject', 'currency', 'exchange_rate', 'introduction', 'special_note', 'closing', 'tax_type', 'tax_rate', 'payment_terms', 'delivery_lead_time', 'warranty', 'cancellation_terms', 'include_bank_details']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
@@ -17,6 +17,9 @@ class ProposalForm(forms.ModelForm):
             'warranty': forms.TextInput(attrs={'placeholder': 'e.g. 1 year - Parts Warranty'}),
             'tax_type': forms.Select(attrs={'class': 'form-select'}),
             'cancellation_terms': forms.Select(attrs={'class': 'form-select'}),
+            'contact_name': forms.TextInput(attrs={'placeholder': 'Attention to', 'readonly': 'readonly'}),
+            'contact_email': forms.EmailInput(attrs={'placeholder': 'Email', 'readonly': 'readonly'}),
+            'contact_phone': forms.TextInput(attrs={'placeholder': 'Phone', 'readonly': 'readonly'}),
         }
 
     def __init__(self, *args, **kwargs):

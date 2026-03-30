@@ -27,6 +27,25 @@
                     </div>
                 </div>
                 <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Contact Person</label>
+                        <select id="contact_person_select" class="form-select" aria-label="Contact Person">
+                            <option value="">Select contact…</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.contact_name|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.contact_email|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {{ form.contact_phone|as_crispy_field }}
+                    </div>
+                </div>
+                <div class="row">
                     <div class="col-md-6">
                         {{ form.subject|as_crispy_field }}
                     </div>
@@ -306,6 +325,66 @@ document.addEventListener('DOMContentLoaded', function() {
     if (currencySelect) {
         currencySelect.addEventListener('change', toggleExchangeRate);
         toggleExchangeRate(); // Initial state
+    }
+
+    // Dependent Contact Person dropdown
+    const customerSelect = document.getElementById('id_customer');
+    const contactSelect = document.getElementById('contact_person_select');
+    function loadContacts(customerId, preselectName) {
+        if (!customerId) {
+            contactSelect.innerHTML = '<option value=\"\">Select contact…</option>';
+            setContact('', '', '');
+            return;
+        }
+        fetch(`/customers/${customerId}/contacts/`).then(r => r.json()).then(data => {
+            const contacts = data.contacts || [];
+            contactSelect.innerHTML = '<option value=\"\">Select contact…</option>';
+            contacts.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name + (c.position ? ` — ${c.position}` : '');
+                opt.dataset.name = c.name || '';
+                opt.dataset.email = c.email || '';
+                opt.dataset.phone = c.phone || '';
+                contactSelect.appendChild(opt);
+            });
+            if (preselectName) {
+                [...contactSelect.options].forEach(o => { 
+                  if ((o.dataset.name || o.textContent).startsWith(preselectName)) {
+                    contactSelect.value = o.value; 
+                  } 
+                });
+            } else if (contacts.length) {
+                // Preselect primary if any
+                const primary = contacts.find(c => c.is_primary) || contacts[0];
+                contactSelect.value = primary.id;
+                setContact(primary.name, primary.email || '', primary.phone || '');
+            }
+        }).catch(() => {
+            contactSelect.innerHTML = '<option value=\"\">Select contact…</option>';
+        });
+    }
+    function setContact(name, email, phone) {
+        const nameInput = document.getElementById('id_contact_name');
+        const emailInput = document.getElementById('id_contact_email');
+        const phoneInput = document.getElementById('id_contact_phone');
+        if (nameInput) nameInput.value = name || '';
+        if (emailInput) emailInput.value = email || '';
+        if (phoneInput) phoneInput.value = phone || '';
+    }
+    if (customerSelect && contactSelect) {
+        customerSelect.addEventListener('change', () => loadContacts(customerSelect.value));
+        // Initial load with preselected values (edit mode)
+        const currentCustomer = customerSelect.value;
+        const presetName = document.getElementById('id_contact_name')?.value;
+        if (currentCustomer) {
+            loadContacts(currentCustomer, presetName);
+        }
+        contactSelect.addEventListener('change', () => {
+            const opt = contactSelect.selectedOptions[0];
+            if (!opt) { setContact('', '', ''); return; }
+            setContact(opt.dataset.name || opt.textContent, opt.dataset.email || '', opt.dataset.phone || '');
+        });
     }
 
     // Margin -> Unit price auto computation

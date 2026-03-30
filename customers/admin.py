@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, CustomerHistory, CustomerBackup, DelinquencyRecord, DelinquentCustomer
+from .models import Customer, CustomerHistory, CustomerBackup, DelinquencyRecord, DelinquentCustomer, CustomerContact
 
 @admin.register(CustomerHistory)
 class CustomerHistoryAdmin(admin.ModelAdmin):
@@ -27,11 +27,19 @@ class CustomerHistoryAdmin(admin.ModelAdmin):
         }),
     )
 
+class CustomerContactInline(admin.TabularInline):
+    model = CustomerContact
+    extra = 0
+    max_num = 4
+    fields = ('name','position','email','phone','is_primary')
+    classes = ['collapse']
+
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
     list_display = ('company_name', 'contact_person_name', 'email', 'is_vip', 'is_active', 'salesperson')
     list_filter = ('is_vip', 'is_active', 'industry', 'territory')
     search_fields = ('company_name', 'contact_person_name', 'email')
+    inlines = [CustomerContactInline]
     
 @admin.register(CustomerBackup)
 class CustomerBackupAdmin(admin.ModelAdmin):
