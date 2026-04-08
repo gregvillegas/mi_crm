@@ -12,13 +12,23 @@
     <div class="col-md-12">
         <div class="card shadow-sm border-warning">
             <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-gamepad me-2"></i>Daily Missions</h5>
+                <h5 class="mb-0"><i class="fas fa-gamepad me-2"></i>Active Missions</h5>
                 <a href="{% url 'leaderboard' %}" class="btn btn-sm btn-dark text-white">View Leaderboard</a>
             </div>
             <div class="card-body">
-                <div class="row">
+                <div class="d-flex justify-content-end mb-2">
+                    <div class="btn-group mission-scroll-controls" role="group" aria-label="Mission navigation">
+                        <button type="button" class="btn btn-sm btn-outline-secondary mission-scroll-btn" data-direction="left">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mission-scroll-btn" data-direction="right">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mission-scroll d-flex flex-nowrap overflow-auto pb-2">
                     {% for progress in my_missions %}
-                    <div class="col-md-4 mb-2">
+                    <div class="mission-card flex-shrink-0">
                         <div class="border rounded p-3 h-100 {% if progress.is_completed %}bg-success text-white{% else %}bg-light{% endif %}">
                             <div class="d-flex justify-content-between mb-2">
                                 <h6 class="fw-bold mb-0">{{ progress.mission.title }}</h6>
@@ -26,11 +36,17 @@
                                     +{{ progress.mission.reward_points }} pts
                                 </span>
                             </div>
+                            <div class="mb-2">
+                                <span class="badge {% if progress.mission.mission_type == 'weekly' %}bg-info text-dark{% else %}bg-secondary{% endif %}">
+                                    {{ progress.mission.get_mission_type_display }}
+                                </span>
+                            </div>
                             <p class="small mb-2">{{ progress.mission.description }}</p>
                             <div class="progress" style="height: 10px;">
                                 <div class="progress-bar {% if progress.is_completed %}bg-white{% else %}bg-warning{% endif %}" 
                                          role="progressbar" 
-                                         style="width: {% widthratio progress.current_count progress.mission.target_count 100 %}%" 
+                                         style="width: 0%" 
+                                         data-progress-percent="{% widthratio progress.current_count progress.mission.target_count 100 %}"
                                          aria-valuenow="{{ progress.current_count }}" 
                                          aria-valuemin="0" 
                                          aria-valuemax="{{ progress.mission.target_count }}">
@@ -43,7 +59,7 @@
                         </div>
                     </div>
                     {% empty %}
-                    <div class="col-12 text-center py-3">
+                    <div class="w-100 text-center py-3">
                         <p class="text-muted mb-0">No missions active for today. Keep working to unlock new challenges!</p>
                     </div>
                     {% endfor %}
@@ -247,4 +263,99 @@
 </div>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.mission-scroll {
+    gap: 0.75rem;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+.mission-card {
+    flex: 0 0 calc((100% - 1.5rem) / 3);
+    min-width: 240px;
+}
+
+.mission-scroll-controls {
+    gap: 0.25rem;
+}
+
+@media (max-width: 991.98px) {
+    .mission-card {
+        flex-basis: calc((100% - 0.75rem) / 2);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .mission-card {
+        flex-basis: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.progress-bar[data-progress-percent]').forEach(function(progressBar) {
+        progressBar.style.width = progressBar.dataset.progressPercent + '%';
+    });
+
+    const missionScroll = document.querySelector('.mission-scroll');
+    const missionCards = document.querySelectorAll('.mission-card');
+    const missionButtons = document.querySelectorAll('.mission-scroll-btn');
+    const leftBtn = document.querySelector('.mission-scroll-btn[data-direction="left"]');
+    const rightBtn = document.querySelector('.mission-scroll-btn[data-direction="right"]');
+
+    if (missionScroll && missionCards.length && missionButtons.length) {
+        const getScrollAmount = function() {
+            const cardWidth = missionCards[0].getBoundingClientRect().width;
+            return Math.max(cardWidth + 12, missionScroll.clientWidth * 0.8);
+        };
+
+        missionButtons.forEach(function(button) {
+            button.addEventListener('click', function() {
+                const direction = button.dataset.direction === 'left' ? -1 : 1;
+                missionScroll.scrollBy({
+                    left: direction * getScrollAmount(),
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        const updateArrows = function() {
+            const maxScroll = missionScroll.scrollWidth - missionScroll.clientWidth;
+            const atStart = missionScroll.scrollLeft <= 2;
+            const atEnd = missionScroll.scrollLeft >= (maxScroll - 2);
+            const canScroll = maxScroll > 2;
+
+            if (!canScroll) {
+                if (leftBtn) leftBtn.classList.add('d-none');
+                if (rightBtn) rightBtn.classList.add('d-none');
+            } else {
+                if (leftBtn) {
+                    leftBtn.classList.toggle('d-none', atStart);
+                    leftBtn.disabled = atStart;
+                }
+                if (rightBtn) {
+                    rightBtn.classList.toggle('d-none', atEnd);
+                    rightBtn.disabled = atEnd;
+                }
+            }
+        };
+
+        missionScroll.addEventListener('scroll', updateArrows);
+        window.addEventListener('resize', function() {
+            // Debounce
+            clearTimeout(window.__missionResizeTimer);
+            window.__missionResizeTimer = setTimeout(updateArrows, 150);
+        });
+        // Initial state
+        updateArrows();
+    }
+});
+</script>
 {% endblock %}

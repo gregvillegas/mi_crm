@@ -9,7 +9,7 @@
         <h2>{{ title }}</h2>
     </div>
     
-    <form method="post">
+    <form method="post" enctype="multipart/form-data">
         {% csrf_token %}
         
         <!-- Header Info -->
@@ -19,10 +19,7 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6">
-                        {{ form.reference_number|as_crispy_field }}
-                    </div>
-                    <div class="col-md-6">
+                    <div class="col-md-12">
                         {{ form.customer|as_crispy_field }}
                     </div>
                 </div>
@@ -83,6 +80,12 @@
                             {% for hidden in form.hidden_fields %}
                                 {{ hidden }}
                             {% endfor %}
+                            <div class="col-md-1 item-no">
+                                <div class="w-100">
+                                    <label class="form-label">Item #</label>
+                                    <div class="item-no-value fw-bold">{{ forloop.counter }}</div>
+                                </div>
+                            </div>
                             <div class="col-md-2">
                                 {{ form.part_number|as_crispy_field }}
                             </div>
@@ -92,27 +95,32 @@
                             <div class="col-md-1">
                                 {{ form.quantity|as_crispy_field }}
                             </div>
-                            <div class="col-md-1">
+                            <div class="col-md-2">
                                 {{ form.unit_cost|as_crispy_field }}
                             </div>
                             <div class="col-md-1">
-                                <label class="form-label" title="Margin (%)"><i class="fas fa-percent"></i>Margin</label>
-                                <input type="number" class="form-control margin-input" step="0.01" min="0" placeholder="%">
+                                <label class="form-label text-nowrap" title="Margin (%)"><i class="fas fa-percent"></i> Margin</label>
+                                <input type="number" class="form-control margin-input no-spin" step="0.01" min="0" placeholder="%">
                                 <small class="text-muted"></small>
                             </div>
-                            <div class="col-md-1">
-                                {{ form.unit_price|as_crispy_field }}
-                            </div>
                             <div class="col-md-2">
-                                {{ form.availability|as_crispy_field }}
+                                {{ form.unit_price|as_crispy_field }}
+                                <small class="text-muted amount-display d-block mt-1"></small>
                             </div>
-                            <div class="col-md-2 d-flex align-items-center pt-3">
-                                {% if formset.can_delete %}
-                                    <div class="form-check">
-                                        {{ form.DELETE }}
-                                        <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">Delete</label>
+                            <div class="col-12 mt-2">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        {{ form.warranty|as_crispy_field }}
                                     </div>
-                                {% endif %}
+                                    <div class="col-md-2 d-flex align-items-center pt-3">
+                                        {% if formset.can_delete %}
+                                            <div class="form-check">
+                                                {{ form.DELETE }}
+                                                <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">Delete</label>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     {% endfor %}
@@ -124,6 +132,12 @@
                         {% for hidden in formset.empty_form.hidden_fields %}
                             {{ hidden }}
                         {% endfor %}
+                        <div class="col-md-1 item-no">
+                            <div class="w-100">
+                                <label class="form-label">Item #</label>
+                                <div class="item-no-value fw-bold">#</div>
+                            </div>
+                        </div>
                         <div class="col-md-2">
                             {{ formset.empty_form.part_number|as_crispy_field }}
                         </div>
@@ -133,32 +147,75 @@
                         <div class="col-md-1">
                             {{ formset.empty_form.quantity|as_crispy_field }}
                         </div>
-                        <div class="col-md-1">
+                        <div class="col-md-2">
                             {{ formset.empty_form.unit_cost|as_crispy_field }}
                         </div>
                         <div class="col-md-1">
-                            <label class="form-label" title="Margin (%)"><i class="fas fa-percent"></i></label>
-                            <input type="number" class="form-control margin-input" step="0.01" min="0" placeholder="%">
+                            <label class="form-label text-nowrap" title="Margin (%)"><i class="fas fa-percent"></i> Margin</label>
+                            <input type="number" class="form-control margin-input no-spin" step="0.01" min="0" placeholder="%">
                             <small class="text-muted">Auto-computes SRP</small>
                         </div>
-                        <div class="col-md-1">
-                            {{ formset.empty_form.unit_price|as_crispy_field }}
-                        </div>
                         <div class="col-md-2">
-                            {{ formset.empty_form.availability|as_crispy_field }}
+                            {{ formset.empty_form.unit_price|as_crispy_field }}
+                            <small class="text-muted amount-display d-block mt-1"></small>
                         </div>
-                        <div class="col-md-2 d-flex align-items-center pt-3">
-                            {% if formset.can_delete %}
-                                <div class="form-check">
-                                    {{ formset.empty_form.DELETE }}
-                                    <label class="form-check-label text-danger" for="{{ formset.empty_form.DELETE.id_for_label }}">Delete</label>
+                        <div class="col-12 mt-2">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    {{ formset.empty_form.warranty|as_crispy_field }}
                                 </div>
-                            {% endif %}
+                                <div class="col-md-2 d-flex align-items-center pt-3">
+                                    {% if formset.can_delete %}
+                                        <div class="form-check">
+                                            {{ formset.empty_form.DELETE }}
+                                            <label class="form-check-label text-danger" for="{{ formset.empty_form.DELETE.id_for_label }}">Delete</label>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- Attachments -->
+        {% if attach_formset %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Attachments</h5>
+                </div>
+            </div>
+            <div class="card-body">
+                {{ attach_formset.management_form }}
+                {% for aform in attach_formset %}
+                <div class="row align-items-end mb-2">
+                    {% for hidden in aform.hidden_fields %}{{ hidden }}{% endfor %}
+                    <div class="col-md-5">
+                        {{ aform.file|as_crispy_field }}
+                    </div>
+                    <div class="col-md-5">
+                        {{ aform.display_name|as_crispy_field }}
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center">
+                        <div class="form-check me-3">
+                            {{ aform.include_in_email }}
+                            <label class="form-check-label" for="{{ aform.include_in_email.id_for_label }}">Include in Email</label>
+                        </div>
+                        {% if attach_formset.can_delete %}
+                        <div class="form-check">
+                            {{ aform.DELETE }}
+                            <label class="form-check-label text-danger" for="{{ aform.DELETE.id_for_label }}">Delete</label>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+                <small class="text-muted">Save to upload files. You can add more after saving.</small>
+            </div>
+        </div>
+        {% endif %}
 
         <!-- Terms -->
         <div class="card mb-4">
@@ -167,16 +224,13 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         {{ form.payment_terms|as_crispy_field }}
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         {{ form.delivery_lead_time|as_crispy_field }}
                     </div>
-                    <div class="col-md-3">
-                        {{ form.warranty|as_crispy_field }}
-                    </div>
-                    <div class="col-md-3">
+                    <div class="col-md-4">
                         {{ form.cancellation_terms|as_crispy_field }}
                     </div>
                 </div>
@@ -248,6 +302,16 @@ input.no-spin {
 }
 .item-row label {
   font-weight: 600;
+  white-space: nowrap;
+}
+.item-no .item-no-value {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  padding: 0 .75rem;
+  border: 1px solid #ced4da;
+  border-radius: .375rem;
+  background-color: #f8f9fa;
 }
 </style>
 {% endblock %}
@@ -258,6 +322,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('items-container');
     const addButton = document.getElementById('add-item-btn');
     const totalFormsInput = document.getElementById('id_items-TOTAL_FORMS');
+    
+    function renumberItems() {
+        const rows = container ? container.querySelectorAll('.item-row') : [];
+        rows.forEach((row, idx) => {
+            const numEl = row.querySelector('.item-no-value');
+            if (numEl) numEl.textContent = String(idx + 1);
+        });
+    }
     
     // Check if elements exist before attaching listeners
     if (addButton && container && totalFormsInput) {
@@ -279,6 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 container.appendChild(newRow);
                 totalFormsInput.value = formIdx + 1;
                 attachMarginHandlers(newRow);
+                renumberItems();
             }
         });
     }
@@ -392,6 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const costInput = row.querySelector('input[name$="unit_cost"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
         const marginInput = row.querySelector('.margin-input');
+        const qtyInput = row.querySelector('input[name$="quantity"]');
         if (!costInput || !priceInput || !marginInput) return;
         const cost = parseFloat(costInput.value) || 0;
         const margin = parseFloat(marginInput.value) || 0;
@@ -399,18 +473,34 @@ document.addEventListener('DOMContentLoaded', function() {
             const price = cost * (1 + margin / 100);
             priceInput.value = price.toFixed(2);
         }
+        updateAmount(row);
+    }
+    function updateAmount(row) {
+        const qtyInput = row.querySelector('input[name$="quantity"]');
+        const priceInput = row.querySelector('input[name$="unit_price"]');
+        const amountLabel = row.querySelector('.amount-display');
+        if (!qtyInput || !priceInput || !amountLabel) return;
+        const qty = parseFloat(qtyInput.value) || 0;
+        const price = parseFloat(priceInput.value) || 0;
+        const amount = qty * price;
+        amountLabel.textContent = amount ? `Amount: ₱${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
     }
     function initMarginFromExisting(row) {
         const costInput = row.querySelector('input[name$="unit_cost"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
         const marginInput = row.querySelector('.margin-input');
+        const storedMargin = row.querySelector('input[name$="margin_pct"]');
         if (!costInput || !priceInput || !marginInput) return;
-        const cost = parseFloat(costInput.value);
-        const price = parseFloat(priceInput.value);
-        if (marginInput.value === '' && cost > 0 && price >= 0) {
-            const margin = ((price - cost) / cost) * 100;
-            if (isFinite(margin)) {
-                marginInput.value = margin.toFixed(2);
+        if (storedMargin && storedMargin.value) {
+            marginInput.value = parseFloat(storedMargin.value).toFixed(2);
+        } else {
+            const cost = parseFloat(costInput.value);
+            const price = parseFloat(priceInput.value);
+            if (marginInput.value === '' && cost > 0 && price >= 0) {
+                const margin = ((price - cost) / Math.max(cost, 0.000001)) * 100;
+                if (isFinite(margin)) {
+                    marginInput.value = margin.toFixed(2);
+                }
             }
         }
     }
@@ -419,16 +509,39 @@ document.addEventListener('DOMContentLoaded', function() {
         rows.forEach(row => {
             const costInput = row.querySelector('input[name$="unit_cost"]');
             const marginInput = row.querySelector('.margin-input');
+            const storedMargin = row.querySelector('input[name$="margin_pct"]');
+            const qtyInput = row.querySelector('input[name$="quantity"]');
+            const priceInput = row.querySelector('input[name$="unit_price"]');
             if (marginInput) {
-                marginInput.addEventListener('input', () => computeUnitPrice(row));
+                marginInput.addEventListener('input', () => {
+                    if (storedMargin) storedMargin.value = marginInput.value;
+                    computeUnitPrice(row);
+                });
             }
             if (costInput) {
                 costInput.addEventListener('input', () => computeUnitPrice(row));
             }
+            if (qtyInput) {
+                qtyInput.addEventListener('input', () => {
+                    // Display quantity as integer
+                    const v = parseFloat(qtyInput.value);
+                    if (!isNaN(v)) qtyInput.value = Math.max(0, Math.round(v)).toString();
+                    updateAmount(row);
+                });
+                // initial clean-up for display like 2.00 -> 2
+                if (qtyInput.value && qtyInput.value.indexOf('.') !== -1) {
+                    qtyInput.value = String(parseInt(qtyInput.value, 10) || 0);
+                }
+            }
+            if (priceInput) {
+                priceInput.addEventListener('input', () => updateAmount(row));
+            }
             initMarginFromExisting(row);
+            updateAmount(row);
         });
     }
     attachMarginHandlers();
+    renumberItems();
 });
 </script>
 {% endblock %}

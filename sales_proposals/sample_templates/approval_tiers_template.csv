@@ -1,0 +1,4 @@
+name,min_amount_php,max_amount_php,chain,order,active
+Supervisor Tier,500000,999999,"supervisor",1,true
+Supervisor + ASM,1000000,2999999,"supervisor,asm",2,true
+Sup + ASM + AVP/GM,3000000,,"supervisor,asm,avp_or_gm",3,true

@@ -1,4 +1,6 @@
+from datetime import timedelta
 from django.db.models.signals import post_save
+from django.db.models import Q
 from django.dispatch import receiver
 from django.utils import timezone
 from .models import GamificationProfile, PointLog, Badge, UserBadge, Mission, UserMissionProgress
@@ -65,12 +67,14 @@ def check_missions(user, action_type):
     Update progress for active missions matching the action type.
     """
     today = timezone.now().date()
-    # Get active missions for this user for today
+    week_start = today - timedelta(days=today.weekday())
     progress_entries = UserMissionProgress.objects.filter(
         user=user,
         mission__target_action=action_type,
-        date_assigned=today,
         is_completed=False
+    ).filter(
+        Q(mission__mission_type='daily', date_assigned=today) |
+        Q(mission__mission_type='weekly', date_assigned=week_start)
     )
     
     for entry in progress_entries:
@@ -147,7 +151,7 @@ def deal_closed(sender, instance, created, **kwargs):
             award_points(instance.salesperson, 'deal_won', points, instance)
 
 from django.contrib.auth.signals import user_logged_in
-from .utils import generate_daily_missions
+from .utils import generate_daily_missions, generate_weekly_missions
 
 @receiver(user_logged_in)
 def user_login_reward(sender, request, user, **kwargs):
@@ -163,3 +167,4 @@ def user_login_reward(sender, request, user, **kwargs):
         
     # Generate missions for today
     generate_daily_missions(user)
+    generate_weekly_missions(user)

@@ -12,9 +12,15 @@
             <a href="{% url 'proposal_pdf' proposal.pk %}" class="btn btn-outline-secondary" target="_blank">
                 <i class="fas fa-file-pdf"></i> View PDF
             </a>
+            {% if proposal.approval_required and proposal.approval_status != 'approved' %}
+            <a href="#" class="btn btn-success disabled" aria-disabled="true" title="Requires approval before sending">
+                <i class="fas fa-envelope"></i> Email Customer
+            </a>
+            {% else %}
             <a href="{% url 'proposal_email' proposal.pk %}" class="btn btn-success">
                 <i class="fas fa-envelope"></i> Email Customer
             </a>
+            {% endif %}
             <a href="{% url 'proposal_delete' proposal.pk %}" class="btn btn-danger">
                 <i class="fas fa-trash"></i> Delete
             </a>
@@ -46,59 +52,61 @@
                         <table class="table table-bordered">
                             <thead class="table-light">
                                 <tr>
+                                    <th>Item #</th>
                                     <th>Part Number</th>
                                     <th>Description</th>
                                     <th class="text-end">Qty</th>
                                     <th class="text-end">Unit Price</th>
                                     <th class="text-end">Total Price</th>
-                                    <th>Availability</th>
+                                    <th>Warranty</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for item in proposal.items.all %}
                                 <tr>
+                                    <td>{{ forloop.counter }}</td>
                                     <td>{{ item.part_number }}</td>
                                     <td>{{ item.description }}</td>
                                     <td class="text-end">{{ item.quantity|intcomma }}</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.unit_price|intcomma }}</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.amount|intcomma }}</td>
-                                    <td>{{ item.availability }}</td>
+                                    <td>{{ item.warranty }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                                    <td colspan="5" class="text-end"><strong>Subtotal:</strong></td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.subtotal|intcomma }}</td>
                                     <td></td>
                                 </tr>
                                 {% if proposal.tax_type == 'VAT' %}
                                 <tr>
-                                    <td colspan="4" class="text-end">VAT ({{ proposal.tax_rate|floatformat:0 }}%):</td>
+                                    <td colspan="5" class="text-end">VAT ({{ proposal.tax_rate|floatformat:0 }}%):</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.tax_amount|intcomma }}</td>
                                     <td></td>
                                 </tr>
                                 {% elif proposal.tax_type == 'ZERO' %}
                                 <tr>
-                                    <td colspan="4" class="text-end">Zero-Rated (0%):</td>
+                                    <td colspan="5" class="text-end">Zero-Rated (0%):</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}0.00</td>
                                     <td></td>
                                 </tr>
                                 {% elif proposal.tax_type == 'EXEMPT' %}
                                 <tr>
-                                    <td colspan="4" class="text-end">VAT-Exempt (0%):</td>
+                                    <td colspan="5" class="text-end">VAT-Exempt (0%):</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}0.00</td>
                                     <td></td>
                                 </tr>
                                 {% elif proposal.tax_rate > 0 %}
                                 <tr>
-                                    <td colspan="4" class="text-end">Tax ({{ proposal.tax_rate|floatformat:0 }}%):</td>
+                                    <td colspan="5" class="text-end">Tax ({{ proposal.tax_rate|floatformat:0 }}%):</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.tax_amount|intcomma }}</td>
                                     <td></td>
                                 </tr>
                                 {% endif %}
                                 <tr class="table-active">
-                                    <td colspan="4" class="text-end"><strong>Total Investment:</strong></td>
+                                    <td colspan="5" class="text-end"><strong>Total Investment:</strong></td>
                                     <td class="text-end"><strong>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.total_amount|intcomma }}</strong></td>
                                     <td></td>
                                 </tr>
@@ -152,7 +160,108 @@
                         <span class="badge bg-secondary">No</span>
                         {% endif %}
                     </li>
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Approval</span>
+                            <span class="badge bg-{% if proposal.approval_status == 'approved' %}success{% elif proposal.approval_status == 'rejected' %}danger{% elif proposal.approval_status == 'in_progress' %}warning{% elif proposal.approval_status == 'pending' %}secondary{% else %}secondary{% endif %}">
+                                {{ proposal.get_approval_status_display }}
+                            </span>
+                        </div>
+                        {% if proposal.approval_required %}
+                        <div class="mt-2">
+                            <small class="text-muted">Total (PHP): {{ proposal.approval_total_php|intcomma }}</small>
+                            <div class="mt-2">
+                                {% for step in proposal.approval_steps.all %}
+                                <div class="d-flex justify-content-between">
+                                    <span>Level {{ step.level }}: {{ step.approver.get_full_name|default:'Unassigned' }}</span>
+                                    <span class="badge bg-{% if step.status == 'approved' %}success{% elif step.status == 'rejected' %}danger{% else %}secondary{% endif %}">{{ step.status|title }}</span>
+                                </div>
+                                {% empty %}
+                                <small class="text-muted">Awaiting chain generation</small>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </li>
                 </ul>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Change History</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if proposal.change_logs.all %}
+                    <ul class="list-group list-group-flush">
+                        {% for log in proposal.change_logs.all %}
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>{{ log.changed_at|date:"M d, Y H:i" }}</strong>
+                                    <span class="text-muted">by {{ log.changed_by.get_full_name|default:log.changed_by.username|default:"System" }}</span>
+                                    {% if log.changed_by and log.changed_by.role %}
+                                        <span class="badge bg-secondary ms-2">{{ log.changed_by.get_role_display }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if log.summary %}
+                            <div class="mt-1">{{ log.summary }}</div>
+                            {% endif %}
+                            {% if log.details %}
+                            <div class="mt-2">
+                                <small class="text-muted">Details</small>
+                                <ul class="mb-0">
+                                    {% for key, change in log.details.items %}
+                                        {% if key != 'items' %}
+                                            <li>
+                                                <strong>{{ key|cut:"_"|title }}</strong>:
+                                                <span class="text-muted">{{ change.from|default:"—" }}</span>
+                                                <span class="mx-1">→</span>
+                                                <span>{{ change.to|default:"—" }}</span>
+                                            </li>
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if log.details.items %}
+                                        <li class="mt-1">
+                                            <strong>Items</strong>:
+                                            <ul class="mb-0">
+                                                {% for item_id, item_change in log.details.items.items %}
+                                                    <li>
+                                                        {% if item_change.status == 'added' %}
+                                                            Added item (ID {{ item_id }}): {{ item_change.after.part_number|default:"" }} — {{ item_change.after.description|default:"" }} (Qty {{ item_change.after.quantity|default:"" }}, Unit {{ item_change.after.unit_price|default:"" }}, Warranty {{ item_change.after.warranty|default:"" }})
+                                                        {% elif item_change.status == 'deleted' %}
+                                                            Deleted item (ID {{ item_id }}): {{ item_change.before.part_number|default:"" }} — {{ item_change.before.description|default:"" }}
+                                                        {% elif item_change.status == 'updated' %}
+                                                            Updated item (ID {{ item_id }}):
+                                                            <ul class="mb-0">
+                                                                <li>Part #: {{ item_change.before.part_number|default:"—" }} → {{ item_change.after.part_number|default:"—" }}</li>
+                                                                <li>Description: {{ item_change.before.description|default:"—" }} → {{ item_change.after.description|default:"—" }}</li>
+                                                                <li>Qty: {{ item_change.before.quantity|default:"—" }} → {{ item_change.after.quantity|default:"—" }}</li>
+                                                                <li>Unit Cost: {{ item_change.before.unit_cost|default:"—" }} → {{ item_change.after.unit_cost|default:"—" }}</li>
+                                                                <li>Unit Price: {{ item_change.before.unit_price|default:"—" }} → {{ item_change.after.unit_price|default:"—" }}</li>
+                                                                <li>Warranty: {{ item_change.before.warranty|default:"—" }} → {{ item_change.after.warranty|default:"—" }}</li>
+                                                            </ul>
+                                                        {% else %}
+                                                            Item (ID {{ item_id }}) updated.
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item">
+                            <small class="text-muted">No changes logged yet.</small>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="p-3"><small class="text-muted">No changes logged yet.</small></div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

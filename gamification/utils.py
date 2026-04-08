@@ -1,6 +1,13 @@
 import random
+from datetime import timedelta
 from django.utils import timezone
 from .models import Mission, UserMissionProgress
+
+
+def get_current_week_start(target_date=None):
+    target_date = target_date or timezone.now().date()
+    return target_date - timedelta(days=target_date.weekday())
+
 
 def generate_daily_missions(user):
     """
@@ -43,3 +50,25 @@ def generate_daily_missions(user):
                 mission=mission,
                 date_assigned=today
             )
+
+
+def generate_weekly_missions(user):
+    week_start = get_current_week_start()
+
+    active_weekly_missions = Mission.objects.filter(
+        is_active=True,
+        mission_type='weekly'
+    )
+
+    existing_weekly_ids = UserMissionProgress.objects.filter(
+        user=user,
+        date_assigned=week_start,
+        mission__mission_type='weekly'
+    ).values_list('mission_id', flat=True)
+
+    for mission in active_weekly_missions.exclude(id__in=existing_weekly_ids):
+        UserMissionProgress.objects.create(
+            user=user,
+            mission=mission,
+            date_assigned=week_start
+        )

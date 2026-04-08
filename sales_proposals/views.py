@@ -2,8 +2,13 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import HttpResponse
-from .models import Proposal, ProposalItem
-from .forms import ProposalForm, ProposalItemFormSet
+from .models import Proposal, ProposalItem, ProposalApprovalStep, ProposalApprovalTier, ProposalChangeLog
+from .forms import ProposalForm, ProposalItemFormSet, ProposalApprovalTierForm, ProposalApprovalTierImportForm, ProposalAttachmentFormSet
+import csv
+from decimal import Decimal
+from django.http import FileResponse
+from django.conf import settings
+import os
 from customers.models import Customer
 from users.models import User
 from sales_monitoring.models import SalesActivity, ActivityType
@@ -183,7 +188,8 @@ def proposal_create(request):
     if request.method == 'POST':
         form = ProposalForm(request.POST, user=request.user)
         formset = ProposalItemFormSet(request.POST)
-        if form.is_valid() and formset.is_valid():
+        attach_formset = ProposalAttachmentFormSet(request.POST, request.FILES)
+        if form.is_valid() and formset.is_valid() and attach_formset.is_valid():
             with transaction.atomic():
                 proposal = form.save(commit=False)
                 proposal.created_by = request.user
@@ -193,8 +199,15 @@ def proposal_create(request):
                 for item in items:
                     item.proposal = proposal
                     item.save()
+                # Save attachments
+                attachments = attach_formset.save(commit=False)
+                for att in attachments:
+                    att.proposal = proposal
+                    att.uploaded_by = request.user
+                    att.save()
                 
                 proposal.calculate_totals()
+                proposal.ensure_approval_chain()
                 
                 # Auto-update Sales Funnel
                 update_sales_funnel(proposal)
@@ -208,10 +221,12 @@ def proposal_create(request):
             
         form = ProposalForm(initial=initial_data, user=request.user)
         formset = ProposalItemFormSet()
+        attach_formset = ProposalAttachmentFormSet()
     
     return render(request, 'sales_proposals/proposal_form.html', {
         'form': form,
         'formset': formset,
+        'attach_formset': attach_formset,
         'title': 'Create Proposal',
         'customer': customer
     })
@@ -222,28 +237,65 @@ def proposal_update(request, pk):
     if request.method == 'POST':
         form = ProposalForm(request.POST, instance=proposal, user=request.user)
         formset = ProposalItemFormSet(request.POST, instance=proposal)
-        if form.is_valid() and formset.is_valid():
+        attach_formset = ProposalAttachmentFormSet(request.POST, request.FILES, instance=proposal)
+        if form.is_valid() and formset.is_valid() and attach_formset.is_valid():
             with transaction.atomic():
-                form.save()
+                before = Proposal.objects.get(pk=proposal.pk)
+                before_items = {i.pk: {'part_number': i.part_number, 'description': i.description, 'quantity': str(i.quantity), 'unit_cost': str(i.unit_cost), 'unit_price': str(i.unit_price), 'warranty': i.warranty} for i in before.items.all()}
+                updated = form.save()
                 items = formset.save(commit=False)
                 for item in items:
                     item.proposal = proposal
                     item.save()
                 for obj in formset.deleted_objects:
                     obj.delete()
+                # Save attachments
+                attachments = attach_formset.save(commit=False)
+                for att in attachments:
+                    att.proposal = proposal
+                    att.uploaded_by = request.user
+                    att.save()
+                for obj in attach_formset.deleted_objects:
+                    obj.delete()
                 
                 proposal.calculate_totals()
+                proposal.ensure_approval_chain()
                 update_sales_funnel(proposal)
+                # Change log
+                changes = {}
+                from django.forms.models import model_to_dict
+                after = Proposal.objects.get(pk=proposal.pk)
+                fields_to_check = ['customer_id','date','valid_until','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','tax_type','tax_rate','include_bank_details','currency','exchange_rate']
+                for f in fields_to_check:
+                    if getattr(before, f) != getattr(after, f):
+                        changes[f] = {'from': str(getattr(before, f)), 'to': str(getattr(after, f))}
+                # Items
+                after_items = {i.pk: {'part_number': i.part_number, 'description': i.description, 'quantity': str(i.quantity), 'unit_cost': str(i.unit_cost), 'unit_price': str(i.unit_price), 'warranty': i.warranty} for i in proposal.items.all()}
+                item_changes = {}
+                for pk_i, before_data in before_items.items():
+                    if pk_i not in after_items:
+                        item_changes[str(pk_i)] = {'status': 'deleted', 'before': before_data}
+                    elif after_items[pk_i] != before_data:
+                        item_changes[str(pk_i)] = {'status': 'updated', 'before': before_data, 'after': after_items[pk_i]}
+                for pk_i, after_data in after_items.items():
+                    if pk_i not in before_items:
+                        item_changes[str(pk_i)] = {'status': 'added', 'after': after_data}
+                if item_changes:
+                    changes['items'] = item_changes
+                if changes:
+                    ProposalChangeLog.objects.create(proposal=proposal, changed_by=request.user, summary='Proposal updated', details=changes)
                 
                 messages.success(request, 'Proposal updated successfully.')
                 return redirect('proposal_detail', pk=proposal.pk)
     else:
         form = ProposalForm(instance=proposal, user=request.user)
         formset = ProposalItemFormSet(instance=proposal)
+        attach_formset = ProposalAttachmentFormSet(instance=proposal)
     
     return render(request, 'sales_proposals/proposal_form.html', {
         'form': form,
         'formset': formset,
+        'attach_formset': attach_formset,
         'title': 'Edit Proposal'
     })
 
@@ -448,29 +500,31 @@ def generate_pdf_buffer(proposal):
     
     # --- ITEMS TABLE ---
     table_data = [[
+        Paragraph("ITEM #", styles['TableHeader']),
         Paragraph("PART NUMBER", styles['TableHeader']),
         Paragraph("PRODUCT DESCRIPTION", styles['TableHeader']),
         Paragraph("QTY", styles['TableHeader']),
         Paragraph("UNIT PRICE", styles['TableHeader']),
         Paragraph("TOTAL PRICE", styles['TableHeader']),
-        Paragraph("AVAILABILITY", styles['TableHeader'])
+        Paragraph("WARRANTY", styles['TableHeader'])
     ]]
     
     currency_symbol = '₱' if proposal.currency == 'PHP' else '$'
     
-    for item in proposal.items.all():
+    for idx, item in enumerate(proposal.items.all(), start=1):
         table_data.append([
+            Paragraph(str(idx), styles['TableText']),
             Paragraph(item.part_number, styles['TableText']),
             Paragraph(item.description, styles['TableText']),
             Paragraph(str(int(item.quantity)) if item.quantity % 1 == 0 else str(item.quantity), styles['TableText']),
             Paragraph(f"{currency_symbol} {item.unit_price:,.2f}", styles['TableText']),
             Paragraph(f"{currency_symbol} {item.amount:,.2f}", styles['TableText']),
-            Paragraph(item.availability, styles['TableText'])
+            Paragraph(item.warranty or proposal.warranty, styles['TableText'])
         ])
     
     # Subtotal
     table_data.append([
-        '', '', '', 
+        '', '', '', '', 
         Paragraph("Subtotal", styles['TableText']), 
         Paragraph(f"{currency_symbol} {proposal.subtotal:,.2f}", styles['TableText']), 
         ''
@@ -495,7 +549,7 @@ def generate_pdf_buffer(proposal):
 
     if tax_label:
         table_data.append([
-            '', '', '', 
+            '', '', '', '', 
             Paragraph(tax_label, styles['TableText']), 
             Paragraph(tax_amount_str, styles['TableText']), 
             ''
@@ -503,13 +557,14 @@ def generate_pdf_buffer(proposal):
 
     # Total Investment Row
     table_data.append([
-        '', '', '', 
+        '', '', '', '', 
         Paragraph("Total Investment", styles['TableHeader']), 
         Paragraph(f"{currency_symbol} {proposal.total_amount:,.2f}", styles['TableHeader']), 
         ''
     ])
     
-    col_widths = [1.2*inch, 2.5*inch, 0.5*inch, 1.0*inch, 1.3*inch, 1.0*inch]
+    # Tighter widths to improve print margins and reduce empty space in TOTAL PRICE/WARRANTY
+    col_widths = [0.45*inch, 1.1*inch, 2.4*inch, 0.5*inch, 1.0*inch, 1.1*inch, 0.95*inch]
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
     
     # Styling
@@ -519,12 +574,12 @@ def generate_pdf_buffer(proposal):
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('GRID', (0,0), (-1,-2), 1, colors.black), # Grid for all except last row
-        ('ALIGN', (1,1), (1,-2), 'LEFT'), # Description Left
+        ('ALIGN', (2,1), (2,-2), 'LEFT'), # Description Left
         
         # Total Row Styling
-        ('BACKGROUND', (3,-1), (4,-1), MIC_RED),
-        ('TEXTCOLOR', (3,-1), (4,-1), colors.white),
-        ('GRID', (3,-1), (4,-1), 1, MIC_RED),
+        ('BACKGROUND', (4,-1), (5,-1), MIC_RED),
+        ('TEXTCOLOR', (4,-1), (5,-1), colors.white),
+        ('GRID', (4,-1), (5,-1), 1, MIC_RED),
     ]
     t.setStyle(TableStyle(table_style))
     elements.append(t)
@@ -542,8 +597,6 @@ def generate_pdf_buffer(proposal):
     
     # Cancellation Text Logic
     cancellation_texts = {
-        'professional': "To ensure we can commit the necessary resources to your project, please note that all confirmed Purchase Orders (POs) are considered final. As a result, any cancellation after confirmation will incur a fee equal to 100% of the total PO value.",
-        'process': "As part of our commitment to efficiency, we begin resource allocation immediately upon PO confirmation. Therefore, any cancellation at this stage will result in a charge for the full order amount.",
         'polite': "Please be advised that once a Purchase Order is confirmed, it is firm and cannot be cancelled without liability. Should a cancellation occur, the client agrees to a fee amounting to 100% of the PO value.",
         'partnership': "In order to best serve our clients and allocate our production capacity effectively, we treat all confirmed Purchase Orders as binding commitments. We trust you understand that any cancellation would require a charge covering the full value of the order."
     }
@@ -562,7 +615,6 @@ def generate_pdf_buffer(proposal):
 
     tc_data.extend([
         [Paragraph("Delivery Lead time", tc_label), Paragraph(proposal.delivery_lead_time, tc_style)],
-        [Paragraph("Warranty", tc_label), Paragraph(proposal.warranty, tc_style)],
     ])
     
     if proposal.closing:
@@ -636,6 +688,9 @@ def proposal_pdf(request, pk):
 @login_required
 def proposal_email(request, pk):
     proposal = get_object_or_404(Proposal, pk=pk)
+    if proposal.approval_required and proposal.approval_status != 'approved':
+        messages.warning(request, f"Approval required before sending. Current status: {proposal.get_approval_status_display()}")
+        return redirect('proposal_detail', pk=pk)
     
     # Determine supervisor email
     supervisor_email = None
@@ -699,6 +754,10 @@ def proposal_email(request, pk):
         # Generate PDF
         buffer = generate_pdf_buffer(proposal)
         
+        # Attachments selected
+        attach_ids = request.POST.getlist('attach_id')
+        selected_attachments = proposal.attachments.filter(id__in=attach_ids)
+
         # Send Email
         subject = f"Proposal: {proposal.subject} - {proposal.proposal_number}"
         message = f"""Dear {proposal.contact_name or proposal.customer.contact_person_name},
@@ -717,6 +776,9 @@ Best regards,
             reply_to=[request.user.email]
         )
         email.attach(f"{proposal.proposal_number}.pdf", buffer.getvalue(), 'application/pdf')
+        for att in selected_attachments:
+            if att.file:
+                email.attach(att.display_name or att.file.name.split('/')[-1], att.file.read(), 'application/octet-stream')
         
         try:
             email.send()
@@ -743,6 +805,199 @@ Best regards,
         'supervisor_email': supervisor_email,
         'cc_contacts': cc_contacts
     })
+
+@login_required
+def approvals_inbox(request):
+    steps = ProposalApprovalStep.objects.filter(approver=request.user, status='pending').select_related('proposal', 'proposal__customer')
+    return render(request, 'sales_proposals/approvals_inbox.html', {'steps': steps})
+
+@login_required
+def approve_proposal(request, pk):
+    proposal = get_object_or_404(Proposal, pk=pk)
+    step = ProposalApprovalStep.objects.filter(proposal=proposal, approver=request.user, status='pending').order_by('level').first()
+    if not step:
+        messages.error(request, 'No pending approval step assigned to you.')
+        return redirect('proposal_detail', pk=pk)
+    if request.method == 'POST':
+        step.status = 'approved'
+        step.decided_at = timezone.now()
+        step.comment = request.POST.get('comment', '')
+        step.save()
+        next_step = ProposalApprovalStep.objects.filter(proposal=proposal, status='pending').order_by('level').first()
+        if not next_step:
+            proposal.approval_status = 'approved'
+            proposal.approved_at = timezone.now()
+            proposal.save()
+            messages.success(request, 'Proposal fully approved.')
+        else:
+            messages.success(request, 'Step approved. Awaiting next approver.')
+        return redirect('proposal_detail', pk=pk)
+    return render(request, 'sales_proposals/approve_confirm.html', {'proposal': proposal})
+
+@login_required
+def reject_proposal(request, pk):
+    proposal = get_object_or_404(Proposal, pk=pk)
+    step = ProposalApprovalStep.objects.filter(proposal=proposal, approver=request.user, status='pending').order_by('level').first()
+    if not step:
+        messages.error(request, 'No pending approval step assigned to you.')
+        return redirect('proposal_detail', pk=pk)
+    if request.method == 'POST':
+        step.status = 'rejected'
+        step.decided_at = timezone.now()
+        step.comment = request.POST.get('comment', '')
+        step.save()
+        proposal.approval_status = 'rejected'
+        proposal.save()
+        messages.warning(request, 'Proposal rejected.')
+        return redirect('proposal_detail', pk=pk)
+    return render(request, 'sales_proposals/reject_confirm.html', {'proposal': proposal})
+
+def _is_exec(user):
+    return user.role in ['admin', 'president', 'vp', 'avp', 'gm']
+
+@login_required
+def approval_tier_list(request):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    tiers = ProposalApprovalTier.objects.all()
+    return render(request, 'sales_proposals/approval_tier_list.html', {'tiers': tiers})
+
+@login_required
+def approval_tier_create(request):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    if request.method == 'POST':
+        form = ProposalApprovalTierForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Approval tier created')
+            return redirect('approval_tier_list')
+    else:
+        form = ProposalApprovalTierForm()
+    return render(request, 'sales_proposals/approval_tier_form.html', {'form': form, 'title': 'Create Approval Tier'})
+
+@login_required
+def approval_tier_edit(request, pk):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    tier = get_object_or_404(ProposalApprovalTier, pk=pk)
+    if request.method == 'POST':
+        form = ProposalApprovalTierForm(request.POST, instance=tier)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Approval tier updated')
+            return redirect('approval_tier_list')
+    else:
+        form = ProposalApprovalTierForm(instance=tier)
+    return render(request, 'sales_proposals/approval_tier_form.html', {'form': form, 'title': 'Edit Approval Tier'})
+
+@login_required
+def approval_tier_delete(request, pk):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    tier = get_object_or_404(ProposalApprovalTier, pk=pk)
+    if request.method == 'POST':
+        tier.delete()
+        messages.success(request, 'Approval tier deleted')
+        return redirect('approval_tier_list')
+    return render(request, 'sales_proposals/approval_tier_confirm_delete.html', {'tier': tier})
+
+@login_required
+def approval_tier_export(request):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="approval_tiers_export.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['name', 'min_amount_php', 'max_amount_php', 'chain', 'order', 'active'])
+    for t in ProposalApprovalTier.objects.all().order_by('order', 'min_amount_php'):
+        writer.writerow([t.name or '', str(t.min_amount_php), '' if t.max_amount_php is None else str(t.max_amount_php), t.chain, t.order, 'true' if t.active else 'false'])
+    return response
+
+@login_required
+def approval_tier_template(request):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    template_path = os.path.join(settings.BASE_DIR, 'sales_proposals', 'sample_templates', 'approval_tiers_template.csv')
+    return FileResponse(open(template_path, 'rb'), as_attachment=True, filename='approval_tiers_template.csv')
+
+@login_required
+def approval_tier_import(request):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    if request.method == 'POST':
+        form = ProposalApprovalTierImportForm(request.POST, request.FILES)
+        if form.is_valid():
+            f = form.cleaned_data['file']
+            replace = form.cleaned_data['replace_existing']
+            decoded = f.read().decode('utf-8').splitlines()
+            reader = csv.DictReader(decoded)
+            rows = list(reader)
+            if replace:
+                ProposalApprovalTier.objects.all().delete()
+            created = 0
+            for r in rows:
+                name = (r.get('name') or '').strip()
+                min_amt = Decimal((r.get('min_amount_php') or '0').strip() or '0')
+                max_raw = (r.get('max_amount_php') or '').strip()
+                max_amt = Decimal(max_raw) if max_raw not in ['', None] else None
+                chain = (r.get('chain') or '').strip()
+                order = int((r.get('order') or '0').strip() or '0')
+                active_val = (r.get('active') or '').strip().lower()
+                active = active_val in ['1', 'true', 'yes', 'y']
+                ProposalApprovalTier.objects.create(name=name, min_amount_php=min_amt, max_amount_php=max_amt, chain=chain, order=order, active=active)
+                created += 1
+            messages.success(request, f'Imported {created} tiers')
+            return redirect('approval_tier_list')
+    else:
+        form = ProposalApprovalTierImportForm()
+    return render(request, 'sales_proposals/approval_tier_import.html', {'form': form})
+
+@login_required
+def approval_tier_seed_defaults(request):
+    if not _is_exec(request.user):
+        messages.error(request, 'Not authorized')
+        return redirect('proposal_list')
+    if request.method != 'POST':
+        return redirect('approval_tier_list')
+    seeds = [
+        dict(name='Supervisor Tier', min=Decimal('500000'), max=Decimal('999999'), chain='supervisor', order=1, active=True),
+        dict(name='Supervisor + ASM', min=Decimal('1000000'), max=Decimal('2999999'), chain='supervisor,asm', order=2, active=True),
+        dict(name='Sup + ASM + AVP/GM', min=Decimal('3000000'), max=None, chain='supervisor,asm,avp_or_gm', order=3, active=True),
+    ]
+    created, updated = 0, 0
+    for s in seeds:
+        qs = ProposalApprovalTier.objects.filter(min_amount_php=s['min'], chain=s['chain'])
+        if s['max'] is None:
+            qs = qs.filter(max_amount_php__isnull=True)
+        else:
+            qs = qs.filter(max_amount_php=s['max'])
+        obj = qs.first()
+        if obj:
+            obj.name = s['name']
+            obj.order = s['order']
+            obj.active = s['active']
+            obj.save()
+            updated += 1
+        else:
+            ProposalApprovalTier.objects.create(
+                name=s['name'],
+                min_amount_php=s['min'],
+                max_amount_php=s['max'],
+                chain=s['chain'],
+                order=s['order'],
+                active=s['active'],
+            )
+            created += 1
+    messages.success(request, f'Default tiers seeded. Created: {created}, Updated: {updated}.')
+    return redirect('approval_tier_list')
 
 def log_sales_activity(proposal, user):
     # Find or create 'Proposal' activity type

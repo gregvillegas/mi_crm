@@ -1,7 +1,7 @@
 # Micro Image CRM - User Manual
 
-**Version:** 1.0\
-**Date:** March 17, 2026\
+**Version:** 1.1\
+**Date:** March 30, 2026\
 **Prepared For:** Micro Image International Corp.
 
 ***
@@ -102,6 +102,11 @@ Your dashboard is personalized based on your role:
 - **Lead Scoring**: The system automatically scores leads based on completeness and engagement (Hot/Warm/Cold).
 - **Conversion**: Convert qualified leads into customers with a single click.
 - **Analytics**: View lead sources, conversion rates, and acquisition trends in the **Lead Analytics** dashboard.
+- **Import Leads (CSV)**:
+  - Navigate to Leads → Import.
+  - Download the sample template to ensure correct columns.
+  - Upload your CSV; optionally auto-calculate lead scores.
+  - Role-aware defaults restrict assignment options based on your role.
 
 ### Sales Funnel
 
@@ -117,12 +122,27 @@ Manage your sales opportunities through distinct stages:
 
 ### Sales Proposals
 
-Create professional, branded PDF proposals in minutes.
+Create professional, branded PDF proposals in minutes, with multi-level approval and tighter data entry controls.
 
 - **Create Proposal**: Select a customer, add items (products/services), and set terms.
+- **Customer Filtering**: Salespeople only see customers assigned to them in the Customer dropdown.
+- **Date Pickers**: Both Date and Valid until use a date picker for consistent input.
+- **Items**:
+  - Per-item **Warranty** field replaces Availability; shown in proposal details and the PDF items table. If an item warranty is blank, the proposal’s overall warranty is used.
+  - Unit price column spacing adjusted to avoid wrapping. An Item no. column helps track entries.
+  - Unit cost/price inputs use plain numeric fields without spinner arrows; values show full amounts with 2 decimals.
+  - Margin% now persists between create and edit, preventing rounding shifts on reload.
+  - Text Areas: Introduction, Special note, and Closing default to compact 3-line editors for cleaner forms.
+  - Attachments: Upload related files on the proposal screen and choose which ones to include when emailing the client.
 - **PDF Generation**: Automatically generates a standardized PDF with Micro Image branding.
 - **Email Integration**: Send the proposal directly to the client from within the CRM.
+  - Include selected attachments along with the generated PDF.
 - **Currency Support**: Supports both PHP and USD with exchange rate handling.
+- **Approvals**:
+  - Proposals at or above configured PHP thresholds require approval before email sending.
+  - Multi-level routing (e.g., Supervisor → ASM → AVP/GM) based on amount and team structure.
+  - Supervisors/Managers use the **Approvals Inbox** to review, approve, or reject proposals.
+  - Email sending is gated until the proposal is fully approved.
 
 ### Activity Monitoring
 
@@ -137,6 +157,11 @@ Create professional, branded PDF proposals in minutes.
 - **Quota Management (AVP Only)**:
   - AVPs have a dedicated "Quotas" link in the navbar.
   - Manage monthly quotas for ASMs, Supervisors, and Salespeople from a single interface.
+ - **Approvals Inbox (Supervisors/Managers/Execs)**: Review proposals awaiting your approval.
+ - **Approval Tiers (Exec/Admin)**:
+   - Navigate to Proposals → Approval Tiers to configure thresholds and approver chains.
+   - Manage tiers via UI; Import/Export CSV supported.
+   - Download a ready-made CSV template or click “Seed Defaults” to populate the standard three-tier setup (500k supervisor, 1M supervisor+ASM, 3M supervisor+ASM+AVP/GM).
 
 ### Mass Mailing
 
@@ -183,7 +208,10 @@ The Mass Mailing module allows salespersons to send personalized bulk emails to 
 - **User Management**: Create and manage user accounts.
 - **Import Tool**: Use the `import_users` command-line tool to bulk onboard users from JSON.
   - *New*: Supports filtering by role (e.g., import only salespeople).
-- **System Configuration**: Manage dropdown options, lead sources, and global settings.
+- **System Configuration**: Manage dropdown options, lead sources, approval tiers, and global settings.
+- **Approvals Configuration**:
+  - Use the **Approval Tiers** screen to adjust thresholds and chains without code changes.
+  - Export the current tiers, edit offline, and import to update in bulk.
 
 ***
 

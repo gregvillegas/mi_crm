@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Approval Tiers</h2>
+    <div>
+      <a href="{% url 'approval_tier_template' %}" class="btn btn-outline-secondary me-2">Download Template</a>
+      <a href="{% url 'approval_tier_export' %}" class="btn btn-outline-success me-2">Export CSV</a>
+      <a href="{% url 'approval_tier_import' %}" class="btn btn-outline-primary me-2">Import CSV</a>
+      <form action="{% url 'approval_tier_seed_defaults' %}" method="post" class="d-inline">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-warning me-2">Seed Defaults</button>
+      </form>
+      <a href="{% url 'approval_tier_create' %}" class="btn btn-primary">New Tier</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Min (PHP)</th>
+            <th>Max (PHP)</th>
+            <th>Chain</th>
+            <th>Order</th>
+            <th>Active</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tiers %}
+          <tr>
+            <td>{{ t.name|default:'—' }}</td>
+            <td>{{ t.min_amount_php }}</td>
+            <td>{{ t.max_amount_php|default:'∞' }}</td>
+            <td>{{ t.chain }}</td>
+            <td>{{ t.order }}</td>
+            <td>
+              {% if t.active %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}
+            </td>
+            <td class="text-end">
+              <a href="{% url 'approval_tier_edit' t.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+              <a href="{% url 'approval_tier_delete' t.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center py-4">No tiers defined.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

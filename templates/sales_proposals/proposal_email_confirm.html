@@ -59,6 +59,23 @@
                 </div>
                 {% endif %}
 
+                {% if proposal.attachments.all %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Include Attachments:</label>
+                    <div class="row">
+                        {% for att in proposal.attachments.all %}
+                        <div class="col-md-6">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="attach_{{ att.id }}" name="attach_id" value="{{ att.id }}" {% if att.include_in_email %}checked{% endif %}>
+                                <label class="form-check-label" for="attach_{{ att.id }}">{{ att.display_name|default:att.file.name|cut:'proposal_attachments/' }}</label>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="form-text">Selected files will be attached along with the proposal PDF.</div>
+                </div>
+                {% endif %}
+
                 <button type="submit" class="btn btn-success">
                     <i class="fas fa-paper-plane"></i> Send Email
                 </button>

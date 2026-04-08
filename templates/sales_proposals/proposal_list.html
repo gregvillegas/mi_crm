@@ -36,6 +36,14 @@
         {% endif %}
         
         <div>
+            {% if user.role != 'salesperson' %}
+            <a href="{% url 'approvals_inbox' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-check-circle"></i> Approvals Inbox
+            </a>
+            <a href="{% url 'approval_tier_list' %}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-sliders-h"></i> Approval Tiers
+            </a>
+            {% endif %}
             <a href="{% url 'proposal_create' %}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> Create Proposal
             </a>

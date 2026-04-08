@@ -5,11 +5,12 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from django.contrib import messages
-from django.db.models import Sum, Count
+from django.db.models import Sum, Q
 from django.utils import timezone
 from sales_funnel.models import SalesFunnel
 from teams.models import Team, Group, TeamMembership
 from gamification.models import UserMissionProgress
+from gamification.utils import generate_daily_missions, generate_weekly_missions, get_current_week_start
 
 @login_required
 def home(request):
@@ -18,10 +19,17 @@ def home(request):
     
     # Gamification: Get Daily Missions
     today = timezone.now().date()
+    week_start = get_current_week_start(today)
+
+    generate_daily_missions(user)
+    generate_weekly_missions(user)
+
     my_missions = UserMissionProgress.objects.filter(
-        user=user, 
-        date_assigned=today
-    ).select_related('mission')
+        user=user
+    ).filter(
+        Q(mission__mission_type='daily', date_assigned=today) |
+        Q(mission__mission_type='weekly', date_assigned=week_start)
+    ).select_related('mission').order_by('mission__mission_type', 'mission__title')
     
     context['my_missions'] = my_missions
     

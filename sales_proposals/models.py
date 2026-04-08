@@ -3,6 +3,7 @@ from users.models import User
 from customers.models import Customer
 from django.utils import timezone
 from decimal import Decimal
+from django.core.validators import MinValueValidator
 
 class Proposal(models.Model):
     STATUS_CHOICES = [
@@ -39,10 +40,7 @@ class Proposal(models.Model):
     warranty = models.CharField(max_length=200, default="1 year - Parts Warranty", help_text="e.g., 1 year - Parts Warranty")
     
     CANCELLATION_CHOICES = [
-        ('professional', 'Professional and Direct'),
-        ('process', 'Process-Oriented'),
         ('polite', 'Short and Polite'),
-        ('partnership', 'Partnership-focused'),
     ]
     cancellation_terms = models.CharField(max_length=20, choices=CANCELLATION_CHOICES, default='professional', help_text="Select the tone/wording for the cancellation policy")
     
@@ -72,6 +70,20 @@ class Proposal(models.Model):
     gross_profit = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Total Amount - Total Cost")
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    
+    APPROVAL_STATUS_CHOICES = [
+        ('not_required', 'Not Required'),
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    approval_status = models.CharField(max_length=20, choices=APPROVAL_STATUS_CHOICES, default='not_required')
+    approval_required = models.BooleanField(default=False)
+    approval_submitted_at = models.DateTimeField(null=True, blank=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approval_total_php = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    approval_version = models.IntegerField(default=0)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -133,8 +145,88 @@ class Proposal(models.Model):
         # Gross profit is Total Revenue (excl tax if we consider net sales, but typically GP is Sales - COGS)
         # Assuming subtotal is Net Sales.
         self.gross_profit = self.subtotal - self.total_cost
-        
+        php_total = self.total_amount
+        if self.currency == 'USD':
+            rate = self.exchange_rate if self.exchange_rate > 0 else Decimal('1.0')
+            php_total = self.total_amount * rate
+        self.approval_total_php = php_total
+        need = php_total >= Decimal('500000')
+        was_required = self.approval_required
+        self.approval_required = need
+        if need and self.approval_status in ['not_required', 'approved', 'rejected']:
+            self.approval_status = 'pending'
+            self.approval_version = self.approval_version + 1
         self.save()
+
+    def get_approval_chain(self):
+        chain = []
+        php_total = self.approval_total_php or 0
+        creator = self.created_by
+        group = None
+        try:
+            if hasattr(creator, 'team_membership'):
+                group = creator.team_membership.group
+        except Exception:
+            group = None
+        supervisor = None
+        asm = None
+        avp_or_gm = None
+        if group:
+            try:
+                supervisor = group.get_manager()
+            except Exception:
+                supervisor = None
+            try:
+                asm = group.team.asm if group.team else None
+            except Exception:
+                asm = None
+            try:
+                avp_or_gm = group.team.avp if group.team else None
+            except Exception:
+                avp_or_gm = None
+        try:
+            tier = ProposalApprovalTier.objects.filter(active=True, min_amount_php__lte=php_total).filter(models.Q(max_amount_php__isnull=True) | models.Q(max_amount_php__gte=php_total)).order_by('order', 'min_amount_php').first()
+        except Exception:
+            tier = None
+        if tier:
+            parts = [p.strip() for p in (tier.chain or '').split(',') if p.strip()]
+            for role in parts:
+                if role == 'supervisor' and supervisor and supervisor != creator and supervisor not in chain:
+                    chain.append(supervisor)
+                elif role == 'asm' and asm and asm != creator and asm not in chain:
+                    chain.append(asm)
+                elif role in ['avp_or_gm', 'avp', 'gm'] and avp_or_gm and avp_or_gm != creator and avp_or_gm not in chain:
+                    chain.append(avp_or_gm)
+        else:
+            if php_total >= Decimal('500000'):
+                if supervisor and supervisor != creator:
+                    chain.append(supervisor)
+            if php_total >= Decimal('1000000'):
+                if asm and asm not in chain and asm != creator:
+                    chain.append(asm)
+            if php_total >= Decimal('3000000'):
+                if avp_or_gm and avp_or_gm not in chain and avp_or_gm != creator:
+                    chain.append(avp_or_gm)
+        return [u for u in chain if u]
+
+    def ensure_approval_chain(self):
+        if not self.approval_required:
+            return
+        from django.db import transaction
+        with transaction.atomic():
+            steps = list(self.approval_steps.order_by('level'))
+            if steps and any(s.status in ['approved', 'rejected'] for s in steps) and self.approval_status == 'pending':
+                for s in steps:
+                    s.delete()
+                steps = []
+            if not steps:
+                chain = self.get_approval_chain()
+                for idx, user in enumerate(chain, start=1):
+                    ProposalApprovalStep.objects.create(proposal=self, level=idx, approver=user, status='pending')
+                if chain:
+                    self.approval_status = 'in_progress'
+                    self.approval_submitted_at = timezone.now()
+                    self.save()
 
     def __str__(self):
         return f"{self.proposal_number} - {self.customer.company_name}"
@@ -150,6 +242,8 @@ class ProposalItem(models.Model):
     unit_price = models.DecimalField(max_digits=12, decimal_places=2)
     unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Internal")
     availability = models.CharField(max_length=100, blank=True, help_text="Product availability (e.g. In Stock, 2-3 weeks)")
+    warranty = models.CharField(max_length=150, blank=True, help_text="Per-item warranty (e.g., 1 year parts/labor)")
+    margin_pct = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Stored margin percentage for display consistency")
     amount = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
 
@@ -157,3 +251,51 @@ class ProposalItem(models.Model):
         self.amount = self.quantity * self.unit_price
         self.total_cost = self.quantity * self.unit_cost
         super().save(*args, **kwargs)
+
+class ProposalAttachment(models.Model):
+    proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='attachments')
+    file = models.FileField(upload_to='proposal_attachments/')
+    display_name = models.CharField(max_length=200, blank=True)
+    include_in_email = models.BooleanField(default=False)
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.display_name or (self.file.name.split('/')[-1] if self.file else 'Attachment')
+
+class ProposalChangeLog(models.Model):
+    proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='change_logs')
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    summary = models.TextField(blank=True)
+    details = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+
+class ProposalApprovalTier(models.Model):
+    name = models.CharField(max_length=100, blank=True)
+    min_amount_php = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    max_amount_php = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    chain = models.CharField(max_length=200, help_text="Comma-separated roles: supervisor,asm,avp_or_gm")
+    order = models.PositiveIntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['order', 'min_amount_php']
+
+    def __str__(self):
+        return self.name or f"{self.min_amount_php} - {self.max_amount_php or '∞'}"
+
+class ProposalApprovalStep(models.Model):
+    proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='approval_steps')
+    level = models.PositiveIntegerField()
+    approver = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='proposal_approvals')
+    status = models.CharField(max_length=20, choices=[('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')], default='pending')
+    decided_at = models.DateTimeField(null=True, blank=True)
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['level', 'created_at']
+        unique_together = ('proposal', 'level')

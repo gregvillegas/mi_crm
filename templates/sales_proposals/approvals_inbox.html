@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Approvals Inbox</h2>
+  </div>
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead>
+          <tr>
+            <th>Proposal</th>
+            <th>Customer</th>
+            <th>Level</th>
+            <th>Total (PHP)</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for step in steps %}
+          <tr>
+            <td><a href="{% url 'proposal_detail' step.proposal.pk %}">{{ step.proposal.proposal_number }}</a></td>
+            <td>{{ step.proposal.customer.company_name }}</td>
+            <td>{{ step.level }}</td>
+            <td>{{ step.proposal.approval_total_php }}</td>
+            <td>
+              <a href="{% url 'approve_proposal' step.proposal.pk %}" class="btn btn-sm btn-success">Approve</a>
+              <a href="{% url 'reject_proposal' step.proposal.pk %}" class="btn btn-sm btn-outline-danger">Reject</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="text-center py-4">No pending approvals</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
