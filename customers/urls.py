@@ -30,4 +30,10 @@ urlpatterns = [
     path('<int:pk>/backup/', views.create_manual_backup, name='create_manual_backup'),
     path('<int:customer_pk>/restore/<int:backup_pk>/', views.restore_customer, name='restore_customer'),
     path('backups-overview/', views.backup_overview, name='backup_overview'),
+    
+    # Customer creation approvals
+    path('create-requests/', views.customer_create_requests, name='customer_create_requests'),
+    path('create-requests/<int:pk>/approve/', views.approve_customer_request, name='approve_customer_request'),
+    path('create-requests/<int:pk>/reject/', views.reject_customer_request, name='reject_customer_request'),
+    path('create-requests/history/', views.customer_create_request_history, name='customer_create_request_history'),
 ]

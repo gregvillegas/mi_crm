@@ -1,6 +1,7 @@
 from django.db import models
 from users.models import User
 import json
+from django.utils import timezone
 
 class DelinquentCustomer(models.Model):
     company_name = models.CharField(max_length=200)
@@ -195,6 +196,66 @@ class CustomerNote(models.Model):
     def __str__(self):
         return f"Note on {self.customer} by {self.author}"
 
+class CustomerCreateRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+    # Proposed customer fields
+    company_name = models.CharField(max_length=100)
+    contact_person_name = models.CharField(max_length=100)
+    contact_person_position = models.CharField(max_length=100, blank=True)
+    email = models.EmailField()
+    phone_number = models.CharField(max_length=20, blank=True)
+    address = models.TextField(blank=True)
+    industry = models.CharField(max_length=50, blank=True)
+    territory = models.CharField(max_length=50, blank=True)
+    requested_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='customer_create_requests')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    similar_matches = models.JSONField(null=True, blank=True, help_text="List of similar existing customers with similarity scores")
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_create_reviews')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    decision_notes = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status']),
+            models.Index(fields=['company_name']),
+        ]
+
+    def approve(self, reviewer):
+        if self.status != 'pending':
+            return None
+        customer = Customer.objects.create(
+            company_name=self.company_name,
+            contact_person_name=self.contact_person_name,
+            contact_person_position=self.contact_person_position,
+            email=self.email,
+            phone_number=self.phone_number,
+            address=self.address,
+            industry=self.industry,
+            territory=self.territory,
+            salesperson=self.requested_by if self.requested_by and self.requested_by.role == 'salesperson' else None,
+            is_active=True,
+            is_vip=False
+        )
+        self.status = 'approved'
+        self.reviewed_by = reviewer
+        self.reviewed_at = timezone.now()
+        self.save(update_fields=['status','reviewed_by','reviewed_at'])
+        return customer
+
+    def reject(self, reviewer, notes=''):
+        self.status = 'rejected'
+        self.reviewed_by = reviewer
+        self.reviewed_at = timezone.now()
+        self.decision_notes = notes or ''
+        self.save(update_fields=['status','reviewed_by','reviewed_at','decision_notes'])
+        return self
+
 class CustomerHistory(models.Model):
     """Model to track all changes made to customers for audit trail and salesperson credit"""
     
@@ -290,6 +351,31 @@ class CustomerHistory(models.Model):
         ]
         verbose_name = 'Customer History'
         verbose_name_plural = 'Customer Histories'
+
+    @classmethod
+    def log_customer_change(
+        cls,
+        customer: 'Customer',
+        action: str,
+        description: str,
+        changed_by: 'User' = None,
+        old_value=None,
+        new_value=None,
+        ip_address: str = None,
+        user_agent: str = ''
+    ):
+        """Convenience method used by forms/views to record a history entry."""
+        return cls.objects.create(
+            customer=customer,
+            action=action,
+            description=description,
+            changed_by=changed_by,
+            salesperson_at_time=customer.salesperson if customer and customer.salesperson else None,
+            old_value=old_value,
+            new_value=new_value,
+            ip_address=ip_address,
+            user_agent=user_agent or ''
+        )
 
 class DelinquencyRecord(models.Model):
     STATUS_CHOICES = [

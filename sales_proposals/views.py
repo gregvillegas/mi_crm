@@ -597,11 +597,12 @@ def generate_pdf_buffer(proposal):
     
     # Cancellation Text Logic
     cancellation_texts = {
+        'professional': "To ensure we can commit the necessary resources to your project, please note that all confirmed Purchase Orders (POs) are considered final. Any cancellation will incur a fee equal to 100% of the total PO value.",
         'polite': "Please be advised that once a Purchase Order is confirmed, it is firm and cannot be cancelled without liability. Should a cancellation occur, the client agrees to a fee amounting to 100% of the PO value.",
         'partnership': "In order to best serve our clients and allocate our production capacity effectively, we treat all confirmed Purchase Orders as binding commitments. We trust you understand that any cancellation would require a charge covering the full value of the order."
     }
     
-    cancellation_text = cancellation_texts.get(proposal.cancellation_terms, cancellation_texts['professional'])
+    cancellation_text = cancellation_texts.get(proposal.cancellation_terms, cancellation_texts.get('professional'))
     
     tc_data = [
         [Paragraph("Terms and Conditions:", tc_label), ''],
@@ -725,8 +726,15 @@ def proposal_email(request, pk):
             })
     
     if request.method == 'POST':
-        # Get recipient email (allow override)
-        recipient_email = request.POST.get('customer_email', proposal.contact_email or proposal.customer.email)
+        # Get recipient emails (comma/semicolon separated supported)
+        raw_to = request.POST.get('customer_emails') or request.POST.get('customer_email') or (proposal.contact_email or proposal.customer.email)
+        to_list = []
+        if raw_to:
+            import re
+            to_list = [e.strip() for e in re.split(r'[,\s;]+', raw_to) if e.strip()]
+        # Fallback to single default if parsing produced none
+        if not to_list and (proposal.contact_email or proposal.customer.email):
+            to_list = [proposal.contact_email or proposal.customer.email]
         
         # Check for CC Supervisor
         cc_list = []
@@ -749,7 +757,17 @@ def proposal_email(request, pk):
                     cc_list.append(e)
         
         # Deduplicate and avoid duplicating To:
-        cc_list = [e for i, e in enumerate(cc_list) if e and e.lower() != (recipient_email or '').lower() and e not in cc_list[:i]]
+        lower_to = set([e.lower() for e in to_list])
+        dedup_cc = []
+        for i, e in enumerate(cc_list):
+            if not e:
+                continue
+            el = e.lower()
+            if el in lower_to:
+                continue
+            if e not in dedup_cc:
+                dedup_cc.append(e)
+        cc_list = dedup_cc
             
         # Generate PDF
         buffer = generate_pdf_buffer(proposal)
@@ -760,18 +778,20 @@ def proposal_email(request, pk):
 
         # Send Email
         subject = f"Proposal: {proposal.subject} - {proposal.proposal_number}"
-        message = f"""Dear {proposal.contact_name or proposal.customer.contact_person_name},
+        cover = (request.POST.get('cover_message') or '').strip()
+        if not cover:
+            cover = f"""Dear {proposal.contact_name or proposal.customer.contact_person_name},
 
 Please find attached our proposal for {proposal.subject}.
 
 Best regards,
-{proposal.created_by.get_full_name()}
-"""
+{proposal.created_by.get_full_name()}"""
+        message = cover
         email = EmailMessage(
             subject,
             message,
             request.user.email,
-            [recipient_email],
+            to_list,
             cc=cc_list,
             reply_to=[request.user.email]
         )

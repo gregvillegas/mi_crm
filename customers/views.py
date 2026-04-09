@@ -4,8 +4,8 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.db import models
 from django.db.models import Sum
-from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord, CustomerNote, CustomerContact
-from .forms import CustomerForm, CustomerContactFormSet
+from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord, CustomerNote, CustomerContact, CustomerCreateRequest
+from .forms import CustomerForm, CustomerContactFormSet, SalespersonCustomerForm
 from users.models import User
 from teams.models import Team, Group, TeamMembership
 from sales_funnel.models import SalesFunnel
@@ -130,6 +130,10 @@ def customer_list(request):
     # AVP, ASM, Supervisor: Transfer access
     can_manage_customers = user.role in ['admin', 'gm', 'vp', 'avp', 'asm', 'supervisor']
 
+    pending_create_count = 0
+    if user.role in ['admin', 'avp', 'gm', 'vp']:
+        pending_create_count = CustomerCreateRequest.objects.filter(status='pending').count()
+
     # Get filter options for the template
     context = {
         'customers': customers,
@@ -152,7 +156,8 @@ def customer_list(request):
             'vip_count': customers.filter(is_vip=True).count(),
             'active_count': customers.filter(is_active=True).count(),
             'inactive_count': customers.filter(is_active=False).count(),
-        }
+        },
+        'pending_create_count': pending_create_count
     }
     
     return render(request, 'customers/customer_list.html', context)
@@ -225,27 +230,98 @@ def delinquent_list(request):
     }
     return render(request, 'customers/delinquent_list.html', context)
 
+import re
+from difflib import SequenceMatcher
+
+def _normalize_company_name(name: str) -> str:
+    if not name:
+        return ''
+    s = name.lower()
+    s = re.sub(r'[^a-z0-9\s]', ' ', s)  # remove punctuation
+    tokens = [t for t in s.split() if t]
+    suffixes = {'corp', 'corporation', 'inc', 'incorporated', 'co', 'company', 'ltd', 'limited', 'llc', 'gmbh', 'sa', 'plc'}
+    # remove common suffixes from the end
+    while tokens and tokens[-1] in suffixes:
+        tokens.pop()
+    return ' '.join(tokens)
+
+def _find_similar_customers(company_name, threshold=0.75):
+    base = _normalize_company_name(company_name)
+    matches = []
+    if not base:
+        return matches
+    for c in Customer.objects.all().only('id','company_name'):
+        norm = _normalize_company_name(c.company_name)
+        if not norm:
+            continue
+        # Jaccard on tokens
+        a, b = set(base.split()), set(norm.split())
+        jacc = (len(a & b) / len(a | b)) if (a | b) else 0
+        ratio = SequenceMatcher(None, base, norm).ratio()
+        subset_bonus = 0.1 if (a.issubset(b) or b.issubset(a)) else 0
+        score = min(1.0, max(jacc, ratio) + subset_bonus)
+        if score >= threshold:
+            matches.append({'id': c.id, 'company_name': c.company_name, 'score': round(score, 3)})
+    return sorted(matches, key=lambda m: m['score'], reverse=True)[:5]
+
 @login_required
 def create_customer(request):
     user = request.user
     
-    # Check permissions - managers can create any customer
-    # Salespeople are temporarily restricted from adding customers
-    if user.role not in ['admin', 'gm', 'vp', 'avp', 'supervisor', 'asm', 'teamlead']:
+    # Salespeople can request creation (with duplicate check/approval); managers can create directly
+    is_salesperson = user.role == 'salesperson'
+    if not is_salesperson and user.role not in ['admin', 'gm', 'vp', 'avp', 'supervisor', 'asm', 'teamlead']:
         messages.error(request, "You don't have permission to create customers.")
         return redirect('customer_list')
     
     if request.method == 'POST':
-        form = CustomerForm(request.POST)
-        if form.is_valid():
-            customer = form.save()
-            contact_formset = CustomerContactFormSet(request.POST, instance=customer)
-            if contact_formset.is_valid():
-                contact_formset.save()
+        if is_salesperson:
+            form = SalespersonCustomerForm(request.POST, salesperson=user)
+            if form.is_valid():
+                company_name = form.cleaned_data.get('company_name','')
+                similar = _find_similar_customers(company_name)
+                if similar:
+                    # Open approval request instead of direct creation
+                    req = CustomerCreateRequest.objects.create(
+                        company_name=form.cleaned_data['company_name'],
+                        contact_person_name=form.cleaned_data['contact_person_name'],
+                        contact_person_position=form.cleaned_data.get('contact_person_position',''),
+                        email=form.cleaned_data['email'],
+                        phone_number=form.cleaned_data.get('phone_number',''),
+                        address=form.cleaned_data.get('address',''),
+                        industry=form.cleaned_data.get('industry',''),
+                        territory=form.cleaned_data.get('territory',''),
+                        requested_by=user,
+                        similar_matches=similar
+                    )
+                    messages.warning(request, "A similar customer exists. Your request has been sent to AVP for approval.")
+                    return redirect('customer_list')
+                # No similar found: proceed to create and assign
+                customer = form.save()
                 messages.success(request, f'Customer "{customer.company_name}" has been created successfully!')
                 return redirect('customer_list')
+            # invalid form
+            context = {'form': form, 'contact_formset': None, 'title': 'Add New Customer', 'is_salesperson_form': True}
+            return render(request, 'customers/customer_form.html', context)
+        else:
+            form = CustomerForm(request.POST)
+            if form.is_valid():
+                customer = form.save()
+                contact_formset = CustomerContactFormSet(request.POST, instance=customer)
+                if contact_formset.is_valid():
+                    contact_formset.save()
+                    messages.success(request, f'Customer "{customer.company_name}" has been created successfully!')
+                    return redirect('customer_list')
+                else:
+                    context = {
+                        'form': form,
+                        'contact_formset': contact_formset,
+                        'title': 'Create New Customer',
+                        'is_salesperson_form': False
+                    }
+                    return render(request, 'customers/customer_form.html', context)
             else:
-                # Show errors with the saved instance bound formset
+                contact_formset = CustomerContactFormSet(request.POST)
                 context = {
                     'form': form,
                     'contact_formset': contact_formset,
@@ -253,26 +329,60 @@ def create_customer(request):
                     'is_salesperson_form': False
                 }
                 return render(request, 'customers/customer_form.html', context)
+    else:
+        if is_salesperson:
+            form = SalespersonCustomerForm(salesperson=user)
+            context = {'form': form, 'contact_formset': None, 'title': 'Add New Customer', 'is_salesperson_form': True}
         else:
-            contact_formset = CustomerContactFormSet(request.POST)
+            form = CustomerForm()
+            contact_formset = CustomerContactFormSet()
             context = {
                 'form': form,
                 'contact_formset': contact_formset,
                 'title': 'Create New Customer',
                 'is_salesperson_form': False
             }
-            return render(request, 'customers/customer_form.html', context)
-    else:
-        form = CustomerForm()
-        contact_formset = CustomerContactFormSet()
-        context = {
-            'form': form,
-            'contact_formset': contact_formset,
-            'title': 'Create New Customer',
-            'is_salesperson_form': False
-        }
     
     return render(request, 'customers/customer_form.html', context)
+
+@login_required
+def customer_create_requests(request):
+    if request.user.role not in ['admin', 'avp', 'gm', 'vp']:
+        messages.error(request, "You don't have access to approval requests.")
+        return redirect('customer_list')
+    qs = CustomerCreateRequest.objects.filter(status='pending')
+    return render(request, 'customers/customer_create_requests.html', {'requests': qs})
+
+@login_required
+def approve_customer_request(request, pk):
+    if request.user.role not in ['admin', 'avp', 'gm', 'vp']:
+        messages.error(request, "You don't have permission to approve.")
+        return redirect('customer_list')
+    req = get_object_or_404(CustomerCreateRequest, pk=pk)
+    if request.method == 'POST':
+        customer = req.approve(request.user)
+        messages.success(request, f'Request approved. Customer "{customer.company_name}" created.')
+    return redirect('customer_create_requests')
+
+@login_required
+def reject_customer_request(request, pk):
+    if request.user.role not in ['admin', 'avp', 'gm', 'vp']:
+        messages.error(request, "You don't have permission to reject.")
+        return redirect('customer_list')
+    req = get_object_or_404(CustomerCreateRequest, pk=pk)
+    if request.method == 'POST':
+        note = request.POST.get('note','')
+        req.reject(request.user, notes=note)
+        messages.warning(request, 'Request rejected.')
+    return redirect('customer_create_requests')
+
+@login_required
+def customer_create_request_history(request):
+    if request.user.role not in ['admin', 'avp', 'gm', 'vp']:
+        messages.error(request, "You don't have access to request history.")
+        return redirect('customer_list')
+    qs = CustomerCreateRequest.objects.exclude(status='pending').order_by('-reviewed_at', '-created_at')
+    return render(request, 'customers/customer_create_requests_history.html', {'requests': qs})
 
 @login_required
 def transfer_customer(request, pk):
