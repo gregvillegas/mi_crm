@@ -11,6 +11,44 @@
         border: 1px solid #ced4da;
         border-radius: 0.375rem;
     }
+    .asset-preview {
+        width: 100%;
+        max-height: 140px;
+        object-fit: contain;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        background: #fff;
+        padding: 8px;
+    }
+    .dropzone-hint {
+        border: 1px dashed #adb5bd;
+        border-radius: 0.5rem;
+        padding: 12px;
+        background: #f8f9fa;
+    }
+    #heroPreview {
+        background: #f4f6f8;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        padding: 12px;
+    }
+    .library-card {
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        background: #fff;
+        height: 100%;
+    }
+    .library-card.selected {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 0.15rem rgba(13,110,253,.15);
+    }
+    .library-card img {
+        width: 100%;
+        height: 140px;
+        object-fit: cover;
+        background: #f8f9fa;
+    }
 </style>
 {% endblock %}
 
@@ -27,7 +65,7 @@
 
             <div class="card shadow-sm border-0">
                 <div class="card-body p-4">
-                    <form method="post" id="campaignForm">
+                    <form method="post" id="campaignForm" enctype="multipart/form-data">
                         {% csrf_token %}
                         
                         <div class="row">
@@ -45,6 +83,181 @@
                         </div>
 
                         <div class="mb-3">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    {{ form.template_type|as_crispy_field }}
+                                </div>
+                                <div class="col-md-8">
+                                    <div class="dropzone-hint mt-4 mt-md-0">
+                                        <strong>Builder-first workflow:</strong> choose a template, upload image(s), fill the content fields, and the email layout is generated automatically.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="heroBuilderSection" class="mb-4" style="display:none;">
+                            <div class="card border-0 bg-light">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h5 class="mb-0" id="builderTitle">Hero Promo Builder</h5>
+                                        <small class="text-muted">No HTML needed</small>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            {{ form.hero_headline|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            {{ form.hero_cta_label|as_crispy_field }}
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-8">
+                                            {{ form.hero_intro|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            {{ form.hero_cta_url|as_crispy_field }}
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            {{ form.hero_bullet_1|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            {{ form.hero_bullet_2|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            {{ form.hero_bullet_3|as_crispy_field }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label fw-bold mb-0">Campaign Images</label>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="addAssetBtn">
+                                    <i class="fas fa-plus"></i> Add Image
+                                </button>
+                            </div>
+                            <div class="dropzone-hint mb-3">
+                                Upload marketing images here. For the Hero Promo template, the first image marked “Embed inline” becomes the hero banner in preview and sent emails.
+                            </div>
+                            {% if asset_formset %}
+                                {{ asset_formset.management_form }}
+                                <div id="assetRows">
+                                    {% for aform in asset_formset %}
+                                        <div class="row g-3 align-items-start mb-3 asset-row">
+                                            {% for hidden in aform.hidden_fields %}{{ hidden }}{% endfor %}
+                                            <div class="col-md-4">
+                                                {{ aform.file|as_crispy_field }}
+                                                {% if aform.instance.file %}
+                                                    <img src="{{ aform.instance.file.url }}" class="asset-preview mt-2 existing-asset-preview" alt="Current image">
+                                                {% else %}
+                                                    <img src="" class="asset-preview mt-2 d-none existing-asset-preview" alt="Selected image">
+                                                {% endif %}
+                                            </div>
+                                            <div class="col-md-3">
+                                                {{ aform.display_name|as_crispy_field }}
+                                            </div>
+                                            <div class="col-md-2">
+                                                {{ aform.sort_order|as_crispy_field }}
+                                            </div>
+                                            <div class="col-md-2 pt-4">
+                                                <div class="form-check mb-2">
+                                                    {{ aform.embed_inline }}
+                                                    <label class="form-check-label" for="{{ aform.embed_inline.id_for_label }}">Embed inline</label>
+                                                </div>
+                                                {% if asset_formset.can_delete %}
+                                                    <div class="form-check">
+                                                        {{ aform.DELETE }}
+                                                        <label class="form-check-label text-danger" for="{{ aform.DELETE.id_for_label }}">Delete</label>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div id="assetEmptyForm" class="d-none">
+                                    <div class="row g-3 align-items-start mb-3 asset-row">
+                                        {% for hidden in asset_formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+                                        <div class="col-md-4">
+                                            {{ asset_formset.empty_form.file|as_crispy_field }}
+                                            <img src="" class="asset-preview mt-2 d-none existing-asset-preview" alt="Selected image">
+                                        </div>
+                                        <div class="col-md-3">
+                                            {{ asset_formset.empty_form.display_name|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-2">
+                                            {{ asset_formset.empty_form.sort_order|as_crispy_field }}
+                                        </div>
+                                        <div class="col-md-2 pt-4">
+                                            <div class="form-check mb-2">
+                                                {{ asset_formset.empty_form.embed_inline }}
+                                                <label class="form-check-label" for="{{ asset_formset.empty_form.embed_inline.id_for_label }}">Embed inline</label>
+                                            </div>
+                                            {% if asset_formset.can_delete %}
+                                                <div class="form-check">
+                                                    {{ asset_formset.empty_form.DELETE }}
+                                                    <label class="form-check-label text-danger" for="{{ asset_formset.empty_form.DELETE.id_for_label }}">Delete</label>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label fw-bold mb-0">Marketing Media Library</label>
+                                {% if can_manage_media_library %}
+                                <button type="submit" name="upload_library_media" value="1" class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-upload"></i> Upload To Library
+                                </button>
+                                {% endif %}
+                            </div>
+                            <div class="dropzone-hint mb-3">
+                                Marketing can upload reusable campaign images once. Sales can select saved images below and they will be added to this campaign automatically.
+                            </div>
+                            {% if can_manage_media_library %}
+                            <div class="card border-0 bg-light mb-3">
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-5">{{ library_form.title|as_crispy_field }}</div>
+                                        <div class="col-md-5">{{ library_form.file|as_crispy_field }}</div>
+                                        <div class="col-md-2 d-flex align-items-end">
+                                            <button type="submit" name="upload_library_media" value="1" class="btn btn-success w-100 mb-3">Upload</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <div class="row g-3" id="libraryGrid">
+                                {% for asset in library_assets %}
+                                <div class="col-md-4">
+                                    <label class="library-card {% if asset.id in selected_library_ids %}selected{% endif %}">
+                                        <input type="checkbox" class="d-none library-asset-checkbox" name="library_assets" value="{{ asset.id }}" data-src="{{ asset.file.url }}" {% if asset.id in selected_library_ids %}checked{% endif %}>
+                                        <img src="{{ asset.file.url }}" alt="{{ asset.title }}">
+                                        <div class="p-3">
+                                            <div class="fw-semibold">{{ asset.title }}</div>
+                                            <div class="text-muted small">Uploaded {{ asset.created_at|date:"M d, Y" }}</div>
+                                            <div class="form-check mt-2">
+                                                <input type="checkbox" class="form-check-input library-select-proxy" {% if asset.id in selected_library_ids %}checked{% endif %}>
+                                                <label class="form-check-label">Use in this campaign</label>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                                {% empty %}
+                                <div class="col-12">
+                                    <div class="alert alert-light border mb-0">No library images yet. Upload one above or add campaign images directly.</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <div class="d-flex justify-content-between align-items-end mb-2">
                                 <label class="form-label fw-bold mb-0">Email Body</label>
                                 <div class="dropdown">
@@ -53,6 +266,8 @@
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="templateDropdown">
                                         <li><h6 class="dropdown-header">Sales Templates</h6></li>
+                                        <li><a class="dropdown-item template-btn" href="#" data-template="hero_promo">Hero Promo</a></li>
+                                        <li><a class="dropdown-item template-btn" href="#" data-template="product_launch">Product Launch</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="product_update">New Product Update</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="check_in">Quarterly Check-in</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="promo">Special Promotion</a></li>
@@ -64,7 +279,13 @@
                             <div class="alert alert-info py-2 small mb-2">
                                 <i class="fas fa-info-circle"></i> <strong>Personalization Tags:</strong> You can use <code>{% verbatim %}{{ contact_name }}{% endverbatim %}</code> and <code>{% verbatim %}{{ company_name }}{% endverbatim %}</code> to personalize the email for each recipient.
                             </div>
-                            {{ form.body_html }}
+                            <div id="heroPreviewSection" class="mb-3" style="display:none;">
+                                <label class="form-label fw-bold">Live Preview</label>
+                                <div id="heroPreview"></div>
+                            </div>
+                            <div id="rawHtmlSection">
+                                {{ form.body_html }}
+                            </div>
                         </div>
 
                         <div class="mb-4">
@@ -121,8 +342,201 @@
             $('.select2').trigger("change");
         });
 
+        const assetRows = document.getElementById('assetRows');
+        const assetEmptyForm = document.getElementById('assetEmptyForm');
+        const assetTotalInput = document.getElementById('id_assets-TOTAL_FORMS');
+        $('#addAssetBtn').click(function() {
+            if (!assetRows || !assetEmptyForm || !assetTotalInput) return;
+            const idx = parseInt(assetTotalInput.value, 10);
+            const html = assetEmptyForm.innerHTML.replace(/__prefix__/g, idx);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = html;
+            const row = wrapper.querySelector('.asset-row');
+            if (row) {
+                assetRows.appendChild(row);
+                assetTotalInput.value = idx + 1;
+                bindAssetRow(row);
+                updateHeroPreview();
+            }
+        });
+
+        function firstInlineImageSrc() {
+            let src = '';
+            document.querySelectorAll('.asset-row').forEach(function(row) {
+                if (src) return;
+                const del = row.querySelector('input[name$="-DELETE"]');
+                if (del && del.checked) return;
+                const inline = row.querySelector('input[name$="-embed_inline"]');
+                if (!inline || !inline.checked) return;
+                const preview = row.querySelector('.existing-asset-preview');
+                if (preview && preview.src && !preview.classList.contains('d-none')) {
+                    src = preview.src;
+                }
+            });
+            if (!src) {
+                document.querySelectorAll('.library-asset-checkbox:checked').forEach(function(cb) {
+                    if (!src) src = cb.dataset.src || '';
+                });
+            }
+            return src;
+        }
+
+        function secondInlineImageSrc() {
+            let found = [];
+            document.querySelectorAll('.asset-row').forEach(function(row) {
+                const del = row.querySelector('input[name$="-DELETE"]');
+                if (del && del.checked) return;
+                const inline = row.querySelector('input[name$="-embed_inline"]');
+                if (!inline || !inline.checked) return;
+                const preview = row.querySelector('.existing-asset-preview');
+                if (preview && preview.src && !preview.classList.contains('d-none')) {
+                    found.push(preview.src);
+                }
+            });
+            if (found.length < 2) {
+                document.querySelectorAll('.library-asset-checkbox:checked').forEach(function(cb) {
+                    if (cb.dataset.src) found.push(cb.dataset.src);
+                });
+            }
+            return found.length > 1 ? found[1] : (found[0] || '');
+        }
+
+        function buildHeroHtml() {
+            const headline = $('#id_hero_headline').val() || 'Exclusive Offer for {{ company_name }}';
+            const intro = ($('#id_hero_intro').val() || 'Hi {{ contact_name }},\nShare your offer here.').replace(/\n/g, '<br>');
+            const bullet1 = $('#id_hero_bullet_1').val();
+            const bullet2 = $('#id_hero_bullet_2').val();
+            const bullet3 = $('#id_hero_bullet_3').val();
+            const ctaLabel = $('#id_hero_cta_label').val() || 'Learn More';
+            const ctaUrl = $('#id_hero_cta_url').val() || '#';
+            const heroSrc = firstInlineImageSrc();
+            const bullets = [bullet1, bullet2, bullet3].filter(Boolean).map(b => `<li style="margin:0 0 8px 0;">${$('<div>').text(b).html()}</li>`).join('');
+            const heroImage = heroSrc
+                ? `<img src="${heroSrc}" alt="Campaign Image" style="display:block;width:100%;height:auto;border:0;">`
+                : `<div style="background:#f3f4f6;color:#6b7280;text-align:center;padding:60px 24px;font-size:16px;">Upload a hero image to complete this campaign.</div>`;
+            return `
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f8;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:10px;overflow:hidden;">
+            <tr><td style="background:#B22222;padding:16px 24px;color:#ffffff;font-size:20px;font-weight:700;">MICRO IMAGE INTERNATIONAL CORP.</td></tr>
+            <tr><td>${heroImage}</td></tr>
+            <tr>
+              <td style="padding:28px 28px 10px 28px;">
+                <div style="font-size:28px;line-height:1.2;font-weight:700;color:#111827;margin:0 0 14px 0;">${$('<div>').text(headline).html()}</div>
+                <div style="font-size:16px;line-height:1.7;color:#374151;margin:0 0 18px 0;">${intro}</div>
+                <ul style="padding-left:20px;margin:0 0 24px 0;font-size:15px;line-height:1.6;color:#374151;">${bullets}</ul>
+                <div style="margin:0 0 24px 0;"><a href="${ctaUrl}" style="display:inline-block;background:#B22222;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:600;">${$('<div>').text(ctaLabel).html()}</a></div>
+                <div style="font-size:15px;line-height:1.7;color:#374151;">Best regards,<br><strong>[Your Name]</strong><br>Account Manager<br>Micro Image International Corp.</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+        }
+
+        function buildProductLaunchHtml() {
+            const headline = $('#id_hero_headline').val() || 'Now Launching for {{ company_name }}';
+            const intro = ($('#id_hero_intro').val() || 'Hi {{ contact_name }},\nWe are excited to introduce our latest solution.').replace(/\n/g, '<br>');
+            const bullet1 = $('#id_hero_bullet_1').val();
+            const bullet2 = $('#id_hero_bullet_2').val();
+            const bullet3 = $('#id_hero_bullet_3').val();
+            const ctaLabel = $('#id_hero_cta_label').val() || 'Request a Demo';
+            const ctaUrl = $('#id_hero_cta_url').val() || '#';
+            const bannerSrc = firstInlineImageSrc();
+            const productSrc = secondInlineImageSrc() || bannerSrc;
+            const bullets = [bullet1, bullet2, bullet3].filter(Boolean).map(b => `<li style="margin:0 0 10px 0;">${$('<div>').text(b).html()}</li>`).join('');
+            const bannerImage = bannerSrc ? `<img src="${bannerSrc}" alt="Launch banner" style="display:block;width:100%;height:auto;border:0;">` : '';
+            const productImage = productSrc ? `<img src="${productSrc}" alt="Product image" style="display:block;width:100%;height:auto;border:0;max-width:240px;margin:0 auto;">` : `<div style="background:#f3f4f6;color:#6b7280;text-align:center;padding:48px 20px;font-size:15px;">Upload 1-2 inline images for this layout.</div>`;
+            return `
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:#eef2f7;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#eef2f7;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="680" cellspacing="0" cellpadding="0" style="max-width:680px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+            <tr><td style="background:#111827;color:#ffffff;padding:14px 24px;font-size:13px;font-weight:700;letter-spacing:1px;">PRODUCT LAUNCH</td></tr>
+            <tr><td>${bannerImage}</td></tr>
+            <tr>
+              <td style="padding:32px 28px;">
+                <div style="font-size:30px;line-height:1.2;font-weight:700;margin:0 0 12px 0;">${$('<div>').text(headline).html()}</div>
+                <div style="font-size:16px;line-height:1.75;color:#4b5563;margin:0 0 24px 0;">${intro}</div>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td width="42%" valign="top" style="padding-right:16px;">${productImage}</td>
+                    <td width="58%" valign="top">
+                      <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:18px;">
+                        <div style="font-size:15px;font-weight:700;margin:0 0 10px 0;color:#111827;">Why it matters</div>
+                        <ul style="padding-left:20px;margin:0;font-size:15px;line-height:1.6;color:#374151;">${bullets}</ul>
+                      </div>
+                      <div style="margin-top:20px;"><a href="${ctaUrl}" style="display:inline-block;background:#B22222;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:600;">${$('<div>').text(ctaLabel).html()}</a></div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+        }
+
+        function updateHeroPreview() {
+            const mode = $('#id_template_type').val();
+            if (mode !== 'hero_promo' && mode !== 'product_launch') return;
+            const html = mode === 'product_launch' ? buildProductLaunchHtml() : buildHeroHtml();
+            $('#heroPreview').html(html);
+            $('#id_body_html').val('<!-- generated by Campaign Builder -->');
+        }
+
+        function bindAssetRow(row) {
+            const fileInput = row.querySelector('input[type="file"]');
+            const preview = row.querySelector('.existing-asset-preview');
+            const inline = row.querySelector('input[name$="-embed_inline"]');
+            const del = row.querySelector('input[name$="-DELETE"]');
+            if (fileInput && preview) {
+                fileInput.addEventListener('change', function() {
+                    const file = fileInput.files && fileInput.files[0];
+                    if (!file) {
+                        preview.src = '';
+                        preview.classList.add('d-none');
+                        updateHeroPreview();
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        preview.src = e.target.result;
+                        preview.classList.remove('d-none');
+                        updateHeroPreview();
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+            if (inline) inline.addEventListener('change', updateHeroPreview);
+            if (del) del.addEventListener('change', updateHeroPreview);
+        }
+        document.querySelectorAll('.asset-row').forEach(bindAssetRow);
+        $('.library-select-proxy').on('change', function() {
+            const card = $(this).closest('.library-card');
+            const hiddenCb = card.find('.library-asset-checkbox');
+            hiddenCb.prop('checked', $(this).is(':checked'));
+            card.toggleClass('selected', $(this).is(':checked'));
+            updateHeroPreview();
+        });
+
         // Email Templates
         const templates = {
+            'hero_promo': '<!-- generated by Hero Promo Builder -->',
+            'product_launch': '<!-- generated by Product Launch Builder -->',
             'product_update': `Hi {{ contact_name }},\n\nI hope this email finds you well at {{ company_name }}.\n\nI am writing to share some exciting news regarding our latest product updates at Micro Image International Corp. We have recently introduced several new features designed to help streamline your operations and improve overall efficiency.\n\nKey highlights include:\n- [Feature 1: e.g., Enhanced Reporting]\n- [Feature 2: e.g., Faster Integration]\n- [Feature 3: e.g., Advanced Security]\n\nI would love to schedule a quick 10-minute call next week to show you how these updates can specifically benefit {{ company_name }}.\n\nPlease let me know what day works best for you.\n\nBest regards,\n\n[Your Name]\nMicro Image International Corp.`,
             
             'check_in': `Dear {{ contact_name }},\n\nIt’s been a while since we last connected, and I wanted to check in to see how things are going at {{ company_name }}.\n\nAt Micro Image, we are continuously evolving our solutions to better serve our clients. I'd love to hear about any new challenges or goals your team is currently focusing on for this quarter.\n\nAre you available for a brief catch-up call sometime next week? Feel free to reply directly to this email with a time that suits your schedule.\n\nLooking forward to reconnecting!\n\nWarm regards,\n\n[Your Name]\nMicro Image International Corp.`,
@@ -132,18 +546,46 @@
             'clear': ''
         };
 
+        function toggleTemplateUi() {
+            const mode = $('#id_template_type').val();
+            const builderMode = (mode === 'hero_promo' || mode === 'product_launch');
+            $('#heroBuilderSection').toggle(builderMode);
+            $('#heroPreviewSection').toggle(builderMode);
+            $('#rawHtmlSection').toggle(!builderMode);
+            $('#builderTitle').text(mode === 'product_launch' ? 'Product Launch Builder' : 'Hero Promo Builder');
+            if (builderMode) updateHeroPreview();
+        }
+        $('#id_template_type, #id_hero_headline, #id_hero_intro, #id_hero_bullet_1, #id_hero_bullet_2, #id_hero_bullet_3, #id_hero_cta_label, #id_hero_cta_url').on('input change', updateHeroPreview);
+        $('#id_template_type').on('change', toggleTemplateUi);
+        toggleTemplateUi();
+
         $('.template-btn').click(function(e) {
             e.preventDefault();
             const templateKey = $(this).data('template');
             
             if(templateKey === 'clear' || confirm('Loading a template will overwrite your current email body. Continue?')) {
+                $('#id_template_type').val((templateKey === 'hero_promo' || templateKey === 'product_launch') ? templateKey : 'html').trigger('change');
                 $('#id_body_html').val(templates[templateKey]);
                 
                 // Auto-fill subject if empty or if changing template
+                if(templateKey === 'hero_promo') $('#id_subject').val('Exclusive Offer for {{ company_name }}');
+                if(templateKey === 'product_launch') $('#id_subject').val('Introducing Our Latest Product for {{ company_name }}');
                 if(templateKey === 'product_update') $('#id_subject').val('Exciting New Product Updates from Micro Image');
                 if(templateKey === 'check_in') $('#id_subject').val('Quarterly Check-in: How are things at {{ company_name }}?');
                 if(templateKey === 'promo') $('#id_subject').val('Exclusive Offer for {{ company_name }}');
                 if(templateKey === 'clear') $('#id_subject').val('');
+                if(templateKey === 'hero_promo' || templateKey === 'product_launch') {
+                    $('#id_hero_headline').val(templateKey === 'product_launch' ? 'Now Launching for {{ company_name }}' : 'Exclusive Offer for {{ company_name }}');
+                    $('#id_hero_intro').val(templateKey === 'product_launch'
+                        ? 'Hi {{ contact_name }},\nWe are excited to introduce our latest solution and share how it can help your team.'
+                        : 'Hi {{ contact_name }},\nShare your main offer and value proposition here.');
+                    $('#id_hero_bullet_1').val('Benefit 1');
+                    $('#id_hero_bullet_2').val('Benefit 2');
+                    $('#id_hero_bullet_3').val('Benefit 3');
+                    $('#id_hero_cta_label').val(templateKey === 'product_launch' ? 'Request a Demo' : 'Learn More');
+                    $('#id_hero_cta_url').val('#');
+                    updateHeroPreview();
+                }
             }
         });
     });

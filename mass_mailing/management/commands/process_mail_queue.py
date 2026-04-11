@@ -1,11 +1,12 @@
 import time
+from email.mime.image import MIMEImage
 from django.core.management.base import BaseCommand
 from django.core.mail import EmailMultiAlternatives, get_connection
-from django.template import Template, Context
 from django.utils import timezone
 from django.urls import reverse
 from django.conf import settings
-from mass_mailing.models import Campaign, CampaignRecipient, OptOut
+from mass_mailing.models import Campaign, OptOut
+from mass_mailing.rendering import render_campaign_html
 from sales_monitoring.models import SalesActivity, ActivityType, EmailActivity
 from gamification.models import PointLog, GamificationProfile
 
@@ -73,19 +74,11 @@ class Command(BaseCommand):
                         continue
                         
                     try:
-                        # Convert newlines to <br> tags if not already HTML
-                        import re
-                        body_content = campaign.body_html
-                        if not re.search(r'<[a-z][\s\S]*>', body_content, re.IGNORECASE):
-                            body_content = body_content.replace('\n', '<br>')
-
-                        # Render template
-                        template = Template(body_content)
-                        context = Context({
+                        context = {
                             'contact_name': recipient.customer.contact_person_name,
                             'company_name': recipient.customer.company_name,
-                        })
-                        html_content = template.render(context)
+                        }
+                        html_content = render_campaign_html(campaign, context, preview=False)
                         
                         # Add DPA & Unsubscribe Footer if requested
                         if campaign.include_unsubscribe:
@@ -116,6 +109,26 @@ class Command(BaseCommand):
                             connection=connection
                         )
                         msg.attach_alternative(html_content, "text/html")
+                        for asset in campaign.inline_assets():
+                            if not asset.file:
+                                continue
+                            asset.file.open('rb')
+                            content = asset.file.read()
+                            asset.file.close()
+                            content_type = getattr(asset.file.file, 'content_type', '') or getattr(asset.file, 'content_type', '') or 'image/png'
+                            subtype = content_type.split('/')[-1]
+                            image = MIMEImage(content, _subtype=subtype)
+                            image.add_header('Content-ID', f"<campaign-asset-{asset.id}>")
+                            image.add_header('Content-Disposition', 'inline', filename=asset.display_name or asset.file.name.rsplit('/', 1)[-1])
+                            msg.attach(image)
+                        for asset in campaign.attachment_assets():
+                            if not asset.file:
+                                continue
+                            filename = asset.display_name or asset.file.name.rsplit('/', 1)[-1]
+                            asset.file.open('rb')
+                            content = asset.file.read()
+                            asset.file.close()
+                            msg.attach(filename, content, 'application/octet-stream')
                         msg.send()
                         
                         recipient.status = 'sent'
@@ -177,14 +190,14 @@ class Command(BaseCommand):
                 email_type='newsletter',
                 subject=campaign.subject,
                 recipients=recipient.email,
-                has_attachments=False # Future enhancement: check campaign attachments
+                has_attachments=campaign.assets.exists()
             )
             
             # 4. Gamification Points
             points = 5 # Standard points for sending a campaign email
             
             # Update user profile
-            profile, created = GamificationProfile.objects.get_or_create(user=campaign.created_by)
+            profile, _ = GamificationProfile.objects.get_or_create(user=campaign.created_by)
             profile.add_points(points)
             
             # Log points

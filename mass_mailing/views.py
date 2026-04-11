@@ -1,13 +1,48 @@
 import threading
+import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import HttpResponse, HttpResponseForbidden
-from django.template import Template, Context
+from django.http import HttpResponseForbidden
 from django.utils import timezone
-from .models import Campaign, CampaignRecipient, OptOut
-from .forms import CampaignForm, UnsubscribeForm
+from django.db.models import Max
+from django.core.files.base import ContentFile
+from .models import Campaign, CampaignRecipient, OptOut, MediaLibraryAsset, CampaignAsset
+from .forms import CampaignForm, UnsubscribeForm, CampaignAssetFormSet, MediaLibraryAssetForm
+from .rendering import render_campaign_html
 from customers.models import Customer
+
+
+def can_manage_media_library(user):
+    return user.role in ['admin', 'president', 'gm', 'vp', 'avp', 'asm', 'supervisor', 'teamlead']
+
+
+def sync_selected_library_assets(campaign, selected_ids, user):
+    selected_ids = {int(i) for i in selected_ids if str(i).isdigit()}
+    existing = {asset.library_asset_id: asset for asset in campaign.assets.filter(library_asset__isnull=False)}
+
+    # Delete deselected library-based assets
+    for library_id, asset in list(existing.items()):
+        if library_id not in selected_ids:
+            asset.delete()
+
+    # Add newly selected library assets
+    max_sort = campaign.assets.aggregate(max_sort=Max('sort_order'))['max_sort'] or 0
+    new_library_ids = [library_id for library_id in selected_ids if library_id not in existing]
+    for offset, library_asset in enumerate(MediaLibraryAsset.objects.filter(id__in=new_library_ids, is_active=True), start=1):
+        library_asset.file.open('rb')
+        content = library_asset.file.read()
+        library_asset.file.close()
+        filename = os.path.basename(library_asset.file.name)
+        campaign_asset = CampaignAsset(
+            campaign=campaign,
+            library_asset=library_asset,
+            display_name=library_asset.title,
+            embed_inline=True,
+            sort_order=max_sort + offset,
+            uploaded_by=user,
+        )
+        campaign_asset.file.save(filename, ContentFile(content), save=True)
 
 def get_allowed_campaigns(user):
     """Returns a queryset of campaigns the user is allowed to see based on their role."""
@@ -55,12 +90,43 @@ def campaign_list(request):
 
 @login_required
 def campaign_create(request):
+    library_assets = MediaLibraryAsset.objects.filter(is_active=True)
+    selected_library_ids = []
     if request.method == 'POST':
+        if 'upload_library_media' in request.POST and can_manage_media_library(request.user):
+            library_form = MediaLibraryAssetForm(request.POST, request.FILES)
+            form = CampaignForm(user=request.user)
+            asset_formset = CampaignAssetFormSet(prefix='assets')
+            if library_form.is_valid():
+                media = library_form.save(commit=False)
+                media.uploaded_by = request.user
+                media.save()
+                messages.success(request, f'Media "{media.title}" uploaded to the library.')
+                return redirect('mass_mailing:campaign_create')
+            return render(request, 'mass_mailing/campaign_form.html', {
+                'form': form,
+                'asset_formset': asset_formset,
+                'library_form': library_form,
+                'library_assets': library_assets,
+                'selected_library_ids': selected_library_ids,
+                'can_manage_media_library': can_manage_media_library(request.user),
+            })
         form = CampaignForm(request.POST, user=request.user)
-        if form.is_valid():
+        asset_formset = CampaignAssetFormSet(request.POST, request.FILES, prefix='assets')
+        selected_library_ids = request.POST.getlist('library_assets')
+        if form.is_valid() and asset_formset.is_valid():
             campaign = form.save(commit=False)
             campaign.created_by = request.user
             campaign.save()
+            asset_formset.instance = campaign
+            assets = asset_formset.save(commit=False)
+            for asset in assets:
+                asset.campaign = campaign
+                asset.uploaded_by = request.user
+                asset.save()
+            for obj in asset_formset.deleted_objects:
+                obj.delete()
+            sync_selected_library_assets(campaign, selected_library_ids, request.user)
             
             # Add recipients
             customers = form.cleaned_data['customers']
@@ -79,8 +145,20 @@ def campaign_create(request):
             return redirect('mass_mailing:campaign_detail', pk=campaign.pk)
     else:
         form = CampaignForm(user=request.user)
+        asset_formset = CampaignAssetFormSet(prefix='assets')
+        library_form = MediaLibraryAssetForm()
         
-    return render(request, 'mass_mailing/campaign_form.html', {'form': form})
+    if request.method != 'POST' or 'upload_library_media' not in request.POST:
+        library_form = locals().get('library_form', MediaLibraryAssetForm())
+
+    return render(request, 'mass_mailing/campaign_form.html', {
+        'form': form,
+        'asset_formset': asset_formset,
+        'library_form': library_form,
+        'library_assets': library_assets,
+        'selected_library_ids': selected_library_ids,
+        'can_manage_media_library': can_manage_media_library(request.user),
+    })
 
 @login_required
 def campaign_detail(request, pk):
@@ -99,6 +177,8 @@ def campaign_detail(request, pk):
 @login_required
 def campaign_edit(request, pk):
     campaign = get_object_or_404(Campaign, pk=pk)
+    library_assets = MediaLibraryAsset.objects.filter(is_active=True)
+    selected_library_ids = list(campaign.assets.filter(library_asset__isnull=False).values_list('library_asset_id', flat=True))
     
     if not get_allowed_campaigns(request.user).filter(pk=pk).exists():
         return HttpResponseForbidden("You are not allowed to edit this campaign.")
@@ -108,9 +188,40 @@ def campaign_edit(request, pk):
         return redirect('mass_mailing:campaign_detail', pk=pk)
         
     if request.method == 'POST':
+        if 'upload_library_media' in request.POST and can_manage_media_library(request.user):
+            library_form = MediaLibraryAssetForm(request.POST, request.FILES)
+            initial_customers = Customer.objects.filter(id__in=campaign.recipients.values_list('customer_id', flat=True))
+            form = CampaignForm(instance=campaign, user=request.user, initial={'customers': initial_customers})
+            asset_formset = CampaignAssetFormSet(instance=campaign, prefix='assets')
+            if library_form.is_valid():
+                media = library_form.save(commit=False)
+                media.uploaded_by = request.user
+                media.save()
+                messages.success(request, f'Media "{media.title}" uploaded to the library.')
+                return redirect('mass_mailing:campaign_edit', pk=campaign.pk)
+            return render(request, 'mass_mailing/campaign_form.html', {
+                'form': form,
+                'campaign': campaign,
+                'asset_formset': asset_formset,
+                'library_form': library_form,
+                'library_assets': library_assets,
+                'selected_library_ids': selected_library_ids,
+                'can_manage_media_library': can_manage_media_library(request.user),
+            })
         form = CampaignForm(request.POST, instance=campaign, user=request.user)
-        if form.is_valid():
+        asset_formset = CampaignAssetFormSet(request.POST, request.FILES, instance=campaign, prefix='assets')
+        selected_library_ids = request.POST.getlist('library_assets')
+        if form.is_valid() and asset_formset.is_valid():
             campaign = form.save()
+            assets = asset_formset.save(commit=False)
+            for asset in assets:
+                asset.campaign = campaign
+                if not asset.uploaded_by_id:
+                    asset.uploaded_by = request.user
+                asset.save()
+            for obj in asset_formset.deleted_objects:
+                obj.delete()
+            sync_selected_library_assets(campaign, selected_library_ids, request.user)
             
             # Rebuild recipients if needed
             # For simplicity, we just clear and re-add them if it's a draft
@@ -134,8 +245,21 @@ def campaign_edit(request, pk):
         # Pre-populate selected customers
         initial_customers = Customer.objects.filter(id__in=campaign.recipients.values_list('customer_id', flat=True))
         form = CampaignForm(instance=campaign, user=request.user, initial={'customers': initial_customers})
+        asset_formset = CampaignAssetFormSet(instance=campaign, prefix='assets')
+        library_form = MediaLibraryAssetForm()
         
-    return render(request, 'mass_mailing/campaign_form.html', {'form': form, 'campaign': campaign})
+    if request.method != 'POST' or 'upload_library_media' not in request.POST:
+        library_form = locals().get('library_form', MediaLibraryAssetForm())
+
+    return render(request, 'mass_mailing/campaign_form.html', {
+        'form': form,
+        'campaign': campaign,
+        'asset_formset': asset_formset,
+        'library_form': library_form,
+        'library_assets': library_assets,
+        'selected_library_ids': selected_library_ids,
+        'can_manage_media_library': can_manage_media_library(request.user),
+    })
 
 @login_required
 def campaign_cancel(request, pk):
@@ -185,15 +309,7 @@ def campaign_preview(request, pk):
             'company_name': 'Sample Company Inc.',
         }
         
-    # Convert newlines to <br> tags if not already HTML
-    import re
-    body_content = campaign.body_html
-    if not re.search(r'<[a-z][\s\S]*>', body_content, re.IGNORECASE):
-        body_content = body_content.replace('\n', '<br>')
-        
-    template = Template(body_content)
-    context = Context(context_dict)
-    rendered_body = template.render(context)
+    rendered_body = render_campaign_html(campaign, context_dict, preview=True)
     
     return render(request, 'mass_mailing/campaign_preview.html', {
         'campaign': campaign,
