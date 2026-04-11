@@ -5,6 +5,7 @@ app_name = 'mass_mailing'
 
 urlpatterns = [
     path('', views.campaign_list, name='campaign_list'),
+    path('media-library/', views.media_library, name='media_library'),
     path('create/', views.campaign_create, name='campaign_create'),
     path('<int:pk>/', views.campaign_detail, name='campaign_detail'),
     path('<int:pk>/edit/', views.campaign_edit, name='campaign_edit'),

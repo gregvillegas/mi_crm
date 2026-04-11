@@ -15,6 +15,7 @@ class Campaign(models.Model):
         ('html', 'Custom HTML'),
         ('hero_promo', 'Hero Promo'),
         ('product_launch', 'Product Launch'),
+        ('newsletter_digest', 'Newsletter Digest'),
     )
     
     name = models.CharField(max_length=200, help_text="Internal name for this campaign")

@@ -211,11 +211,18 @@
                         <div class="mb-4">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <label class="form-label fw-bold mb-0">Marketing Media Library</label>
-                                {% if can_manage_media_library %}
-                                <button type="submit" name="upload_library_media" value="1" class="btn btn-sm btn-outline-success">
-                                    <i class="fas fa-upload"></i> Upload To Library
-                                </button>
-                                {% endif %}
+                                <div class="d-flex gap-2">
+                                    {% if can_view_media_library %}
+                                    <a href="{% url 'mass_mailing:media_library' %}" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fas fa-photo-video"></i> Open Library
+                                    </a>
+                                    {% endif %}
+                                    {% if can_manage_media_library %}
+                                    <button type="submit" name="upload_library_media" value="1" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-upload"></i> Upload To Library
+                                    </button>
+                                    {% endif %}
+                                </div>
                             </div>
                             <div class="dropzone-hint mb-3">
                                 Marketing can upload reusable campaign images once. Sales can select saved images below and they will be added to this campaign automatically.
@@ -268,6 +275,7 @@
                                         <li><h6 class="dropdown-header">Sales Templates</h6></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="hero_promo">Hero Promo</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="product_launch">Product Launch</a></li>
+                                        <li><a class="dropdown-item template-btn" href="#" data-template="newsletter_digest">Newsletter Digest</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="product_update">New Product Update</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="check_in">Quarterly Check-in</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="promo">Special Promotion</a></li>
@@ -490,10 +498,56 @@
 </html>`;
         }
 
+        function buildNewsletterDigestHtml() {
+            const headline = $('#id_hero_headline').val() || 'What’s New for {{ company_name }}';
+            const intro = ($('#id_hero_intro').val() || 'Hi {{ contact_name }},\nHere’s a quick roundup of updates, promos, and insights from our team.').replace(/\n/g, '<br>');
+            const bullet1 = $('#id_hero_bullet_1').val();
+            const bullet2 = $('#id_hero_bullet_2').val();
+            const bullet3 = $('#id_hero_bullet_3').val();
+            const ctaLabel = $('#id_hero_cta_label').val() || 'Read More';
+            const ctaUrl = $('#id_hero_cta_url').val() || '#';
+            const heroSrc = firstInlineImageSrc();
+            const sideSrc = secondInlineImageSrc();
+            const bullets = [bullet1, bullet2, bullet3].filter(Boolean).map((b, idx) => `<div style="padding:12px 0;border-bottom:1px solid #e5e7eb;"><strong style="color:#111827;">Update ${idx + 1}</strong><br>${$('<div>').text(b).html()}</div>`).join('');
+            const heroImage = heroSrc ? `<img src="${heroSrc}" alt="Newsletter hero" style="display:block;width:100%;height:auto;border:0;">` : `<div style="background:#e5eef9;color:#4b5563;text-align:center;padding:52px 22px;font-size:15px;">Upload a hero image for your newsletter digest.</div>`;
+            const sideImage = sideSrc ? `<img src="${sideSrc}" alt="Digest image" style="display:block;width:100%;height:auto;border:0;border-radius:10px;">` : `<div style="background:#f3f4f6;color:#6b7280;text-align:center;padding:40px 16px;font-size:14px;border-radius:10px;">Optional secondary image</div>`;
+            return `
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:#f5f7fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f5f7fb;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="680" cellspacing="0" cellpadding="0" style="max-width:680px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+            <tr><td style="background:#0f172a;color:#ffffff;padding:16px 24px;"><div style="font-size:12px;letter-spacing:1.2px;text-transform:uppercase;opacity:.8;">Newsletter Digest</div><div style="font-size:24px;font-weight:700;margin-top:4px;">Micro Image Update</div></td></tr>
+            <tr><td>${heroImage}</td></tr>
+            <tr>
+              <td style="padding:28px;">
+                <div style="font-size:28px;line-height:1.2;font-weight:700;margin:0 0 12px 0;color:#111827;">${$('<div>').text(headline).html()}</div>
+                <div style="font-size:16px;line-height:1.75;color:#4b5563;margin:0 0 24px 0;">${intro}</div>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                  <tr>
+                    <td width="62%" valign="top" style="padding-right:18px;"><div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:18px;"><div style="font-size:16px;font-weight:700;color:#111827;margin-bottom:8px;">Highlights</div>${bullets}</div></td>
+                    <td width="38%" valign="top">${sideImage}</td>
+                  </tr>
+                </table>
+                <div style="margin-top:24px;"><a href="${ctaUrl}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:6px;font-weight:600;">${$('<div>').text(ctaLabel).html()}</a></div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+        }
+
         function updateHeroPreview() {
             const mode = $('#id_template_type').val();
-            if (mode !== 'hero_promo' && mode !== 'product_launch') return;
-            const html = mode === 'product_launch' ? buildProductLaunchHtml() : buildHeroHtml();
+            if (mode !== 'hero_promo' && mode !== 'product_launch' && mode !== 'newsletter_digest') return;
+            let html = buildHeroHtml();
+            if (mode === 'product_launch') html = buildProductLaunchHtml();
+            if (mode === 'newsletter_digest') html = buildNewsletterDigestHtml();
             $('#heroPreview').html(html);
             $('#id_body_html').val('<!-- generated by Campaign Builder -->');
         }
@@ -537,6 +591,7 @@
         const templates = {
             'hero_promo': '<!-- generated by Hero Promo Builder -->',
             'product_launch': '<!-- generated by Product Launch Builder -->',
+            'newsletter_digest': '<!-- generated by Newsletter Digest Builder -->',
             'product_update': `Hi {{ contact_name }},\n\nI hope this email finds you well at {{ company_name }}.\n\nI am writing to share some exciting news regarding our latest product updates at Micro Image International Corp. We have recently introduced several new features designed to help streamline your operations and improve overall efficiency.\n\nKey highlights include:\n- [Feature 1: e.g., Enhanced Reporting]\n- [Feature 2: e.g., Faster Integration]\n- [Feature 3: e.g., Advanced Security]\n\nI would love to schedule a quick 10-minute call next week to show you how these updates can specifically benefit {{ company_name }}.\n\nPlease let me know what day works best for you.\n\nBest regards,\n\n[Your Name]\nMicro Image International Corp.`,
             
             'check_in': `Dear {{ contact_name }},\n\nIt’s been a while since we last connected, and I wanted to check in to see how things are going at {{ company_name }}.\n\nAt Micro Image, we are continuously evolving our solutions to better serve our clients. I'd love to hear about any new challenges or goals your team is currently focusing on for this quarter.\n\nAre you available for a brief catch-up call sometime next week? Feel free to reply directly to this email with a time that suits your schedule.\n\nLooking forward to reconnecting!\n\nWarm regards,\n\n[Your Name]\nMicro Image International Corp.`,
@@ -548,11 +603,14 @@
 
         function toggleTemplateUi() {
             const mode = $('#id_template_type').val();
-            const builderMode = (mode === 'hero_promo' || mode === 'product_launch');
+            const builderMode = (mode === 'hero_promo' || mode === 'product_launch' || mode === 'newsletter_digest');
             $('#heroBuilderSection').toggle(builderMode);
             $('#heroPreviewSection').toggle(builderMode);
             $('#rawHtmlSection').toggle(!builderMode);
-            $('#builderTitle').text(mode === 'product_launch' ? 'Product Launch Builder' : 'Hero Promo Builder');
+            let title = 'Hero Promo Builder';
+            if (mode === 'product_launch') title = 'Product Launch Builder';
+            if (mode === 'newsletter_digest') title = 'Newsletter Digest Builder';
+            $('#builderTitle').text(title);
             if (builderMode) updateHeroPreview();
         }
         $('#id_template_type, #id_hero_headline, #id_hero_intro, #id_hero_bullet_1, #id_hero_bullet_2, #id_hero_bullet_3, #id_hero_cta_label, #id_hero_cta_url').on('input change', updateHeroPreview);
@@ -564,25 +622,36 @@
             const templateKey = $(this).data('template');
             
             if(templateKey === 'clear' || confirm('Loading a template will overwrite your current email body. Continue?')) {
-                $('#id_template_type').val((templateKey === 'hero_promo' || templateKey === 'product_launch') ? templateKey : 'html').trigger('change');
+                $('#id_template_type').val((templateKey === 'hero_promo' || templateKey === 'product_launch' || templateKey === 'newsletter_digest') ? templateKey : 'html').trigger('change');
                 $('#id_body_html').val(templates[templateKey]);
                 
                 // Auto-fill subject if empty or if changing template
                 if(templateKey === 'hero_promo') $('#id_subject').val('Exclusive Offer for {{ company_name }}');
                 if(templateKey === 'product_launch') $('#id_subject').val('Introducing Our Latest Product for {{ company_name }}');
+                if(templateKey === 'newsletter_digest') $('#id_subject').val('Latest Updates for {{ company_name }}');
                 if(templateKey === 'product_update') $('#id_subject').val('Exciting New Product Updates from Micro Image');
                 if(templateKey === 'check_in') $('#id_subject').val('Quarterly Check-in: How are things at {{ company_name }}?');
                 if(templateKey === 'promo') $('#id_subject').val('Exclusive Offer for {{ company_name }}');
                 if(templateKey === 'clear') $('#id_subject').val('');
-                if(templateKey === 'hero_promo' || templateKey === 'product_launch') {
-                    $('#id_hero_headline').val(templateKey === 'product_launch' ? 'Now Launching for {{ company_name }}' : 'Exclusive Offer for {{ company_name }}');
+                if(templateKey === 'hero_promo' || templateKey === 'product_launch' || templateKey === 'newsletter_digest') {
+                    $('#id_hero_headline').val(
+                        templateKey === 'product_launch' ? 'Now Launching for {{ company_name }}' :
+                        templateKey === 'newsletter_digest' ? 'What’s New for {{ company_name }}' :
+                        'Exclusive Offer for {{ company_name }}'
+                    );
                     $('#id_hero_intro').val(templateKey === 'product_launch'
                         ? 'Hi {{ contact_name }},\nWe are excited to introduce our latest solution and share how it can help your team.'
+                        : templateKey === 'newsletter_digest'
+                        ? 'Hi {{ contact_name }},\nHere’s a quick roundup of updates, promos, and insights from our team.'
                         : 'Hi {{ contact_name }},\nShare your main offer and value proposition here.');
                     $('#id_hero_bullet_1').val('Benefit 1');
                     $('#id_hero_bullet_2').val('Benefit 2');
                     $('#id_hero_bullet_3').val('Benefit 3');
-                    $('#id_hero_cta_label').val(templateKey === 'product_launch' ? 'Request a Demo' : 'Learn More');
+                    $('#id_hero_cta_label').val(
+                        templateKey === 'product_launch' ? 'Request a Demo' :
+                        templateKey === 'newsletter_digest' ? 'Read More' :
+                        'Learn More'
+                    );
                     $('#id_hero_cta_url').val('#');
                     updateHeroPreview();
                 }

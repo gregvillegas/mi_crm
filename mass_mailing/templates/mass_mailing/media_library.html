@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Media Library{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="fas fa-photo-video text-primary me-2"></i>Marketing Media Library</h2>
+            <p class="text-muted mb-0">Upload once and reuse images across Hero Promo, Product Launch, and Newsletter Digest campaigns.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'mass_mailing:campaign_list' %}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back To Campaigns
+            </a>
+            <a href="{% url 'mass_mailing:campaign_create' %}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i> New Campaign
+            </a>
+        </div>
+    </div>
+
+    {% if can_manage_media_library %}
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <h5 class="mb-3">Upload New Media</h5>
+            <form method="post" enctype="multipart/form-data" class="row g-3">
+                {% csrf_token %}
+                <div class="col-md-5">{{ library_form.title|as_crispy_field }}</div>
+                <div class="col-md-5">{{ library_form.file|as_crispy_field }}</div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" name="upload_library_media" value="1" class="btn btn-success w-100 mb-3">
+                        <i class="fas fa-upload me-1"></i> Upload
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div class="row g-4">
+                {% for asset in assets %}
+                <div class="col-md-4 col-xl-3">
+                    <div class="card h-100 border-0 shadow-sm">
+                        <img src="{{ asset.file.url }}" class="card-img-top" alt="{{ asset.title }}" style="height: 180px; object-fit: cover; background: #f8f9fa;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="card-title mb-0">{{ asset.title }}</h6>
+                                {% if asset.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </div>
+                            <div class="small text-muted mb-2">
+                                Uploaded {{ asset.created_at|date:"M d, Y" }}
+                                {% if asset.uploaded_by %}by {{ asset.uploaded_by.username }}{% endif %}
+                            </div>
+                            <div class="small text-muted mb-3">
+                                Used in {{ asset.campaign_assets.count }} campaign{{ asset.campaign_assets.count|pluralize }}
+                            </div>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a href="{% url 'mass_mailing:campaign_create' %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-paper-plane me-1"></i> Use In Campaign
+                                </a>
+                                {% if can_manage_media_library %}
+                                <form method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="asset_id" value="{{ asset.id }}">
+                                    <button type="submit" name="toggle_media_status" value="1" class="btn btn-sm btn-outline-warning">
+                                        {% if asset.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                <form method="post" class="d-inline" onsubmit="return confirm('Delete this media from the library?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="asset_id" value="{{ asset.id }}">
+                                    <button type="submit" name="delete_media" value="1" class="btn btn-sm btn-outline-danger">
+                                        Delete
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12">
+                    <div class="text-center py-5 text-muted">
+                        <i class="fas fa-images fa-3x mb-3 text-light"></i>
+                        <h5>No Media Yet</h5>
+                        <p>Upload banners, brochures, or promo images here so Sales can reuse them in campaigns.</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -14,7 +14,11 @@ from customers.models import Customer
 
 
 def can_manage_media_library(user):
-    return user.role in ['admin', 'president', 'gm', 'vp', 'avp', 'asm', 'supervisor', 'teamlead']
+    return user.role in ['admin', 'marketing']
+
+
+def can_view_media_library(user):
+    return user.role in ['admin', 'marketing']
 
 
 def sync_selected_library_assets(campaign, selected_ids, user):
@@ -88,6 +92,55 @@ def campaign_list(request):
     campaigns = get_allowed_campaigns(request.user).order_by('-created_at')
     return render(request, 'mass_mailing/campaign_list.html', {'campaigns': campaigns})
 
+
+@login_required
+def media_library(request):
+    if not can_view_media_library(request.user):
+        messages.error(request, "You don't have permission to access the Media Library.")
+        return redirect('mass_mailing:campaign_list')
+
+    assets = MediaLibraryAsset.objects.all().order_by('-created_at')
+    library_form = MediaLibraryAssetForm()
+
+    if request.method == 'POST':
+        if 'upload_library_media' in request.POST:
+            if not can_manage_media_library(request.user):
+                messages.error(request, "You don't have permission to upload media.")
+                return redirect('mass_mailing:media_library')
+            library_form = MediaLibraryAssetForm(request.POST, request.FILES)
+            if library_form.is_valid():
+                media = library_form.save(commit=False)
+                media.uploaded_by = request.user
+                media.save()
+                messages.success(request, f'Media "{media.title}" uploaded successfully.')
+                return redirect('mass_mailing:media_library')
+
+        elif 'delete_media' in request.POST:
+            if not can_manage_media_library(request.user):
+                messages.error(request, "You don't have permission to delete media.")
+                return redirect('mass_mailing:media_library')
+            asset = get_object_or_404(MediaLibraryAsset, pk=request.POST.get('asset_id'))
+            asset.delete()
+            messages.success(request, "Media deleted from the library.")
+            return redirect('mass_mailing:media_library')
+
+        elif 'toggle_media_status' in request.POST:
+            if not can_manage_media_library(request.user):
+                messages.error(request, "You don't have permission to update media.")
+                return redirect('mass_mailing:media_library')
+            asset = get_object_or_404(MediaLibraryAsset, pk=request.POST.get('asset_id'))
+            asset.is_active = not asset.is_active
+            asset.save(update_fields=['is_active'])
+            messages.success(request, f'"{asset.title}" is now {"active" if asset.is_active else "inactive"}.')
+            return redirect('mass_mailing:media_library')
+
+    return render(request, 'mass_mailing/media_library.html', {
+        'assets': assets,
+        'library_form': library_form,
+        'can_manage_media_library': can_manage_media_library(request.user),
+        'can_view_media_library': can_view_media_library(request.user),
+    })
+
 @login_required
 def campaign_create(request):
     library_assets = MediaLibraryAsset.objects.filter(is_active=True)
@@ -110,6 +163,7 @@ def campaign_create(request):
                 'library_assets': library_assets,
                 'selected_library_ids': selected_library_ids,
                 'can_manage_media_library': can_manage_media_library(request.user),
+                'can_view_media_library': can_view_media_library(request.user),
             })
         form = CampaignForm(request.POST, user=request.user)
         asset_formset = CampaignAssetFormSet(request.POST, request.FILES, prefix='assets')
@@ -158,6 +212,7 @@ def campaign_create(request):
         'library_assets': library_assets,
         'selected_library_ids': selected_library_ids,
         'can_manage_media_library': can_manage_media_library(request.user),
+        'can_view_media_library': can_view_media_library(request.user),
     })
 
 @login_required
@@ -207,6 +262,7 @@ def campaign_edit(request, pk):
                 'library_assets': library_assets,
                 'selected_library_ids': selected_library_ids,
                 'can_manage_media_library': can_manage_media_library(request.user),
+                'can_view_media_library': can_view_media_library(request.user),
             })
         form = CampaignForm(request.POST, instance=campaign, user=request.user)
         asset_formset = CampaignAssetFormSet(request.POST, request.FILES, instance=campaign, prefix='assets')
@@ -259,6 +315,7 @@ def campaign_edit(request, pk):
         'library_assets': library_assets,
         'selected_library_ids': selected_library_ids,
         'can_manage_media_library': can_manage_media_library(request.user),
+        'can_view_media_library': can_view_media_library(request.user),
     })
 
 @login_required

@@ -13,7 +13,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='campaign',
             name='template_type',
-            field=models.CharField(choices=[('html', 'Custom HTML'), ('hero_promo', 'Hero Promo'), ('product_launch', 'Product Launch')], default='html', max_length=30),
+            field=models.CharField(choices=[('html', 'Custom HTML'), ('hero_promo', 'Hero Promo'), ('product_launch', 'Product Launch'), ('newsletter_digest', 'Newsletter Digest')], default='html', max_length=30),
         ),
         migrations.AddField(
             model_name='campaign',

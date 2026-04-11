@@ -7,9 +7,16 @@
 <div class="container-fluid py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2><i class="fas fa-paper-plane text-primary me-2"></i>Mass Mailing Campaigns</h2>
-        <a href="{% url 'mass_mailing:campaign_create' %}" class="btn btn-primary shadow-sm">
-            <i class="fas fa-plus me-1"></i> New Campaign
-        </a>
+        <div class="d-flex gap-2">
+            {% if request.user.role == 'admin' or request.user.role == 'marketing' %}
+            <a href="{% url 'mass_mailing:media_library' %}" class="btn btn-outline-secondary shadow-sm">
+                <i class="fas fa-photo-video me-1"></i> Media Library
+            </a>
+            {% endif %}
+            <a href="{% url 'mass_mailing:campaign_create' %}" class="btn btn-primary shadow-sm">
+                <i class="fas fa-plus me-1"></i> New Campaign
+            </a>
+        </div>
     </div>
 
     {% if messages %}
@@ -69,9 +76,7 @@
                                 {% if campaign.total_recipients > 0 %}
                                     {% widthratio campaign.sent_count campaign.total_recipients 100 as percent %}
                                     <div class="d-flex align-items-center">
-                                        <div class="progress flex-grow-1 me-2" style="height: 6px;">
-                                            <div class="progress-bar bg-success" role="progressbar" style="width: {{ percent }}%;"></div>
-                                        </div>
+                                        <progress class="flex-grow-1 me-2" value="{{ percent }}" max="100" style="height: 10px;"></progress>
                                         <span class="small text-muted">{{ percent }}%</span>
                                     </div>
                                     <div class="small text-muted mt-1">
