@@ -604,15 +604,40 @@ def generate_pdf_buffer(proposal):
     
     cancellation_text = cancellation_texts.get(proposal.cancellation_terms, cancellation_texts.get('professional'))
     
+    # Build Price Validity text with optional notes
+    validity_parts = []
+    validity_parts.append(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.")
+    if getattr(proposal, 'validity_subject_to_prior_sale', False):
+        validity_parts.append("Subject to Prior Sale.")
+    if getattr(proposal, 'validity_availability_at_order', False):
+        validity_parts.append("Availability at the time of Order.")
+    validity_text = "<br/>".join(validity_parts)
+    
     tc_data = [
         [Paragraph("Terms and Conditions:", tc_label), ''],
-        [Paragraph("Price Validity", tc_label), Paragraph(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.", tc_style)],
+        [Paragraph("Price Validity", tc_label), Paragraph(validity_text, tc_style)],
         [Paragraph("Payment Terms", tc_label), Paragraph(proposal.payment_terms, tc_style)],
         [Paragraph("Cancellation", tc_label), Paragraph(cancellation_text, tc_style)],
     ]
 
     if proposal.include_bank_details:
-        tc_data.append([Paragraph("Bank Details", tc_label), Paragraph("MICRO IMAGE INTERNATIONAL CORP.<br/>Banco De Oro - Salcedo Dela Rosa Branch<br/>Golden Rock Bldg. Salcedo St. Legaspi Village Makati City 1200 Phils.", tc_style)])
+        if proposal.currency == 'USD':
+            bank_html = f"""
+            <b>{proposal.usd_beneficiary_name}</b><br/>
+            Beneficiary Address: {proposal.usd_beneficiary_address}<br/>
+            Account Number: {proposal.usd_account_number}<br/>
+            Bank Address: {proposal.usd_bank_address}<br/>
+            SWIFT Code (BIC): {proposal.usd_swift_code}
+            """.strip()
+        else:
+            bank_html = f"""
+            <b>{proposal.php_account_name}</b><br/>
+            {proposal.php_bank_name}<br/>
+            Account Number: {proposal.php_account_number}<br/>
+            Account Type: {proposal.php_account_type}<br/>
+            Branch: {proposal.php_branch}
+            """.strip()
+        tc_data.append([Paragraph("Bank Details", tc_label), Paragraph(bank_html, tc_style)])
 
     tc_data.extend([
         [Paragraph("Delivery Lead time", tc_label), Paragraph(proposal.delivery_lead_time, tc_style)],
@@ -811,7 +836,8 @@ Best regards,
             # Update Funnel
             update_sales_funnel(proposal)
             
-            msg = f"Proposal sent to {recipient_email}"
+            recipients_str = ', '.join(to_list)
+            msg = f"Proposal sent to {recipients_str}"
             if cc_list:
                 msg += f" (CC: {', '.join(cc_list)})"
             messages.success(request, msg)

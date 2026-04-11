@@ -52,6 +52,24 @@ class Proposal(models.Model):
     # Optional Fields
     include_bank_details = models.BooleanField(default=False, help_text="Include bank details in the proposal PDF")
     
+    # Bank details (per-currency, editable per proposal)
+    # PHP
+    php_bank_name = models.CharField(max_length=200, default="BDO Unibank, Inc.")
+    php_account_name = models.CharField(max_length=200, default="MICRO IMAGE INTERNATIONAL CORP.")
+    php_account_number = models.CharField(max_length=100, default="0123 0001 0002 1111")
+    php_account_type = models.CharField(max_length=200, default="Current Account / Checking Account")
+    php_branch = models.CharField(max_length=200, default="Banco De Oro - Salcedo Dela Rosa Branch")
+    # USD
+    usd_beneficiary_name = models.CharField(max_length=200, default="MICROIMAGE INTERNATIONAL CORP.")
+    usd_beneficiary_address = models.CharField(max_length=300, default="Unit 101 Legaspi Suites Bldg., 178 Salcedo St., Makati City")
+    usd_account_number = models.CharField(max_length=100, default="0123 0001 0002 1111")
+    usd_bank_address = models.CharField(max_length=300, default="G/F State Condominium 1 Building, Salcedo Street, Legaspi Village, Makati, Philippines")
+    usd_swift_code = models.CharField(max_length=50, default="BOPIPHMM")
+    
+    # Price Validity options
+    validity_subject_to_prior_sale = models.BooleanField(default=False)
+    validity_availability_at_order = models.BooleanField(default=False)
+    
     # Financials
     subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     

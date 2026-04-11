@@ -194,10 +194,10 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'email.microimageph.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
-#EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'crm_sales@microimageph.com')
-#EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'Rtyu1029@!Brx4*svv')
-EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'crm_sales@microimageph.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'Rtyu1029@!Brx4*svv')
+#EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+#EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = 'sales@microimageph.com'
 
 # Fallback to filebased backend if SMTP credentials are missing (Safety for local dev)

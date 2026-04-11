@@ -23,6 +23,11 @@ class ProposalForm(forms.ModelForm):
             'delivery_lead_time',
             'cancellation_terms',
             'include_bank_details',
+            # Bank details (editable)
+            'php_bank_name','php_account_name','php_account_number','php_account_type','php_branch',
+            'usd_beneficiary_name','usd_beneficiary_address','usd_account_number','usd_bank_address','usd_swift_code',
+            # Price Validity options
+            'validity_subject_to_prior_sale','validity_availability_at_order',
             'introduction',
             'special_note',
             'closing',

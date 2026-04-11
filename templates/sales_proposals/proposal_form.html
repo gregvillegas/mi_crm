@@ -61,6 +61,20 @@
                         {{ form.valid_until|as_crispy_field }}
                     </div>
                 </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            {{ form.validity_subject_to_prior_sale }}
+                            <label class="form-check-label" for="{{ form.validity_subject_to_prior_sale.id_for_label }}">Subject to Prior Sale</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check">
+                            {{ form.validity_availability_at_order }}
+                            <label class="form-check-label" for="{{ form.validity_availability_at_order.id_for_label }}">Availability at the time of Order</label>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -239,6 +253,37 @@
                          {{ form.include_bank_details|as_crispy_field }}
                     </div>
                 </div>
+                <div id="bank-details" class="mt-3" style="display:none;">
+                    <div class="alert alert-secondary py-2 mb-3">
+                        Bank details will appear in the PDF when enabled. Values are editable per proposal.
+                    </div>
+                    <div id="bank-php">
+                        <h6 class="fw-bold">PHP Bank Details</h6>
+                        <div class="row">
+                            <div class="col-md-4">{{ form.php_bank_name|as_crispy_field }}</div>
+                            <div class="col-md-4">{{ form.php_account_name|as_crispy_field }}</div>
+                            <div class="col-md-4">{{ form.php_account_number|as_crispy_field }}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">{{ form.php_account_type|as_crispy_field }}</div>
+                            <div class="col-md-6">{{ form.php_branch|as_crispy_field }}</div>
+                        </div>
+                    </div>
+                    <div id="bank-usd">
+                        <h6 class="fw-bold">USD Bank Details</h6>
+                        <div class="row">
+                            <div class="col-md-6">{{ form.usd_beneficiary_name|as_crispy_field }}</div>
+                            <div class="col-md-6">{{ form.usd_account_number|as_crispy_field }}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">{{ form.usd_beneficiary_address|as_crispy_field }}</div>
+                            <div class="col-md-6">{{ form.usd_bank_address|as_crispy_field }}</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4">{{ form.usd_swift_code|as_crispy_field }}</div>
+                        </div>
+                    </div>
+                </div>
                 {{ form.introduction|as_crispy_field }}
                 {{ form.special_note|as_crispy_field }}
                 {{ form.closing|as_crispy_field }}
@@ -382,6 +427,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const currencySelect = document.getElementById('id_currency');
     const exchangeRateGroup = document.getElementById('exchange-rate-group');
     const exchangeRateInput = document.getElementById('id_exchange_rate');
+    const includeBank = document.getElementById('id_include_bank_details');
+    const bankDetails = document.getElementById('bank-details');
+    const bankPHP = document.getElementById('bank-php');
+    const bankUSD = document.getElementById('bank-usd');
 
     function toggleExchangeRate() {
         if (currencySelect.value === 'USD') {
@@ -399,6 +448,26 @@ document.addEventListener('DOMContentLoaded', function() {
         currencySelect.addEventListener('change', toggleExchangeRate);
         toggleExchangeRate(); // Initial state
     }
+    function toggleBankDetails() {
+        if (!bankDetails) return;
+        const on = includeBank && includeBank.checked;
+        bankDetails.style.display = on ? 'block' : 'none';
+        if (!on) return;
+        if (currencySelect && currencySelect.value === 'USD') {
+            if (bankPHP) bankPHP.style.display = 'none';
+            if (bankUSD) bankUSD.style.display = 'block';
+        } else {
+            if (bankPHP) bankPHP.style.display = 'block';
+            if (bankUSD) bankUSD.style.display = 'none';
+        }
+    }
+    if (includeBank) {
+        includeBank.addEventListener('change', toggleBankDetails);
+    }
+    if (currencySelect) {
+        currencySelect.addEventListener('change', toggleBankDetails);
+    }
+    toggleBankDetails();
 
     // Dependent Contact Person dropdown
     const customerSelect = document.getElementById('id_customer');
