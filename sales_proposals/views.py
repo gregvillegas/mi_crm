@@ -265,7 +265,7 @@ def proposal_update(request, pk):
                 changes = {}
                 from django.forms.models import model_to_dict
                 after = Proposal.objects.get(pk=proposal.pk)
-                fields_to_check = ['customer_id','date','valid_until','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','tax_type','tax_rate','include_bank_details','currency','exchange_rate']
+                fields_to_check = ['customer_id','date','valid_until','price_validity_mode','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','tax_type','tax_rate','include_bank_details','currency','exchange_rate']
                 for f in fields_to_check:
                     if getattr(before, f) != getattr(after, f):
                         changes[f] = {'from': str(getattr(before, f)), 'to': str(getattr(after, f))}
@@ -606,7 +606,10 @@ def generate_pdf_buffer(proposal):
     
     # Build Price Validity text with optional notes
     validity_parts = []
-    validity_parts.append(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.")
+    if getattr(proposal, 'price_validity_mode', 'date_only') == 'market_notice':
+        validity_parts.append("Prices are subject to change without prior notice due to market conditions.")
+    else:
+        validity_parts.append(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.")
     if getattr(proposal, 'validity_subject_to_prior_sale', False):
         validity_parts.append("Subject to Prior Sale.")
     if getattr(proposal, 'validity_availability_at_order', False):

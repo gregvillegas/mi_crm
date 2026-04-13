@@ -20,6 +20,11 @@ class Proposal(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_proposals')
     date = models.DateField(default=timezone.now)
     valid_until = models.DateField(null=True, blank=True)
+    PRICE_VALIDITY_MODE_CHOICES = [
+        ('date_only', 'Valid until selected date'),
+        ('market_notice', 'Use market-condition notice'),
+    ]
+    price_validity_mode = models.CharField(max_length=20, choices=PRICE_VALIDITY_MODE_CHOICES, default='date_only')
     subject = models.CharField(max_length=200)
     # Attention contact snapshot
     contact_name = models.CharField(max_length=120, blank=True)
@@ -169,7 +174,6 @@ class Proposal(models.Model):
             php_total = self.total_amount * rate
         self.approval_total_php = php_total
         need = php_total >= Decimal('500000')
-        was_required = self.approval_required
         self.approval_required = need
         if need and self.approval_status in ['not_required', 'approved', 'rejected']:
             self.approval_status = 'pending'

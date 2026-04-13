@@ -1,7 +1,7 @@
 # Micro Image CRM - User Manual
 
-**Version:** 1.1\
-**Date:** March 30, 2026\
+**Version:** 1.2\
+**Date:** April 12, 2026\
 **Prepared For:** Micro Image International Corp.
 
 ***
@@ -61,6 +61,7 @@ The system is tailored to different roles within the organization:
 - **ASM (Area Sales Manager)**: Manage multiple groups/teams, set quotas.
 - **AVP (Assistant Vice President)**: Strategic oversight of teams and quotas.
 - **Executive (VP/GM/President)**: Full view of company performance and analytics.
+- **Marketing**: Manages reusable campaign media assets for Mass Mailing.
 - **Admin**: System configuration and user management.
 
 ### Navigation
@@ -95,6 +96,15 @@ Your dashboard is personalized based on your role:
 - **View Customers**: Browse the searchable customer database.
 - **Customer 360 View**: Click on a customer to see their profile, contact persons, activity history, sales funnel, and support tickets.
 - **Delinquency Tracking**: Monitor and manage delinquent accounts with color-coded status indicators.
+- **Additional Contact Persons**:
+  - Add up to 4 additional contacts per customer.
+  - Inline validation highlights invalid fields such as malformed email addresses before saving.
+  - Existing contacts can be deleted using the **Delete** checkbox; a confirmation prompt appears before marking a contact for deletion.
+  - Hidden form tracking is handled automatically, so editing and deleting multiple contact persons now saves correctly.
+- **Customer Creation Requests**:
+  - Salespeople can submit requests when a possible duplicate customer is detected.
+  - Admin/AVP/GM/VP users can review **Pending Requests**, approve or reject them, and record a reason for rejection.
+  - A **Requests History** page shows previously approved/rejected customer creation requests for audit reference.
 
 ### Lead Generation
 
@@ -136,8 +146,21 @@ Create professional, branded PDF proposals in minutes, with multi-level approval
   - Attachments: Upload related files on the proposal screen and choose which ones to include when emailing the client.
 - **PDF Generation**: Automatically generates a standardized PDF with Micro Image branding.
 - **Email Integration**: Send the proposal directly to the client from within the CRM.
+  - **Multiple Recipients**: The **Send To** field accepts multiple email addresses separated by commas or semicolons.
+  - **CC Support**: Additional CC recipients can still be entered separately.
+  - **Cover Letter**: The **Email Customer** screen includes an optional cover letter message box. If left blank, the system uses the default proposal email text.
   - Include selected attachments along with the generated PDF.
 - **Currency Support**: Supports both PHP and USD with exchange rate handling.
+- **Bank Details by Currency**:
+  - When **Include bank details** is enabled, the form shows editable bank details for the selected currency.
+  - **PHP** proposals use the PHP bank account block.
+  - **USD** proposals use the USD beneficiary/account/SWIFT block.
+  - These values are editable per proposal and appear in the generated PDF.
+- **Price Validity Options**:
+  - In addition to the **Valid until** date, users can optionally enable:
+    - **Subject to Prior Sale**
+    - **Availability at the time of Order**
+  - Selected notes appear under **Price Validity** in the PDF.
 - **Approvals**:
   - Proposals at or above configured PHP thresholds require approval before email sending.
   - Multi-level routing (e.g., Supervisor → ASM → AVP/GM) based on amount and team structure.
@@ -167,10 +190,29 @@ Create professional, branded PDF proposals in minutes, with multi-level approval
 
 The Mass Mailing module allows salespersons to send personalized bulk emails to their assigned customers while adhering to Data Privacy Act (DPA) standards and preventing spam.
 
-- **Campaign Creation**: Create email campaigns with custom subject lines and HTML bodies.
+- **Campaign Creation**: Create email campaigns with custom subject lines and either custom HTML or builder-based templates.
   - **Personalization Tags**: Use `{{ contact_name }}` and `{{ company_name }}` to automatically personalize each email.
-  - **Templates**: Use the "Load Template" button to quickly insert best-practice B2B sales templates (e.g., Product Updates, Quarterly Check-ins, Promotions).
+  - **Templates**:
+    - **Hero Promo**
+    - **Product Launch**
+    - **Newsletter Digest**
+    - plus quick text templates such as Product Updates, Quarterly Check-ins, and Promotions
+  - **Builder-First Workflow**:
+    - Sales users can choose a layout template, upload/select images, enter headline/intro/bullets/CTA, and preview the final email without writing HTML.
+    - The system generates email-safe HTML automatically.
+- **Campaign Images**:
+  - Upload campaign-specific images directly on the campaign form.
+  - Mark images as **Embed inline** to place them inside the email body.
+  - Non-inline images are sent as attachments.
+- **Marketing Media Library**:
+  - A dedicated **Media Library** page allows reusable campaign images to be uploaded once and selected in multiple campaigns.
+  - Only **Admin** and **Marketing** users can access and manage the Media Library.
+  - Sales users can use the saved images inside campaigns where available, without needing to re-upload them manually.
 - **Live Preview**: Click the "Preview" button to see exactly how the email will render in a client's inbox before sending.
+- **Inline Image Behavior**:
+  - **Hero Promo**: uses the first inline image as the hero/banner image.
+  - **Product Launch**: uses the first inline image as the banner and the second inline image as the product image.
+  - **Newsletter Digest**: uses the first inline image as the main header image and the second as the side image.
 - **DPA Compliance & Opt-Outs**:
   - All emails include a mandatory company footer and a secure "Unsubscribe" link.
   - If a customer unsubscribes, the system automatically adds them to an Opt-Out list and blocks them from receiving future mass mailings.

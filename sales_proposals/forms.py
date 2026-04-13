@@ -19,6 +19,7 @@ class ProposalForm(forms.ModelForm):
             'exchange_rate',
             'date',
             'valid_until',
+            'price_validity_mode',
             'payment_terms',
             'delivery_lead_time',
             'cancellation_terms',
@@ -37,6 +38,7 @@ class ProposalForm(forms.ModelForm):
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
+            'price_validity_mode': forms.Select(attrs={'class': 'form-select'}),
             'introduction': forms.Textarea(attrs={'rows': 3}),
             'special_note': forms.Textarea(attrs={'rows': 1}),
             'closing': forms.Textarea(attrs={'rows': 3}),

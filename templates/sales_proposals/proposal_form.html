@@ -63,6 +63,18 @@
                 </div>
                 <div class="row">
                     <div class="col-md-6">
+                        {{ form.price_validity_mode|as_crispy_field }}
+                    </div>
+                    <div class="col-md-6">
+                        <div class="alert alert-light border small mt-4 mb-0">
+                            Select <strong>Use market-condition notice</strong> if you want the PDF to show:
+                            <br>
+                            <em>Prices are subject to change without prior notice due to market conditions.</em>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
                         <div class="form-check">
                             {{ form.validity_subject_to_prior_sale }}
                             <label class="form-check-label" for="{{ form.validity_subject_to_prior_sale.id_for_label }}">Subject to Prior Sale</label>
@@ -339,6 +351,7 @@ input.no-spin::-webkit-inner-spin-button {
   margin: 0;
 }
 input.no-spin {
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 /* Professional spacing/alignment for item rows */
@@ -427,6 +440,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const currencySelect = document.getElementById('id_currency');
     const exchangeRateGroup = document.getElementById('exchange-rate-group');
     const exchangeRateInput = document.getElementById('id_exchange_rate');
+    const priceValidityMode = document.getElementById('id_price_validity_mode');
+    const validUntilInput = document.getElementById('id_valid_until');
+    const validUntilGroup = validUntilInput ? validUntilInput.closest('.col-md-6') : null;
     const includeBank = document.getElementById('id_include_bank_details');
     const bankDetails = document.getElementById('bank-details');
     const bankPHP = document.getElementById('bank-php');
@@ -447,6 +463,18 @@ document.addEventListener('DOMContentLoaded', function() {
     if (currencySelect) {
         currencySelect.addEventListener('change', toggleExchangeRate);
         toggleExchangeRate(); // Initial state
+    }
+    function togglePriceValidityMode() {
+        if (!priceValidityMode || !validUntilInput) return;
+        const useDate = priceValidityMode.value === 'date_only';
+        validUntilInput.disabled = !useDate;
+        if (validUntilGroup) {
+            validUntilGroup.style.opacity = useDate ? '1' : '0.6';
+        }
+    }
+    if (priceValidityMode) {
+        priceValidityMode.addEventListener('change', togglePriceValidityMode);
+        togglePriceValidityMode();
     }
     function toggleBankDetails() {
         if (!bankDetails) return;
