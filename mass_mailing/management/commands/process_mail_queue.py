@@ -75,8 +75,8 @@ class Command(BaseCommand):
                         
                     try:
                         context = {
-                            'contact_name': recipient.customer.contact_person_name,
-                            'company_name': recipient.customer.company_name,
+                            'contact_name': recipient.display_contact_name or 'Valued Contact',
+                            'company_name': recipient.display_company_name or 'Sample Company Inc.',
                         }
                         html_content = render_campaign_html(campaign, context, preview=False)
                         
@@ -99,7 +99,10 @@ class Command(BaseCommand):
                             
                         # Plain text alternative
                         from django.utils.html import strip_tags
-                        text_content = strip_tags(html_content)
+                        if campaign.template_type == 'product_of_week':
+                            text_content = "Product of the Week from Micro Image International Corp. Please view this email in HTML to see the featured product image."
+                        else:
+                            text_content = strip_tags(html_content)
                         
                         msg = EmailMultiAlternatives(
                             subject=campaign.subject,
@@ -165,7 +168,7 @@ class Command(BaseCommand):
                     'description': 'Mass mailing campaign sent to customers',
                     'icon': 'fas fa-mail-bulk',
                     'color': 'info',
-                    'requires_customer': True
+                    'requires_customer': False
                 }
             )
             

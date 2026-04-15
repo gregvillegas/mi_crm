@@ -137,8 +137,9 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th class="ps-4">Customer</th>
+                            <th class="ps-4">Recipient</th>
                             <th>Email</th>
+                            <th>Source</th>
                             <th>Status</th>
                             <th>Sent At</th>
                             <th class="pe-4">Notes</th>
@@ -147,8 +148,20 @@
                     <tbody>
                         {% for recipient in recipients %}
                         <tr>
-                            <td class="ps-4">{{ recipient.customer.company_name }}<br><small class="text-muted">{{ recipient.customer.contact_person_name }}</small></td>
+                            <td class="ps-4">
+                                {{ recipient.display_company_name|default:"-" }}<br>
+                                <small class="text-muted">{{ recipient.display_contact_name|default:"No contact name" }}</small>
+                            </td>
                             <td>{{ recipient.email }}</td>
+                            <td>
+                                {% if recipient.source_type == 'customer' %}
+                                    <span class="badge bg-primary">CRM</span>
+                                {% elif recipient.source_type == 'csv' %}
+                                    <span class="badge bg-info text-dark">CSV</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Manual</span>
+                                {% endif %}
+                            </td>
                             <td>
                                 {% if recipient.status == 'pending' %}
                                     <span class="badge bg-secondary">Pending</span>

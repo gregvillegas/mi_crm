@@ -218,13 +218,10 @@
                 {% for aform in attach_formset %}
                 <div class="row align-items-end mb-2">
                     {% for hidden in aform.hidden_fields %}{{ hidden }}{% endfor %}
-                    <div class="col-md-5">
+                    <div class="col-md-7">
                         {{ aform.file|as_crispy_field }}
                     </div>
-                    <div class="col-md-5">
-                        {{ aform.display_name|as_crispy_field }}
-                    </div>
-                    <div class="col-md-2 d-flex align-items-center">
+                    <div class="col-md-5 d-flex align-items-center">
                         <div class="form-check me-3">
                             {{ aform.include_in_email }}
                             <label class="form-check-label" for="{{ aform.include_in_email.id_for_label }}">Include in Email</label>
@@ -357,6 +354,9 @@ input.no-spin {
 /* Professional spacing/alignment for item rows */
 .item-row .form-control {
   height: 38px;
+}
+.item-row textarea.form-control {
+  height: auto;
 }
 .item-row label {
   font-weight: 600;
@@ -558,17 +558,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Margin -> Unit price auto computation
+    function parseNumberInput(value) {
+        if (value === null || value === undefined) return 0;
+        const normalized = String(value).replace(/,/g, '').trim();
+        return parseFloat(normalized) || 0;
+    }
+    function formatMoneyInput(value, forceDecimals = true) {
+        const numeric = parseNumberInput(value);
+        if (!numeric && numeric !== 0) return '';
+        return numeric.toLocaleString(undefined, {
+            minimumFractionDigits: forceDecimals ? 2 : 0,
+            maximumFractionDigits: 2
+        });
+    }
+    function attachPriceFormatting(input) {
+        if (!input || input.dataset.priceFormattingBound === '1') return;
+        input.dataset.priceFormattingBound = '1';
+        input.addEventListener('focus', () => {
+            input.value = input.value.replace(/,/g, '');
+        });
+        input.addEventListener('blur', () => {
+            if (input.value.trim() === '') return;
+            input.value = formatMoneyInput(input.value, true);
+        });
+    }
     function computeUnitPrice(row) {
         const costInput = row.querySelector('input[name$="unit_cost"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
         const marginInput = row.querySelector('.margin-input');
         const qtyInput = row.querySelector('input[name$="quantity"]');
         if (!costInput || !priceInput || !marginInput) return;
-        const cost = parseFloat(costInput.value) || 0;
+        const cost = parseNumberInput(costInput.value);
         const margin = parseFloat(marginInput.value) || 0;
         if (margin > 0) {
             const price = cost * (1 + margin / 100);
-            priceInput.value = price.toFixed(2);
+            priceInput.value = formatMoneyInput(price.toFixed(2), true);
         }
         updateAmount(row);
     }
@@ -578,7 +602,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const amountLabel = row.querySelector('.amount-display');
         if (!qtyInput || !priceInput || !amountLabel) return;
         const qty = parseFloat(qtyInput.value) || 0;
-        const price = parseFloat(priceInput.value) || 0;
+        const price = parseNumberInput(priceInput.value);
         const amount = qty * price;
         amountLabel.textContent = amount ? `Amount: ₱${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
     }
@@ -588,11 +612,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const marginInput = row.querySelector('.margin-input');
         const storedMargin = row.querySelector('input[name$="margin_pct"]');
         if (!costInput || !priceInput || !marginInput) return;
+        attachPriceFormatting(costInput);
+        attachPriceFormatting(priceInput);
         if (storedMargin && storedMargin.value) {
             marginInput.value = parseFloat(storedMargin.value).toFixed(2);
         } else {
-            const cost = parseFloat(costInput.value);
-            const price = parseFloat(priceInput.value);
+            const cost = parseNumberInput(costInput.value);
+            const price = parseNumberInput(priceInput.value);
             if (marginInput.value === '' && cost > 0 && price >= 0) {
                 const margin = ((price - cost) / Math.max(cost, 0.000001)) * 100;
                 if (isFinite(margin)) {
@@ -600,6 +626,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         }
+        if (costInput.value) costInput.value = formatMoneyInput(costInput.value, true);
+        if (priceInput.value) priceInput.value = formatMoneyInput(priceInput.value, true);
     }
     function attachMarginHandlers(scope) {
         const rows = scope ? [scope] : Array.from(document.querySelectorAll('.item-row'));
@@ -635,6 +663,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             initMarginFromExisting(row);
             updateAmount(row);
+        });
+    }
+    const proposalForm = document.querySelector('form[method="post"]');
+    if (proposalForm) {
+        proposalForm.addEventListener('submit', () => {
+            document.querySelectorAll('.price-input').forEach(input => {
+                input.value = input.value.replace(/,/g, '');
+            });
         });
     }
     attachMarginHandlers();

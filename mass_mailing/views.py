@@ -48,6 +48,100 @@ def sync_selected_library_assets(campaign, selected_ids, user):
         )
         campaign_asset.file.save(filename, ContentFile(content), save=True)
 
+
+def serialize_recipients_for_textarea(campaign):
+    lines = []
+    for recipient in campaign.recipients.all().order_by('email'):
+        lines.append(', '.join([
+            recipient.display_company_name or '',
+            recipient.display_contact_name or '',
+            recipient.email or '',
+            recipient.position or '',
+        ]).rstrip(', '))
+    return '\n'.join(lines)
+
+
+def get_initial_form_values(campaign):
+    initial_customers = Customer.objects.filter(id__in=campaign.recipients.exclude(customer__isnull=True).values_list('customer_id', flat=True))
+    recipient_lines = serialize_recipients_for_textarea(campaign)
+    return {
+        'customers': initial_customers,
+        'manual_recipients': recipient_lines if campaign.recipient_mode == 'manual' else '',
+        'csv_paste_recipients': recipient_lines if campaign.recipient_mode == 'csv' else '',
+    }
+
+
+def get_recipient_context(recipient):
+    return {
+        'contact_name': recipient.display_contact_name or 'Valued Contact',
+        'company_name': recipient.display_company_name or 'Sample Company Inc.',
+    }
+
+
+def build_recipient_payloads(form):
+    mode = form.cleaned_data.get('recipient_mode') or 'crm'
+    opted_out_emails = {email.lower() for email in OptOut.objects.values_list('email', flat=True)}
+    payloads = []
+    seen = set()
+    skipped_opt_out = 0
+
+    if mode == 'crm':
+        for customer in form.cleaned_data['customers']:
+            email = (customer.email or '').strip().lower()
+            if not email:
+                continue
+            if email in opted_out_emails:
+                skipped_opt_out += 1
+                continue
+            if email in seen:
+                continue
+            seen.add(email)
+            payloads.append({
+                'customer': customer,
+                'company_name': customer.company_name or '',
+                'contact_name': customer.contact_person_name or '',
+                'position': getattr(customer, 'contact_person_position', '') or '',
+                'email': email,
+                'source_type': 'customer',
+            })
+    else:
+        parsed = form.cleaned_data.get('parsed_csv_recipients') if mode == 'csv' else form.cleaned_data.get('parsed_manual_recipients')
+        for item in parsed or []:
+            email = (item.get('email') or '').strip().lower()
+            if not email:
+                continue
+            if email in opted_out_emails:
+                skipped_opt_out += 1
+                continue
+            if email in seen:
+                continue
+            seen.add(email)
+            payloads.append({
+                'customer': None,
+                'company_name': item.get('company_name', ''),
+                'contact_name': item.get('contact_name', ''),
+                'position': item.get('position', ''),
+                'email': email,
+                'source_type': item.get('source_type', mode),
+            })
+
+    return payloads, skipped_opt_out
+
+
+def save_campaign_recipients(campaign, recipient_payloads):
+    campaign.recipients.all().delete()
+    for payload in recipient_payloads:
+        CampaignRecipient.objects.create(
+            campaign=campaign,
+            customer=payload['customer'],
+            company_name=payload['company_name'],
+            contact_name=payload['contact_name'],
+            position=payload['position'],
+            email=payload['email'],
+            source_type=payload['source_type'],
+        )
+    campaign.update_counts()
+
 def get_allowed_campaigns(user):
     """Returns a queryset of campaigns the user is allowed to see based on their role."""
     if user.role == 'salesperson':
@@ -169,34 +263,29 @@ def campaign_create(request):
         asset_formset = CampaignAssetFormSet(request.POST, request.FILES, prefix='assets')
         selected_library_ids = request.POST.getlist('library_assets')
         if form.is_valid() and asset_formset.is_valid():
-            campaign = form.save(commit=False)
-            campaign.created_by = request.user
-            campaign.save()
-            asset_formset.instance = campaign
-            assets = asset_formset.save(commit=False)
-            for asset in assets:
-                asset.campaign = campaign
-                asset.uploaded_by = request.user
-                asset.save()
-            for obj in asset_formset.deleted_objects:
-                obj.delete()
-            sync_selected_library_assets(campaign, selected_library_ids, request.user)
-            
-            # Add recipients
-            customers = form.cleaned_data['customers']
-            opted_out_emails = set(OptOut.objects.values_list('email', flat=True))
-            
-            for customer in customers:
-                if customer.email and customer.email not in opted_out_emails:
-                    CampaignRecipient.objects.create(
-                        campaign=campaign,
-                        customer=customer,
-                        email=customer.email
-                    )
-            
-            campaign.update_counts()
-            messages.success(request, f"Campaign '{campaign.name}' created with {campaign.total_recipients} valid recipients.")
-            return redirect('mass_mailing:campaign_detail', pk=campaign.pk)
+            recipient_payloads, skipped_opt_out = build_recipient_payloads(form)
+            if not recipient_payloads:
+                form.add_error(None, 'No valid recipients remain after opt-out filtering. Please review your list.')
+            else:
+                campaign = form.save(commit=False)
+                campaign.created_by = request.user
+                campaign.save()
+                asset_formset.instance = campaign
+                assets = asset_formset.save(commit=False)
+                for asset in assets:
+                    asset.campaign = campaign
+                    asset.uploaded_by = request.user
+                    asset.save()
+                for obj in asset_formset.deleted_objects:
+                    obj.delete()
+                sync_selected_library_assets(campaign, selected_library_ids, request.user)
+                save_campaign_recipients(campaign, recipient_payloads)
+                
+                success_msg = f"Campaign '{campaign.name}' created with {campaign.total_recipients} valid recipients."
+                if skipped_opt_out:
+                    success_msg += f" {skipped_opt_out} opted-out recipient(s) were excluded."
+                messages.success(request, success_msg)
+                return redirect('mass_mailing:campaign_detail', pk=campaign.pk)
     else:
         form = CampaignForm(user=request.user)
         asset_formset = CampaignAssetFormSet(prefix='assets')
@@ -245,8 +334,7 @@ def campaign_edit(request, pk):
     if request.method == 'POST':
         if 'upload_library_media' in request.POST and can_manage_media_library(request.user):
             library_form = MediaLibraryAssetForm(request.POST, request.FILES)
-            initial_customers = Customer.objects.filter(id__in=campaign.recipients.values_list('customer_id', flat=True))
-            form = CampaignForm(instance=campaign, user=request.user, initial={'customers': initial_customers})
+            form = CampaignForm(instance=campaign, user=request.user, initial=get_initial_form_values(campaign))
             asset_formset = CampaignAssetFormSet(instance=campaign, prefix='assets')
             if library_form.is_valid():
                 media = library_form.save(commit=False)
@@ -268,39 +356,32 @@ def campaign_edit(request, pk):
         asset_formset = CampaignAssetFormSet(request.POST, request.FILES, instance=campaign, prefix='assets')
         selected_library_ids = request.POST.getlist('library_assets')
         if form.is_valid() and asset_formset.is_valid():
-            campaign = form.save()
-            assets = asset_formset.save(commit=False)
-            for asset in assets:
-                asset.campaign = campaign
-                if not asset.uploaded_by_id:
-                    asset.uploaded_by = request.user
-                asset.save()
-            for obj in asset_formset.deleted_objects:
-                obj.delete()
-            sync_selected_library_assets(campaign, selected_library_ids, request.user)
-            
-            # Rebuild recipients if needed
-            # For simplicity, we just clear and re-add them if it's a draft
-            if campaign.status == 'draft':
-                campaign.recipients.all().delete()
-                customers = form.cleaned_data['customers']
-                opted_out_emails = set(OptOut.objects.values_list('email', flat=True))
+            recipient_payloads, skipped_opt_out = build_recipient_payloads(form)
+            if not recipient_payloads:
+                form.add_error(None, 'No valid recipients remain after opt-out filtering. Please review your list.')
+            else:
+                campaign = form.save()
+                assets = asset_formset.save(commit=False)
+                for asset in assets:
+                    asset.campaign = campaign
+                    if not asset.uploaded_by_id:
+                        asset.uploaded_by = request.user
+                    asset.save()
+                for obj in asset_formset.deleted_objects:
+                    obj.delete()
+                sync_selected_library_assets(campaign, selected_library_ids, request.user)
                 
-                for customer in customers:
-                    if customer.email and customer.email not in opted_out_emails:
-                        CampaignRecipient.objects.create(
-                            campaign=campaign,
-                            customer=customer,
-                            email=customer.email
-                        )
-                campaign.update_counts()
+                if campaign.status == 'draft':
+                    save_campaign_recipients(campaign, recipient_payloads)
                 
-            messages.success(request, f"Campaign '{campaign.name}' has been updated.")
-            return redirect('mass_mailing:campaign_detail', pk=campaign.pk)
+                success_msg = f"Campaign '{campaign.name}' has been updated."
+                if skipped_opt_out:
+                    success_msg += f" {skipped_opt_out} opted-out recipient(s) were excluded."
+                messages.success(request, success_msg)
+                return redirect('mass_mailing:campaign_detail', pk=campaign.pk)
     else:
         # Pre-populate selected customers
-        initial_customers = Customer.objects.filter(id__in=campaign.recipients.values_list('customer_id', flat=True))
-        form = CampaignForm(instance=campaign, user=request.user, initial={'customers': initial_customers})
+        form = CampaignForm(instance=campaign, user=request.user, initial=get_initial_form_values(campaign))
         asset_formset = CampaignAssetFormSet(instance=campaign, prefix='assets')
         library_form = MediaLibraryAssetForm()
         
@@ -356,10 +437,7 @@ def campaign_preview(request, pk):
     
     context_dict = {}
     if sample_recipient:
-        context_dict = {
-            'contact_name': sample_recipient.customer.contact_person_name,
-            'company_name': sample_recipient.customer.company_name,
-        }
+        context_dict = get_recipient_context(sample_recipient)
     else:
         context_dict = {
             'contact_name': 'John Doe',

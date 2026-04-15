@@ -87,7 +87,10 @@
                                 <div class="col-md-4">
                                     {{ form.template_type|as_crispy_field }}
                                 </div>
-                                <div class="col-md-8">
+                                <div class="col-md-4">
+                                    {{ form.recipient_mode|as_crispy_field }}
+                                </div>
+                                <div class="col-md-4">
                                     <div class="dropzone-hint mt-4 mt-md-0">
                                         <strong>Builder-first workflow:</strong> choose a template, upload image(s), fill the content fields, and the email layout is generated automatically.
                                     </div>
@@ -101,6 +104,9 @@
                                     <div class="d-flex justify-content-between align-items-center mb-3">
                                         <h5 class="mb-0" id="builderTitle">Hero Promo Builder</h5>
                                         <small class="text-muted">No HTML needed</small>
+                                    </div>
+                                    <div id="imageOnlyHint" class="alert alert-light border mb-3" style="display:none;">
+                                        Select one image from Campaign Images or Marketing Media Library and mark it as inline. The email will send that image only, sized for Outlook, Gmail, and other major mail clients.
                                     </div>
                                     <div class="row">
                                         <div class="col-md-8">
@@ -275,6 +281,7 @@
                                         <li><h6 class="dropdown-header">Sales Templates</h6></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="hero_promo">Hero Promo</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="product_launch">Product Launch</a></li>
+                                        <li><a class="dropdown-item template-btn" href="#" data-template="product_of_week">Product Of The Week</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="newsletter_digest">Newsletter Digest</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="product_update">New Product Update</a></li>
                                         <li><a class="dropdown-item template-btn" href="#" data-template="check_in">Quarterly Check-in</a></li>
@@ -296,11 +303,29 @@
                             </div>
                         </div>
 
-                        <div class="mb-4">
+                        <div class="mb-4" id="crmRecipientsSection">
                             {{ form.customers|as_crispy_field }}
                             <div class="mt-2">
                                 <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllBtn">Select All</button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">Deselect All</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4" id="csvRecipientsSection" style="display:none;">
+                            {{ form.csv_file|as_crispy_field }}
+                            <div class="dropzone-hint mb-3">
+                                CSV headers supported: <strong>Company Name</strong>, <strong>Contact Name</strong>, <strong>Contact Email Address</strong>, <strong>Position</strong>
+                            </div>
+                            {{ form.csv_paste_recipients|as_crispy_field }}
+                            <small class="text-muted">Optional fallback: paste CSV-style lines here if you prefer not to upload a file.</small>
+                        </div>
+
+                        <div class="mb-4" id="manualRecipientsSection" style="display:none;">
+                            {{ form.manual_recipients|as_crispy_field }}
+                            <div class="dropzone-hint">
+                                Enter one recipient per line:
+                                <br>
+                                <code>Company Name, Contact Name, Email Address, Position</code>
                             </div>
                         </div>
 
@@ -349,6 +374,15 @@
             $('.select2 > option').prop("selected", false);
             $('.select2').trigger("change");
         });
+
+        function toggleRecipientMode() {
+            const mode = $('#id_recipient_mode').val();
+            $('#crmRecipientsSection').toggle(mode === 'crm');
+            $('#csvRecipientsSection').toggle(mode === 'csv');
+            $('#manualRecipientsSection').toggle(mode === 'manual');
+        }
+        $('#id_recipient_mode').on('change', toggleRecipientMode);
+        toggleRecipientMode();
 
         const assetRows = document.getElementById('assetRows');
         const assetEmptyForm = document.getElementById('assetEmptyForm');
@@ -498,6 +532,28 @@
 </html>`;
         }
 
+        function buildProductOfWeekHtml() {
+            const heroSrc = firstInlineImageSrc();
+            const heroImage = heroSrc
+                ? `<img src="${heroSrc}" alt="Product of the Week" style="display:block;width:100%;height:auto;border:0;max-width:640px;">`
+                : `<div style="background:#f3f4f6;color:#6b7280;text-align:center;padding:60px 24px;font-size:16px;">Select one inline image to complete this Product of the Week email.</div>`;
+            return `
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f8;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;">
+            <tr><td style="padding:0;margin:0;">${heroImage}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+        }
+
         function buildNewsletterDigestHtml() {
             const headline = $('#id_hero_headline').val() || 'What’s New for {{ company_name }}';
             const intro = ($('#id_hero_intro').val() || 'Hi {{ contact_name }},\nHere’s a quick roundup of updates, promos, and insights from our team.').replace(/\n/g, '<br>');
@@ -544,9 +600,10 @@
 
         function updateHeroPreview() {
             const mode = $('#id_template_type').val();
-            if (mode !== 'hero_promo' && mode !== 'product_launch' && mode !== 'newsletter_digest') return;
+            if (mode !== 'hero_promo' && mode !== 'product_launch' && mode !== 'product_of_week' && mode !== 'newsletter_digest') return;
             let html = buildHeroHtml();
             if (mode === 'product_launch') html = buildProductLaunchHtml();
+            if (mode === 'product_of_week') html = buildProductOfWeekHtml();
             if (mode === 'newsletter_digest') html = buildNewsletterDigestHtml();
             $('#heroPreview').html(html);
             $('#id_body_html').val('<!-- generated by Campaign Builder -->');
@@ -591,6 +648,7 @@
         const templates = {
             'hero_promo': '<!-- generated by Hero Promo Builder -->',
             'product_launch': '<!-- generated by Product Launch Builder -->',
+            'product_of_week': '<!-- generated by Product Of The Week Builder -->',
             'newsletter_digest': '<!-- generated by Newsletter Digest Builder -->',
             'product_update': `Hi {{ contact_name }},\n\nI hope this email finds you well at {{ company_name }}.\n\nI am writing to share some exciting news regarding our latest product updates at Micro Image International Corp. We have recently introduced several new features designed to help streamline your operations and improve overall efficiency.\n\nKey highlights include:\n- [Feature 1: e.g., Enhanced Reporting]\n- [Feature 2: e.g., Faster Integration]\n- [Feature 3: e.g., Advanced Security]\n\nI would love to schedule a quick 10-minute call next week to show you how these updates can specifically benefit {{ company_name }}.\n\nPlease let me know what day works best for you.\n\nBest regards,\n\n[Your Name]\nMicro Image International Corp.`,
             
@@ -603,12 +661,22 @@
 
         function toggleTemplateUi() {
             const mode = $('#id_template_type').val();
-            const builderMode = (mode === 'hero_promo' || mode === 'product_launch' || mode === 'newsletter_digest');
+            const builderMode = (mode === 'hero_promo' || mode === 'product_launch' || mode === 'product_of_week' || mode === 'newsletter_digest');
+            const imageOnlyMode = (mode === 'product_of_week');
             $('#heroBuilderSection').toggle(builderMode);
             $('#heroPreviewSection').toggle(builderMode);
             $('#rawHtmlSection').toggle(!builderMode);
+            $('#imageOnlyHint').toggle(imageOnlyMode);
+            $('#id_hero_headline').closest('.col-md-8').toggle(!imageOnlyMode);
+            $('#id_hero_cta_label').closest('.col-md-4').toggle(!imageOnlyMode);
+            $('#id_hero_intro').closest('.col-md-8').toggle(!imageOnlyMode);
+            $('#id_hero_cta_url').closest('.col-md-4').toggle(!imageOnlyMode);
+            $('#id_hero_bullet_1').closest('.col-md-4').toggle(!imageOnlyMode);
+            $('#id_hero_bullet_2').closest('.col-md-4').toggle(!imageOnlyMode);
+            $('#id_hero_bullet_3').closest('.col-md-4').toggle(!imageOnlyMode);
             let title = 'Hero Promo Builder';
             if (mode === 'product_launch') title = 'Product Launch Builder';
+            if (mode === 'product_of_week') title = 'Product Of The Week';
             if (mode === 'newsletter_digest') title = 'Newsletter Digest Builder';
             $('#builderTitle').text(title);
             if (builderMode) updateHeroPreview();
@@ -622,37 +690,42 @@
             const templateKey = $(this).data('template');
             
             if(templateKey === 'clear' || confirm('Loading a template will overwrite your current email body. Continue?')) {
-                $('#id_template_type').val((templateKey === 'hero_promo' || templateKey === 'product_launch' || templateKey === 'newsletter_digest') ? templateKey : 'html').trigger('change');
+                $('#id_template_type').val((templateKey === 'hero_promo' || templateKey === 'product_launch' || templateKey === 'product_of_week' || templateKey === 'newsletter_digest') ? templateKey : 'html').trigger('change');
                 $('#id_body_html').val(templates[templateKey]);
                 
                 // Auto-fill subject if empty or if changing template
                 if(templateKey === 'hero_promo') $('#id_subject').val('Exclusive Offer for {{ company_name }}');
                 if(templateKey === 'product_launch') $('#id_subject').val('Introducing Our Latest Product for {{ company_name }}');
+                if(templateKey === 'product_of_week') $('#id_subject').val('Product Of The Week');
                 if(templateKey === 'newsletter_digest') $('#id_subject').val('Latest Updates for {{ company_name }}');
                 if(templateKey === 'product_update') $('#id_subject').val('Exciting New Product Updates from Micro Image');
                 if(templateKey === 'check_in') $('#id_subject').val('Quarterly Check-in: How are things at {{ company_name }}?');
                 if(templateKey === 'promo') $('#id_subject').val('Exclusive Offer for {{ company_name }}');
                 if(templateKey === 'clear') $('#id_subject').val('');
-                if(templateKey === 'hero_promo' || templateKey === 'product_launch' || templateKey === 'newsletter_digest') {
+                if(templateKey === 'hero_promo' || templateKey === 'product_launch' || templateKey === 'product_of_week' || templateKey === 'newsletter_digest') {
                     $('#id_hero_headline').val(
                         templateKey === 'product_launch' ? 'Now Launching for {{ company_name }}' :
+                        templateKey === 'product_of_week' ? '' :
                         templateKey === 'newsletter_digest' ? 'What’s New for {{ company_name }}' :
                         'Exclusive Offer for {{ company_name }}'
                     );
                     $('#id_hero_intro').val(templateKey === 'product_launch'
                         ? 'Hi {{ contact_name }},\nWe are excited to introduce our latest solution and share how it can help your team.'
+                        : templateKey === 'product_of_week'
+                        ? ''
                         : templateKey === 'newsletter_digest'
                         ? 'Hi {{ contact_name }},\nHere’s a quick roundup of updates, promos, and insights from our team.'
                         : 'Hi {{ contact_name }},\nShare your main offer and value proposition here.');
-                    $('#id_hero_bullet_1').val('Benefit 1');
-                    $('#id_hero_bullet_2').val('Benefit 2');
-                    $('#id_hero_bullet_3').val('Benefit 3');
+                    $('#id_hero_bullet_1').val(templateKey === 'product_of_week' ? '' : 'Benefit 1');
+                    $('#id_hero_bullet_2').val(templateKey === 'product_of_week' ? '' : 'Benefit 2');
+                    $('#id_hero_bullet_3').val(templateKey === 'product_of_week' ? '' : 'Benefit 3');
                     $('#id_hero_cta_label').val(
                         templateKey === 'product_launch' ? 'Request a Demo' :
+                        templateKey === 'product_of_week' ? '' :
                         templateKey === 'newsletter_digest' ? 'Read More' :
                         'Learn More'
                     );
-                    $('#id_hero_cta_url').val('#');
+                    $('#id_hero_cta_url').val(templateKey === 'product_of_week' ? '' : '#');
                     updateHeroPreview();
                 }
             }

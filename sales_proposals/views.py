@@ -826,7 +826,7 @@ Best regards,
         email.attach(f"{proposal.proposal_number}.pdf", buffer.getvalue(), 'application/pdf')
         for att in selected_attachments:
             if att.file:
-                email.attach(att.display_name or att.file.name.split('/')[-1], att.file.read(), 'application/octet-stream')
+                email.attach(att.file.name.split('/')[-1], att.file.read(), 'application/octet-stream')
         
         try:
             email.send()

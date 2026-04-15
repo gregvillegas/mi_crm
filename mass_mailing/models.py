@@ -15,6 +15,7 @@ class Campaign(models.Model):
         ('html', 'Custom HTML'),
         ('hero_promo', 'Hero Promo'),
         ('product_launch', 'Product Launch'),
+        ('product_of_week', 'Product Of The Week'),
         ('newsletter_digest', 'Newsletter Digest'),
     )
     
@@ -32,6 +33,12 @@ class Campaign(models.Model):
     
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='campaigns')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    RECIPIENT_MODE_CHOICES = (
+        ('crm', 'CRM Customers'),
+        ('csv', 'CSV Upload'),
+        ('manual', 'Manual Entry'),
+    )
+    recipient_mode = models.CharField(max_length=20, choices=RECIPIENT_MODE_CHOICES, default='crm')
     
     created_at = models.DateTimeField(auto_now_add=True)
     scheduled_for = models.DateTimeField(null=True, blank=True, help_text="Leave blank to send immediately")
@@ -97,7 +104,11 @@ class CampaignRecipient(models.Model):
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='recipients')
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
+    source_type = models.CharField(max_length=20, default='customer')
+    company_name = models.CharField(max_length=255, blank=True)
+    contact_name = models.CharField(max_length=255, blank=True)
+    position = models.CharField(max_length=255, blank=True)
     email = models.EmailField() # Stored separately in case customer email changes later
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     
@@ -106,6 +117,22 @@ class CampaignRecipient(models.Model):
 
     def __str__(self):
         return f"{self.email} - {self.campaign.name}"
+
+    @property
+    def display_company_name(self):
+        if self.company_name:
+            return self.company_name
+        if self.customer_id:
+            return self.customer.company_name
+        return ''
+
+    @property
+    def display_contact_name(self):
+        if self.contact_name:
+            return self.contact_name
+        if self.customer_id:
+            return self.customer.contact_person_name
+        return ''
 
 
 class CampaignAsset(models.Model):

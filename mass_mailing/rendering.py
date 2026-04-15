@@ -158,6 +158,42 @@ def build_product_launch_html(campaign, inline_asset_map):
 """.strip()
 
 
+def build_product_of_week_html(campaign, inline_asset_map):
+    hero_asset = None
+    try:
+        hero_asset = campaign.inline_assets().first()
+    except Exception:
+        hero_asset = None
+
+    hero_src = inline_asset_map.get(hero_asset.id) if hero_asset else None
+    hero_html = (
+        f'<img src="{hero_src}" alt="Product of the Week" style="display:block;width:100%;height:auto;border:0;max-width:640px;">'
+        if hero_src else
+        '<div style="background:#f3f4f6;color:#6b7280;text-align:center;padding:60px 24px;font-size:16px;">Select one inline image to complete this Product of the Week email.</div>'
+    )
+
+    return f"""
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f4f6f8;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" width="640" cellspacing="0" cellpadding="0" style="max-width:640px;width:100%;background:#ffffff;">
+            <tr>
+              <td style="padding:0;margin:0;">
+                {hero_html}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+""".strip()
+
+
 def build_newsletter_digest_html(campaign, inline_asset_map):
     inline_assets = list(campaign.inline_assets()[:2]) if hasattr(campaign, 'inline_assets') else []
     hero_asset = inline_assets[0] if inline_assets else None
@@ -242,6 +278,8 @@ def render_campaign_html(campaign, context_dict, preview=False):
         body_content = build_hero_promo_html(campaign, inline_asset_map)
     elif getattr(campaign, 'template_type', 'html') == 'product_launch':
         body_content = build_product_launch_html(campaign, inline_asset_map)
+    elif getattr(campaign, 'template_type', 'html') == 'product_of_week':
+        body_content = build_product_of_week_html(campaign, inline_asset_map)
     elif getattr(campaign, 'template_type', 'html') == 'newsletter_digest':
         body_content = build_newsletter_digest_html(campaign, inline_asset_map)
     else:

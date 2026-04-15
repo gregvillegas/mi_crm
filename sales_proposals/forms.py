@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation
 from django import forms
 from django.forms import inlineformset_factory
 from .models import Proposal, ProposalItem, ProposalApprovalTier, ProposalAttachment
@@ -79,10 +80,34 @@ class ProposalItemForm(forms.ModelForm):
         fields = ['part_number', 'description', 'quantity', 'unit_cost', 'unit_price', 'warranty', 'margin_pct']
         widgets = {
             'quantity': NumberInput(attrs={'class': 'no-spin', 'step': '1', 'min': '1', 'inputmode': 'numeric'}),
-            'unit_cost': NumberInput(attrs={'class': 'no-spin', 'step': '0.01', 'inputmode': 'decimal'}),
-            'unit_price': NumberInput(attrs={'class': 'no-spin', 'step': '0.01', 'inputmode': 'decimal'}),
+            'unit_cost': TextInput(attrs={'class': 'price-input no-spin', 'inputmode': 'decimal', 'autocomplete': 'off'}),
+            'unit_price': TextInput(attrs={'class': 'price-input no-spin', 'inputmode': 'decimal', 'autocomplete': 'off'}),
             'margin_pct': HiddenInput(),
         }
+
+    def _clean_decimal_text(self, field_name):
+        raw_value = self.cleaned_data.get(field_name)
+        if raw_value in [None, '']:
+            return None
+        if isinstance(raw_value, Decimal):
+            return raw_value
+        normalized = str(raw_value).strip().replace(',', '')
+        if normalized == '':
+            return None
+        try:
+            return Decimal(normalized)
+        except (InvalidOperation, TypeError):
+            raise forms.ValidationError('Enter a valid amount.')
+
+    def clean_unit_cost(self):
+        value = self._clean_decimal_text('unit_cost')
+        return value if value is not None else Decimal('0')
+
+    def clean_unit_price(self):
+        value = self._clean_decimal_text('unit_price')
+        if value is None:
+            raise forms.ValidationError('This field is required.')
+        return value
 
 ProposalItemFormSet = inlineformset_factory(
     Proposal,
@@ -95,17 +120,16 @@ ProposalItemFormSet = inlineformset_factory(
 class ProposalAttachmentForm(forms.ModelForm):
     class Meta:
         model = ProposalAttachment
-        fields = ['file', 'display_name', 'include_in_email']
+        fields = ['file', 'include_in_email']
         widgets = {
             'file': ClearableFileInput(attrs={'multiple': False}),
-            'display_name': TextInput(attrs={'placeholder': 'Optional display name'}),
         }
 
 ProposalAttachmentFormSet = inlineformset_factory(
     Proposal,
     ProposalAttachment,
     form=ProposalAttachmentForm,
-    fields=['file', 'display_name', 'include_in_email'],
+    fields=['file', 'include_in_email'],
     extra=1,
     can_delete=True
 )
