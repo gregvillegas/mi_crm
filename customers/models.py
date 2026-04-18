@@ -2,6 +2,7 @@ from django.db import models
 from users.models import User
 import json
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 class DelinquentCustomer(models.Model):
     company_name = models.CharField(max_length=200)
@@ -106,6 +107,30 @@ class Customer(models.Model):
         default=True,
         help_text='Designates whether this customer account is active'
     )
+    is_millionaire_account = models.BooleanField(
+        default=False,
+        help_text='System-managed flag based on cumulative won revenue above 1,000,000'
+    )
+    auto_inactive_flag = models.BooleanField(
+        default=False,
+        help_text='System-managed flag when no sales activity is created within the configured period'
+    )
+    last_sales_activity_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Most recent sales activity creation date for this customer'
+    )
+    lifetime_won_revenue = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=0,
+        help_text='System-managed cumulative won revenue from sales funnel entries'
+    )
+    status_last_synced_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Last time automatic customer status fields were synchronized'
+    )
     
     # Assignment
     salesperson = models.ForeignKey(
@@ -126,15 +151,17 @@ class Customer(models.Model):
         indexes = [
             models.Index(fields=['is_vip']),
             models.Index(fields=['is_active']),
+            models.Index(fields=['is_millionaire_account']),
+            models.Index(fields=['auto_inactive_flag']),
             models.Index(fields=['industry']),
             models.Index(fields=['territory']),
         ]
 
     def __str__(self):
         status_indicators = []
-        if self.is_vip:
-            status_indicators.append('VIP')
-        if not self.is_active:
+        if self.is_millionaire_account:
+            status_indicators.append('MILLIONAIRE')
+        if not self.is_effectively_active:
             status_indicators.append('INACTIVE')
         
         name = f"{self.company_name} ({self.contact_person_name})"
@@ -145,15 +172,19 @@ class Customer(models.Model):
     @property
     def full_name(self):
         return f"{self.company_name} ({self.contact_person_name})"
+
+    @property
+    def is_effectively_active(self):
+        return self.is_active and not self.auto_inactive_flag
     
     @property
     def display_status(self):
         """Return a human-readable status string"""
-        if self.is_vip and self.is_active:
-            return "VIP Active"
-        elif self.is_vip and not self.is_active:
-            return "VIP Inactive"
-        elif not self.is_vip and self.is_active:
+        if self.is_millionaire_account and self.is_effectively_active:
+            return "Millionaire Active"
+        elif self.is_millionaire_account and not self.is_effectively_active:
+            return "Millionaire Inactive"
+        elif self.is_effectively_active:
             return "Active"
         else:
             return "Inactive"
@@ -171,6 +202,11 @@ class Customer(models.Model):
             'territory': self.territory,
             'is_vip': self.is_vip,
             'is_active': self.is_active,
+            'is_millionaire_account': self.is_millionaire_account,
+            'auto_inactive_flag': self.auto_inactive_flag,
+            'last_sales_activity_at': self.last_sales_activity_at.isoformat() if self.last_sales_activity_at else None,
+            'lifetime_won_revenue': str(self.lifetime_won_revenue),
+            'status_last_synced_at': self.status_last_synced_at.isoformat() if self.status_last_synced_at else None,
             'salesperson_id': self.salesperson.id if self.salesperson else None,
             'salesperson_username': self.salesperson.username if self.salesperson else None,
         }
@@ -526,6 +562,8 @@ class CustomerBackup(models.Model):
                 except User.DoesNotExist:
                     # If salesperson doesn't exist anymore, leave as null
                     self.customer.salesperson = None
+            elif field in ['last_sales_activity_at', 'status_last_synced_at'] and value:
+                setattr(self.customer, field, parse_datetime(value) or value)
             elif field not in ['salesperson_id', 'salesperson_username']:
                 setattr(self.customer, field, value)
         

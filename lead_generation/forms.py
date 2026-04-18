@@ -8,6 +8,24 @@ from customers.models import Customer
 from users.models import User
 from django import forms as dj_forms
 
+
+class MarkLostForm(forms.Form):
+    reason = forms.ChoiceField(
+        choices=[
+            ('not_interested', 'Not Interested'),
+            ('budget', 'Budget Constraints'),
+            ('competitor', 'Chose Competitor'),
+            ('timing', 'Timing Not Right'),
+            ('no_response', 'No Response'),
+            ('other', 'Other'),
+        ],
+        required=True,
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'rows': 3, 'placeholder': 'Optional notes about why the lead was lost'}),
+    )
+
 class LeadForm(forms.ModelForm):
     """Form for creating and editing leads"""
     

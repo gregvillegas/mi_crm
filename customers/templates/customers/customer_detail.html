@@ -8,11 +8,11 @@
         <div>
             <h1 class="h3 mb-0">{{ customer.company_name }}</h1>
             <div class="d-flex align-items-center mt-2">
-                <span class="badge bg-{% if customer.is_active %}success{% else %}secondary{% endif %} me-2">
+                <span class="badge bg-{% if customer.is_effectively_active %}success{% else %}secondary{% endif %} me-2">
                     {{ customer.display_status }}
                 </span>
-                {% if customer.is_vip %}
-                <span class="badge bg-warning text-dark me-2"><i class="fas fa-star"></i> VIP</span>
+                {% if customer.is_millionaire_account %}
+                <span class="badge bg-warning text-dark me-2"><i class="fas fa-star"></i> Millionaire</span>
                 {% endif %}
                 <span class="text-muted">{{ customer.get_industry_display }} | {{ customer.get_territory_display }}</span>
             </div>

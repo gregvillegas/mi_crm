@@ -162,7 +162,12 @@
                                                 <a href="{% url 'lead_generation:lead_edit' lead.id %}" class="btn btn-outline-secondary" title="Edit">
                                                     <i class="fas fa-edit"></i>
                                                 </a>
-                                                {% if lead.status in 'qualified,proposal_sent,negotiating' and not lead.converted_to_customer %}
+                                                {% if lead.status not in 'converted,lost' %}
+                                                    <a href="{% url 'lead_generation:lead_detail' lead.id %}#quick-actions" class="btn btn-outline-danger" title="Mark Lost">
+                                                        <i class="fas fa-times-circle"></i>
+                                                    </a>
+                                                {% endif %}
+                                                {% if lead.can_convert_to_customer %}
                                                     <a href="{% url 'lead_generation:convert_lead' lead.id %}" class="btn btn-outline-success" title="Convert">
                                                         <i class="fas fa-exchange-alt"></i>
                                                     </a>

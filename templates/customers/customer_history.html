@@ -38,9 +38,9 @@
                                 {{ customer.is_active|yesno:"Active,Inactive" }}
                             </span>
                         </p>
-                        <p><strong>VIP:</strong> 
-                            <span class="badge bg-{{ customer.is_vip|yesno:'warning,secondary' }}">
-                                {{ customer.is_vip|yesno:"VIP Customer,Regular Customer" }}
+                        <p><strong>Millionaire:</strong> 
+                            <span class="badge bg-{{ customer.is_millionaire_account|yesno:'warning,secondary' }}">
+                                {{ customer.is_millionaire_account|yesno:"Millionaire Account,Standard Account" }}
                             </span>
                         </p>
                         <p><strong>Current Salesperson:</strong>
@@ -71,7 +71,7 @@
                     <span class="badge bg-primary">{{ history_stats.total_changes }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2">
-                    <span>VIP Changes:</span>
+                    <span>Legacy VIP Changes:</span>
                     <span class="badge bg-warning">{{ history_stats.vip_changes }}</span>
                 </div>
                 <div class="d-flex justify-content-between mb-2">

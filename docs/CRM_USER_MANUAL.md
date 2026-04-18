@@ -108,12 +108,76 @@ Your dashboard is personalized based on your role:
 
 ### Lead Generation
 
-- **Capture Leads**: Input new leads manually or import them.
-- **Lead Scoring**: The system automatically scores leads based on completeness and engagement (Hot/Warm/Cold).
-- **Conversion**: Convert qualified leads into customers with a single click.
-- **Analytics**: View lead sources, conversion rates, and acquisition trends in the **Lead Analytics** dashboard.
+- **Dashboard**:
+  - Open **Leads** to access the **Lead Generation Dashboard**.
+  - Summary cards show:
+    - **Total Leads**
+    - **Lost Leads**
+    - **Hot Leads**
+    - **Conversion**
+    - **Conversion Rate**
+  - The dashboard also includes:
+    - **Quick Actions**
+    - **Follow-up Required**
+    - **Top Performing Lead Sources**
+    - **Recent Activity**
+- **Capture Leads**:
+  - Salespeople can add leads manually from the dashboard or lead list.
+  - Leads can also be imported in bulk using CSV.
+- **Lead Scoring**:
+  - The system calculates a lead score from profile completeness and engagement details.
+  - Score bands are used throughout the dashboard:
+    - **80+** = Hot
+    - **60+** = Warm / ready
+    - Below **60** = Cold
+  - Leads with a score of **70 or higher** are automatically marked as **Qualified**.
+  - Automatic qualification updates the qualified flag, but does not force all pipeline statuses to jump automatically.
+- **Lead Detail Actions**:
+  - Each lead detail page provides the main outcome actions:
+    - **Edit Lead**
+    - **Convert to Customer**
+    - **Mark as Lost**
+    - **Log Activity**
+  - The lead header also shows current:
+    - status
+    - priority
+    - score
+    - assigned salesperson
+- **Mark as Lost**:
+  - Use **Mark as Lost** from the lead detail page.
+  - A modal asks for:
+    - loss reason
+    - optional notes
+  - After saving:
+    - the lead status changes to **Lost**
+    - the lead is removed from active conversion flow
+    - a lead activity entry is recorded for audit history
+- **Conversion**:
+  - Use **Convert to Customer** from the lead detail page or lead list when the lead is eligible for conversion.
+  - Conversion is available for leads that are officially qualified or already in later sales stages.
+  - During conversion, users can:
+    - set **Conversion Value**
+    - add **Notes**
+    - optionally **Create Sales Funnel Entry**
+    - choose the initial **Sales Funnel Stage**
+  - After conversion:
+    - a new customer record is created
+    - the lead status changes to **Converted**
+    - conversion history is preserved
+    - an optional sales funnel record can be created for follow-through deal tracking
+  - If a sales funnel entry is requested, the lead should be assigned to a salesperson first.
+- **Activities & Follow-up**:
+  - Activities logged on the lead appear in the activity timeline.
+  - The dashboard **Follow-up Required** panel highlights leads with pending next follow-up dates.
+  - **Recent Activity** displays the newest lead updates, including status changes and logged follow-ups.
+- **Lead Sources & Analytics**:
+  - Managers and executives can review **Top Performing Lead Sources** directly on the dashboard.
+  - The analytics area tracks:
+    - lead source performance
+    - conversion trends
+    - acquisition efficiency
 - **Import Leads (CSV)**:
-  - Navigate to Leads → Import.
+  - Navigate to **Leads → Import**.
   - Download the sample template to ensure correct columns.
   - Upload your CSV; optionally auto-calculate lead scores.
   - Role-aware defaults restrict assignment options based on your role.

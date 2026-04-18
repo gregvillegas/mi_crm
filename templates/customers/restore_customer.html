@@ -51,9 +51,9 @@
                             <p><strong>Phone:</strong> {{ customer.phone_number|default:"N/A" }}</p>
                             <p><strong>Industry:</strong> {{ customer.get_industry_display|default:"N/A" }}</p>
                             <p><strong>Territory:</strong> {{ customer.get_territory_display|default:"N/A" }}</p>
-                            <p><strong>VIP Status:</strong> 
-                                <span class="badge {% if customer.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                                    {% if customer.is_vip %}VIP{% else %}Regular{% endif %}
+                            <p><strong>Millionaire Status:</strong> 
+                                <span class="badge {% if customer.is_millionaire_account %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {% if customer.is_millionaire_account %}Millionaire{% else %}Standard{% endif %}
                                 </span>
                             </p>
                             <p><strong>Active Status:</strong> 
@@ -80,9 +80,9 @@
                             <p><strong>Phone:</strong> {{ backup_data.phone_number|default:"N/A" }}</p>
                             <p><strong>Industry:</strong> {{ backup_data.industry|default:"N/A" }}</p>
                             <p><strong>Territory:</strong> {{ backup_data.territory|default:"N/A" }}</p>
-                            <p><strong>VIP Status:</strong> 
-                                <span class="badge {% if backup_data.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                                    {% if backup_data.is_vip %}VIP{% else %}Regular{% endif %}
+                            <p><strong>Millionaire Status:</strong> 
+                                <span class="badge {% if backup_data.is_millionaire_account or backup_data.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                    {% if backup_data.is_millionaire_account or backup_data.is_vip %}Millionaire{% else %}Standard{% endif %}
                                 </span>
                             </p>
                             <p><strong>Active Status:</strong> 

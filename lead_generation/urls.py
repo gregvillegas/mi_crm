@@ -18,6 +18,7 @@ urlpatterns = [
     
     # Lead actions
     path('leads/<int:lead_id>/convert/', views.convert_lead, name='convert_lead'),
+    path('leads/<int:lead_id>/mark-lost/', views.mark_lead_lost, name='mark_lead_lost'),
     path('leads/<int:lead_id>/activity/', views.add_lead_activity, name='add_lead_activity'),
     path('leads/<int:lead_id>/update-status/', views.update_lead_status, name='update_status'),
     

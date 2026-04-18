@@ -36,8 +36,8 @@ class CustomerContactInline(admin.TabularInline):
 
 @admin.register(Customer)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('company_name', 'contact_person_name', 'email', 'is_vip', 'is_active', 'salesperson')
-    list_filter = ('is_vip', 'is_active', 'industry', 'territory')
+    list_display = ('company_name', 'contact_person_name', 'email', 'is_millionaire_account', 'auto_inactive_flag', 'is_active', 'salesperson')
+    list_filter = ('is_millionaire_account', 'auto_inactive_flag', 'is_active', 'industry', 'territory')
     search_fields = ('company_name', 'contact_person_name', 'email')
     inlines = [CustomerContactInline]
     

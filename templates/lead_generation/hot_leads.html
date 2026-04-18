@@ -121,7 +121,7 @@
                                                 <a href="{% url 'lead_generation:lead_detail' lead.id %}" class="btn btn-outline-primary" title="View Details">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                {% if lead.status in 'qualified,proposal_sent,negotiating' and not lead.converted_to_customer %}
+                                                {% if lead.can_convert_to_customer %}
                                                     <a href="{% url 'lead_generation:convert_lead' lead.id %}" class="btn btn-outline-success" title="Convert">
                                                         <i class="fas fa-exchange-alt"></i>
                                                     </a>

@@ -10,17 +10,17 @@ class CustomerForm(forms.ModelForm):
         model = Customer
         fields = [
             'company_name', 'contact_person_name', 'contact_person_position', 'email', 'phone_number', 'address',
-            'industry', 'territory', 'is_vip', 'is_active', 'salesperson'
+            'industry', 'territory', 'is_millionaire_account', 'is_active', 'salesperson'
         ]
         widgets = {
-            'is_vip': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'is_millionaire_account': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
         labels = {
             'company_name': 'Company Name',
             'contact_person_name': 'Contact Person Name',
             'contact_person_position': 'Position/Title',
-            'is_vip': 'VIP/Millionaire Account',
+            'is_millionaire_account': 'Millionaire Account (Auto)',
             'is_active': 'Active Customer',
         }
 
@@ -31,6 +31,8 @@ class CustomerForm(forms.ModelForm):
             role='salesperson', 
             is_active=True
         )
+        self.fields['is_millionaire_account'].disabled = True
+        self.fields['is_millionaire_account'].help_text = 'Automatically calculated from cumulative won revenue above 1,000,000.'
         
         # Add CSS classes and help text
         self.fields['industry'].widget.attrs.update({'class': 'form-select'})
@@ -62,7 +64,7 @@ class CustomerForm(forms.ModelForm):
             Row(
                 Column(
                     HTML('<div class="form-check mb-3">'),
-                    'is_vip',
+                    'is_millionaire_account',
                     HTML('</div>'),
                     css_class='col-md-6'
                 ),

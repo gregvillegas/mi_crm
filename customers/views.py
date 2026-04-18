@@ -80,21 +80,21 @@ def customer_list(request):
 
     # Apply filters based on GET parameters
     status_filter = request.GET.get('status')
-    vip_filter = request.GET.get('vip')
+    millionaire_filter = request.GET.get('millionaire') or request.GET.get('vip')
     industry_filter = request.GET.get('industry')
     territory_filter = request.GET.get('territory')
     search_query = request.GET.get('search')
     salesperson_filter = request.GET.get('salesperson')
     
     if status_filter == 'active':
-        customers = customers.filter(is_active=True)
+        customers = customers.filter(is_active=True, auto_inactive_flag=False)
     elif status_filter == 'inactive':
-        customers = customers.filter(is_active=False)
+        customers = customers.filter(models.Q(is_active=False) | models.Q(auto_inactive_flag=True))
     
-    if vip_filter == 'yes':
-        customers = customers.filter(is_vip=True)
-    elif vip_filter == 'no':
-        customers = customers.filter(is_vip=False)
+    if millionaire_filter == 'yes':
+        customers = customers.filter(is_millionaire_account=True)
+    elif millionaire_filter == 'no':
+        customers = customers.filter(is_millionaire_account=False)
     
     if industry_filter and industry_filter != '':
         customers = customers.filter(industry=industry_filter)
@@ -120,8 +120,8 @@ def customer_list(request):
             except ValueError:
                 pass
     
-    # Order by VIP status first, then by creation date
-    customers = customers.select_related('salesperson').order_by('-is_vip', '-created_at')
+    # Order by millionaire status first, then by creation date
+    customers = customers.select_related('salesperson').order_by('-is_millionaire_account', '-created_at')
     
     # Available salespeople for filter dropdown (active only)
     available_salespeople = User.objects.filter(role='salesperson', is_active=True).order_by('first_name','last_name','username')
@@ -145,7 +145,7 @@ def customer_list(request):
         'available_salespeople': available_salespeople,
         'current_filters': {
             'status': status_filter,
-            'vip': vip_filter,
+            'millionaire': millionaire_filter,
             'industry': industry_filter,
             'territory': territory_filter,
             'search': search_query or '',
@@ -154,9 +154,9 @@ def customer_list(request):
         },
         'stats': {
             'total': customers.count(),
-            'vip_count': customers.filter(is_vip=True).count(),
-            'active_count': customers.filter(is_active=True).count(),
-            'inactive_count': customers.filter(is_active=False).count(),
+            'millionaire_count': customers.filter(is_millionaire_account=True).count(),
+            'active_count': customers.filter(is_active=True, auto_inactive_flag=False).count(),
+            'inactive_count': customers.filter(models.Q(is_active=False) | models.Q(auto_inactive_flag=True)).count(),
         },
         'pending_create_count': pending_create_count
     }
@@ -469,7 +469,7 @@ def export_customers(request):
     # Write header
     writer.writerow([
         'Company Name', 'Contact Person Name', 'Contact Person Position', 'Email', 'Phone Number', 'Address', 
-        'Industry', 'Territory', 'VIP Status', 'Active Status', 'Salesperson Initials',
+        'Industry', 'Territory', 'Millionaire Status', 'Active Status', 'Salesperson Initials',
         'Created At', 'Updated At'
     ])
     
@@ -486,8 +486,8 @@ def export_customers(request):
             customer.address,
             customer.get_industry_display() if customer.industry else '',
             customer.get_territory_display() if customer.territory else '',
-            'Yes' if customer.is_vip else 'No',
-            'Yes' if customer.is_active else 'No',
+            'Yes' if customer.is_millionaire_account else 'No',
+            'Yes' if customer.is_effectively_active else 'No',
             salesperson_initials,
             customer.created_at.strftime('%Y-%m-%d %H:%M:%S') if customer.created_at else '',
             customer.updated_at.strftime('%Y-%m-%d %H:%M:%S') if customer.updated_at else '',
@@ -548,7 +548,6 @@ def import_customers(request):
                 address = row[5] if len(row) > 5 else ''
                 industry = row[6] if len(row) > 6 else ''
                 territory = row[7] if len(row) > 7 else ''
-                vip_status = row[8] if len(row) > 8 else 'No'
                 active_status = row[9] if len(row) > 9 else 'Yes'
                 salesperson_initials = row[10] if len(row) > 10 else ''
                 # Skip Created At and Updated At (columns 11-12) as they're auto-generated
@@ -596,9 +595,6 @@ def import_customers(request):
                             errors.append(f'Row {row_num}: Invalid territory "{territory}"')
                             continue
                 
-                # Parse VIP status
-                is_vip = vip_status.lower() in ['yes', 'true', '1']
-                
                 # Parse active status
                 is_active = active_status.lower() in ['yes', 'true', '1']
                 
@@ -622,7 +618,6 @@ def import_customers(request):
                         address=address,
                         industry=industry_value,
                         territory=territory_value,
-                        is_vip=is_vip,
                         is_active=is_active,
                         salesperson=salesperson
                     )
@@ -657,7 +652,7 @@ def download_sample_csv(request):
     # Write header - matching export format
     writer.writerow([
         'Company Name', 'Contact Person Name', 'Contact Person Position', 'Email', 'Phone Number', 'Address', 
-        'Industry', 'Territory', 'VIP Status', 'Active Status', 'Salesperson Initials',
+        'Industry', 'Territory', 'Millionaire Status', 'Active Status', 'Salesperson Initials',
         'Created At', 'Updated At'
     ])
     

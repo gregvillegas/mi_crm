@@ -76,7 +76,7 @@
                 <div class="d-flex justify-content-between">
                     <div>
                         <h6 class="card-title">Millionaire Accounts</h6>
-                        <h3 class="mb-0">{{ stats.vip_count }}</h3>
+                        <h3 class="mb-0">{{ stats.millionaire_count }}</h3>
                     </div>
                     <div class="align-self-center">
                         <i class="fas fa-star fa-2x"></i>
@@ -123,11 +123,11 @@
                 </select>
             </div>
             <div class="col-md-2">
-                <label for="vip" class="form-label">VIP</label>
-                <select class="form-select" id="vip" name="vip">
+                <label for="millionaire" class="form-label">Millionaire</label>
+                <select class="form-select" id="millionaire" name="millionaire">
                     <option value="">All</option>
-                    <option value="yes" {% if current_filters.vip == 'yes' %}selected{% endif %}>VIP Only</option>
-                    <option value="no" {% if current_filters.vip == 'no' %}selected{% endif %}>Regular Only</option>
+                    <option value="yes" {% if current_filters.millionaire == 'yes' %}selected{% endif %}>Millionaire Only</option>
+                    <option value="no" {% if current_filters.millionaire == 'no' %}selected{% endif %}>Non-Millionaire Only</option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -197,13 +197,13 @@
         </thead>
         <tbody>
             {% for customer in customers %}
-                <tr class="{% if customer.is_vip %}table-warning{% elif not customer.is_active %}table-secondary{% endif %}">
+                <tr class="{% if customer.is_millionaire_account %}table-warning{% elif not customer.is_effectively_active %}table-secondary{% endif %}">
                     <td>
                         <a href="{% url 'customer_detail' customer.pk %}" class="text-decoration-none fw-bold text-dark">{{ customer.company_name }}</a>
-                        {% if customer.is_vip %}
-                            <span class="badge bg-warning text-dark ms-1">VIP</span>
+                        {% if customer.is_millionaire_account %}
+                            <span class="badge bg-warning text-dark ms-1">Millionaire</span>
                         {% endif %}
-                        {% if not customer.is_active %}
+                        {% if not customer.is_effectively_active %}
                             <span class="badge bg-secondary ms-1">Inactive</span>
                         {% endif %}
                     </td>
@@ -214,7 +214,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        <span class="badge bg-{% if customer.is_vip and customer.is_active %}warning text-dark{% elif customer.is_vip and not customer.is_active %}secondary{% elif customer.is_active %}success{% else %}danger{% endif %}">
+                        <span class="badge bg-{% if customer.is_millionaire_account and customer.is_effectively_active %}warning text-dark{% elif customer.is_millionaire_account and not customer.is_effectively_active %}secondary{% elif customer.is_effectively_active %}success{% else %}danger{% endif %}">
                             {{ customer.display_status }}
                         </span>
                     </td>
@@ -236,12 +236,6 @@
                         <div class="btn-group" role="group">
                             <!-- Quick Action Buttons (Restricted to Admin/Exec) -->
                             {% if user.role in 'admin,gm,vp' %}
-                            <button class="btn btn-sm {% if customer.is_vip %}btn-warning{% else %}btn-outline-warning{% endif %} toggle-vip-btn" 
-                                    data-customer-id="{{ customer.pk }}" 
-                                    data-customer-name="{{ customer.full_name }}"
-                                    title="{% if customer.is_vip %}Remove VIP status{% else %}Make VIP{% endif %}">
-                                <i class="fas fa-star"></i>
-                            </button>
                             <button class="btn btn-sm {% if customer.is_active %}btn-success{% else %}btn-danger{% endif %} toggle-active-btn" 
                                     data-customer-id="{{ customer.pk }}" 
                                     data-customer-name="{{ customer.full_name }}"
@@ -303,10 +297,10 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div>
                     <a href="{% url 'customer_detail' customer.pk %}" class="text-decoration-none fw-bold text-dark">{{ customer.company_name }}</a>
-                    {% if customer.is_vip %}
-                        <span class="badge bg-warning text-dark ms-1">VIP</span>
+                    {% if customer.is_millionaire_account %}
+                        <span class="badge bg-warning text-dark ms-1">Millionaire</span>
                     {% endif %}
-                    {% if not customer.is_active %}
+                    {% if not customer.is_effectively_active %}
                         <span class="badge bg-secondary ms-1">Inactive</span>
                     {% endif %}
                 </div>
@@ -346,17 +340,11 @@
                 {% endif %}
             </div>
             <div class="card-footer d-flex justify-content-between align-items-center">
-                <span class="badge bg-{% if customer.is_vip and customer.is_active %}warning text-dark{% elif customer.is_vip and not customer.is_active %}secondary{% elif customer.is_active %}success{% else %}danger{% endif %}">
+                <span class="badge bg-{% if customer.is_millionaire_account and customer.is_effectively_active %}warning text-dark{% elif customer.is_millionaire_account and not customer.is_effectively_active %}secondary{% elif customer.is_effectively_active %}success{% else %}danger{% endif %}">
                     {{ customer.display_status }}
                 </span>
                 <div class="btn-group" role="group">
                     {% if user.role in 'admin,gm,vp' %}
-                    <button class="btn btn-sm {% if customer.is_vip %}btn-warning{% else %}btn-outline-warning{% endif %} toggle-vip-btn" 
-                            data-customer-id="{{ customer.pk }}" 
-                            data-customer-name="{{ customer.full_name }}"
-                            title="{% if customer.is_vip %}Remove VIP status{% else %}Make VIP{% endif %}">
-                        <i class="fas fa-star"></i>
-                    </button>
                     <button class="btn btn-sm {% if customer.is_active %}btn-success{% else %}btn-danger{% endif %} toggle-active-btn" 
                             data-customer-id="{{ customer.pk }}" 
                             data-customer-name="{{ customer.full_name }}"
@@ -392,16 +380,6 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // VIP Toggle Buttons
-    const vipToggleButtons = document.querySelectorAll('.toggle-vip-btn');
-    vipToggleButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const customerId = this.dataset.customerId;
-            const customerName = this.dataset.customerName;
-            toggleCustomerVip(customerId, customerName, this);
-        });
-    });
-    
     // Active Toggle Buttons
     const activeToggleButtons = document.querySelectorAll('.toggle-active-btn');
     activeToggleButtons.forEach(button => {
@@ -411,42 +389,6 @@ document.addEventListener('DOMContentLoaded', function() {
             toggleCustomerActive(customerId, customerName, this);
         });
     });
-    
-    function toggleCustomerVip(customerId, customerName, buttonElement) {
-        buttonElement.disabled = true;
-        
-        fetch(`/customers/${customerId}/toggle-vip/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                'Content-Type': 'application/json',
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                if (data.is_vip) {
-                    buttonElement.className = 'btn btn-sm btn-warning toggle-vip-btn';
-                    buttonElement.title = 'Remove VIP status';
-                } else {
-                    buttonElement.className = 'btn btn-sm btn-outline-warning toggle-vip-btn';
-                    buttonElement.title = 'Make VIP';
-                }
-                showAlert('success', data.message);
-                // Optionally refresh page to update stats
-                setTimeout(() => window.location.reload(), 1000);
-            } else {
-                showAlert('danger', data.message);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('danger', 'An error occurred while updating VIP status.');
-        })
-        .finally(() => {
-            buttonElement.disabled = false;
-        });
-    }
     
     function toggleCustomerActive(customerId, customerName, buttonElement) {
         buttonElement.disabled = true;

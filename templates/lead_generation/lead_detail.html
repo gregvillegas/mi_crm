@@ -21,6 +21,11 @@
                         <i class="fas fa-exchange-alt"></i> Convert to Customer
                     </a>
                 {% endif %}
+                {% if can_mark_lost %}
+                    <button type="button" class="btn btn-outline-danger me-2" data-bs-toggle="modal" data-bs-target="#markLostModal">
+                        <i class="fas fa-times-circle"></i> Mark as Lost
+                    </button>
+                {% endif %}
                 <a href="{% url 'lead_generation:lead_list' %}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left"></i> Back to List
                 </a>
@@ -302,8 +307,13 @@
                     </button>
                     {% if can_convert %}
                         <a href="{% url 'lead_generation:convert_lead' lead.id %}" class="btn btn-success">
-                            <i class="fas fa-exchange-alt"></i> Convert Lead
+                            <i class="fas fa-exchange-alt"></i> Convert to Customer
                         </a>
+                    {% endif %}
+                    {% if can_mark_lost %}
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#markLostModal">
+                            <i class="fas fa-times-circle"></i> Mark as Lost
+                        </button>
                     {% endif %}
                 </div>
             </div>
@@ -320,6 +330,32 @@
             </div>
         </div>
         {% endif %}
+    </div>
+</div>
+
+<!-- Mark Lost Modal -->
+<div class="modal fade" id="markLostModal" tabindex="-1" aria-labelledby="markLostModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="markLostModalLabel">Mark Lead as Lost</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'lead_generation:mark_lead_lost' lead.id %}">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    <div class="alert alert-warning">
+                        This will mark <strong>{{ lead.full_name }}</strong> as lost and record the reason in the activity history.
+                    </div>
+                    {{ mark_lost_form.reason|as_crispy_field }}
+                    {{ mark_lost_form.notes|as_crispy_field }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Confirm Lost</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

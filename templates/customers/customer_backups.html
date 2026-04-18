@@ -199,9 +199,9 @@
                         <h6>Business Information</h6>
                         <p><strong>Industry:</strong> {{ backup_data.industry|default:"N/A" }}</p>
                         <p><strong>Territory:</strong> {{ backup_data.territory|default:"N/A" }}</p>
-                        <p><strong>VIP Status:</strong> 
-                            <span class="badge {% if backup_data.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
-                                {% if backup_data.is_vip %}VIP{% else %}Regular{% endif %}
+                        <p><strong>Millionaire Status:</strong> 
+                            <span class="badge {% if backup_data.is_millionaire_account or backup_data.is_vip %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                {% if backup_data.is_millionaire_account or backup_data.is_vip %}Millionaire{% else %}Standard{% endif %}
                             </span>
                         </p>
                         <p><strong>Active Status:</strong> 

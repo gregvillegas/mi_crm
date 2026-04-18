@@ -20,7 +20,7 @@ class LeadSource(models.Model):
         ('cold_calling', 'Cold Calling'),
         ('email_marketing', 'Email Marketing'),
         ('advertising', 'Advertising'),
-        ('trade_show', 'Trade Show'),
+        ('trade_show', 'Events'),
         ('webinar', 'Webinar'),
         ('content_marketing', 'Content Marketing'),
         ('seo', 'SEO/Organic Search'),
@@ -76,6 +76,7 @@ class LeadSource(models.Model):
 
 class Lead(models.Model):
     """Individual leads with complete information and tracking"""
+    AUTO_QUALIFY_THRESHOLD = 70
     
     STATUS_CHOICES = [
         ('new', 'New Lead'),
@@ -281,6 +282,15 @@ class Lead(models.Model):
     def is_hot_lead(self):
         """Check if this is a hot lead based on score and priority"""
         return self.priority == 'hot' or self.lead_score >= 80
+
+    @property
+    def can_convert_to_customer(self):
+        """Whether this lead can be converted to a customer from the UI."""
+        return (
+            not self.converted_to_customer
+            and self.status not in ['converted', 'lost', 'unqualified']
+            and (self.is_qualified or self.status in ['qualified', 'proposal_sent', 'negotiating'])
+        )
     
     @property
     def status_color(self):
@@ -373,11 +383,53 @@ class Lead(models.Model):
         
         # Ensure score is within bounds
         self.lead_score = min(max(score, 0), 100)
-        self.save(update_fields=['lead_score'])
+
+        update_fields = ['lead_score']
+        if (
+            self.lead_score >= self.AUTO_QUALIFY_THRESHOLD
+            and not self.is_qualified
+            and self.status not in ['lost', 'converted', 'unqualified']
+        ):
+            self.is_qualified = True
+            update_fields.append('is_qualified')
+
+        self.save(update_fields=update_fields)
         
         return self.lead_score
     
-    def convert_to_customer(self, salesperson=None):
+    def mark_as_lost(self, user=None, reason='', notes=''):
+        """Mark this lead as lost and log the status change."""
+        self.status = 'lost'
+        self.is_qualified = False
+        self.next_follow_up_date = None
+        self.save(update_fields=['status', 'is_qualified', 'next_follow_up_date', 'updated_at'])
+
+        detail_parts = []
+        if reason:
+            detail_parts.append(f"Reason: {reason}")
+        if notes:
+            detail_parts.append(f"Notes: {notes}")
+
+        LeadActivity.objects.create(
+            lead=self,
+            activity_type='status_change',
+            title='Lead Marked as Lost',
+            description='Lead status updated to Lost.' + (f" {' | '.join(detail_parts)}" if detail_parts else ''),
+            notes=notes,
+            performed_by=user,
+            created_by=user,
+            outcome='not_interested',
+        )
+
+    def convert_to_customer(
+        self,
+        salesperson=None,
+        conversion_value=None,
+        notes='',
+        create_sales_funnel_entry=False,
+        sales_funnel_stage='quoted',
+        converted_by=None,
+    ):
         """Convert this lead to a customer"""
         if self.converted_to_customer:
             return self.converted_to_customer
@@ -398,14 +450,46 @@ class Lead(models.Model):
         self.status = 'converted'
         self.converted_to_customer = customer
         self.conversion_date = timezone.now()
-        self.save(update_fields=['status', 'converted_to_customer', 'conversion_date'])
+        if conversion_value is not None:
+            self.conversion_value = conversion_value
+        self.save(update_fields=['status', 'converted_to_customer', 'conversion_date', 'conversion_value'])
+
+        sales_funnel_entry = None
+        if create_sales_funnel_entry:
+            requirement_description = self.requirements or self.initial_interest or f"Lead conversion for {self.full_name}"
+            sales_funnel_entry = SalesFunnel.objects.create(
+                date_created=timezone.now().date(),
+                company_name=customer.company_name,
+                requirement_description=requirement_description,
+                cost=Decimal('0.00'),
+                retail=conversion_value or Decimal('0.00'),
+                stage=sales_funnel_stage or 'quoted',
+                salesperson=salesperson or self.assigned_to,
+                customer=customer,
+            )
         
         # Log the conversion
         ConversionTracking.objects.create(
             lead=self,
             customer=customer,
-            converted_by=salesperson or self.assigned_to,
-            conversion_value=self.conversion_value,
+            converted_by=converted_by or salesperson or self.assigned_to,
+            conversion_value=conversion_value,
+            sales_funnel_entry=sales_funnel_entry,
+            notes=notes,
+        )
+
+        LeadActivity.objects.create(
+            lead=self,
+            activity_type='status_change',
+            title='Lead Converted to Customer',
+            description=(
+                f"Lead converted to customer {customer.company_name}."
+                + (" Sales funnel entry created." if sales_funnel_entry else "")
+            ),
+            notes=notes,
+            performed_by=converted_by or salesperson or self.assigned_to,
+            created_by=converted_by or salesperson or self.assigned_to,
+            outcome='successful',
         )
         
         return customer
@@ -586,8 +670,9 @@ class ConversionTracking(models.Model):
     
     def save(self, *args, **kwargs):
         if not self.days_to_convert:
+            conversion_dt = self.conversion_date or timezone.now()
             self.days_to_convert = (
-                self.conversion_date.date() - self.lead.created_at.date()
+                conversion_dt.date() - self.lead.created_at.date()
             ).days
         
         if not self.acquisition_cost and self.lead.source:

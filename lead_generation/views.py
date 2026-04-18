@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 
 from .models import Lead, LeadSource, LeadActivity, ConversionTracking, LeadNurturingCampaign
 from .forms import (
-    LeadForm, LeadActivityForm, ConversionForm, LeadFilterForm,
+    LeadForm, LeadActivityForm, ConversionForm, MarkLostForm, LeadFilterForm,
     LeadSourceForm, BulkLeadActionForm, LeadImportForm
 )
 from sales_funnel.models import SalesFunnel
@@ -320,14 +320,17 @@ def lead_detail(request, lead_id):
     # Forms for quick actions
     activity_form = LeadActivityForm()
     conversion_form = ConversionForm()
+    mark_lost_form = MarkLostForm()
     
     context = {
         'lead': lead,
         'activities': activities,
         'activity_form': activity_form,
         'conversion_form': conversion_form,
+        'mark_lost_form': mark_lost_form,
         'can_edit': request.user.role in ['admin', 'executive'] or lead.assigned_to == request.user,
-        'can_convert': lead.status in ['qualified', 'proposal_sent', 'negotiating'] and not lead.converted_to_customer,
+        'can_convert': lead.can_convert_to_customer,
+        'can_mark_lost': lead.status not in ['converted', 'lost'],
     }
     
     return render(request, 'lead_generation/lead_detail.html', context)
@@ -410,15 +413,67 @@ def convert_lead(request, lead_id):
         return redirect('lead_generation:lead_detail', lead_id=lead.id)
     
     if request.method == 'POST':
-        # Simple conversion for now
-        customer = lead.convert_to_customer(request.user)
-        
-        messages.success(request, f'Lead successfully converted to customer: {customer.company_name}')
-        return redirect('customer_list')
+        form = ConversionForm(request.POST)
+        if form.is_valid():
+            create_sales_funnel_entry = form.cleaned_data.get('create_sales_funnel_entry')
+            assigned_salesperson = lead.assigned_to or (request.user if request.user.role == 'salesperson' else None)
+
+            if create_sales_funnel_entry and not assigned_salesperson:
+                form.add_error('create_sales_funnel_entry', 'Assign the lead to a salesperson before creating a sales funnel entry.')
+            else:
+                customer = lead.convert_to_customer(
+                    salesperson=assigned_salesperson,
+                    conversion_value=form.cleaned_data.get('conversion_value'),
+                    notes=form.cleaned_data.get('notes', ''),
+                    create_sales_funnel_entry=create_sales_funnel_entry,
+                    sales_funnel_stage=form.cleaned_data.get('sales_funnel_stage'),
+                    converted_by=request.user,
+                )
+
+                messages.success(request, f'Lead successfully converted to customer: {customer.company_name}')
+                return redirect('customer_detail', pk=customer.id)
+    else:
+        form = ConversionForm(initial={
+            'conversion_value': lead.conversion_value,
+            'notes': lead.notes,
+        })
     
     return render(request, 'lead_generation/convert_lead.html', {
-        'lead': lead
+        'lead': lead,
+        'form': form,
     })
+
+
+@login_required
+@require_http_methods(["POST"])
+def mark_lead_lost(request, lead_id):
+    """Mark a lead as lost with reason and notes."""
+    lead = get_object_or_404(Lead, id=lead_id)
+
+    if request.user.role == 'salesperson' and lead.assigned_to != request.user:
+        messages.error(request, 'You can only update leads assigned to you.')
+        return redirect('lead_generation:lead_detail', lead_id=lead.id)
+
+    if lead.status == 'converted':
+        messages.error(request, 'Converted leads cannot be marked as lost.')
+        return redirect('lead_generation:lead_detail', lead_id=lead.id)
+
+    if lead.status == 'lost':
+        messages.info(request, 'This lead is already marked as lost.')
+        return redirect('lead_generation:lead_detail', lead_id=lead.id)
+
+    form = MarkLostForm(request.POST)
+    if form.is_valid():
+        lead.mark_as_lost(
+            user=request.user,
+            reason=form.cleaned_data['reason'],
+            notes=form.cleaned_data.get('notes', ''),
+        )
+        messages.success(request, f'Lead "{lead.full_name}" marked as lost.')
+    else:
+        messages.error(request, 'Unable to mark lead as lost. Please complete the required fields.')
+
+    return redirect('lead_generation:lead_detail', lead_id=lead.id)
 
 
 @login_required
