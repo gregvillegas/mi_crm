@@ -10,6 +10,7 @@ urlpatterns = [
     
     # Entry management (CRUD)
     path('add/', views.add_funnel_entry, name='add_entry'),
+    path('detail/<int:entry_id>/', views.funnel_entry_detail, name='entry_detail'),
     path('edit/<int:entry_id>/', views.edit_funnel_entry, name='edit_entry'),
     path('delete/<int:entry_id>/', views.delete_funnel_entry, name='delete_entry'),
     path('import/', views.import_funnel_entries, name='import_entries'),

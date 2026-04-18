@@ -320,6 +320,21 @@ def add_funnel_entry(request):
 
 @login_required
 @user_passes_test(can_access_funnel)
+def funnel_entry_detail(request, entry_id):
+    """Read-only detail view for a funnel entry."""
+    entry = get_object_or_404(SalesFunnel, id=entry_id)
+
+    if request.user.role == 'salesperson' and entry.salesperson != request.user:
+        messages.error(request, 'You can only view your own funnel entries.')
+        return redirect('sales_funnel:dashboard')
+
+    return render(request, 'sales_funnel/entry_detail.html', {
+        'entry': entry,
+    })
+
+
+@login_required
+@user_passes_test(can_access_funnel)
 def edit_funnel_entry(request, entry_id):
     """Edit a funnel entry"""
     entry = get_object_or_404(SalesFunnel, id=entry_id)

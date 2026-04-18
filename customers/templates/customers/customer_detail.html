@@ -218,12 +218,17 @@
                                     <th>Probability</th>
                                     <th>Exp. Close</th>
                                     <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for deal in all_deals %}
                                 <tr>
-                                    <td>{{ deal.company_name }}</td>
+                                    <td>
+                                        <a href="{% url 'sales_funnel:entry_detail' deal.id %}" class="text-decoration-none fw-semibold">
+                                            {{ deal.company_name }}
+                                        </a>
+                                    </td>
                                     <td><span class="badge bg-{{ deal.stage_color }}">{{ deal.get_stage_display }}</span></td>
                                     <td class="fw-bold">₱{{ deal.retail|intcomma }}</td>
                                     <td>
@@ -242,9 +247,14 @@
                                         <span class="badge bg-info">Active</span>
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        <a href="{% url 'sales_funnel:entry_detail' deal.id %}" class="btn btn-sm btn-light" title="View">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
                                 </tr>
                                 {% empty %}
-                                <tr><td colspan="6" class="text-center text-muted">No deals found</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">No deals found</td></tr>
                                 {% endfor %}
                             </tbody>
                         </table>

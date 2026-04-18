@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2 class="mb-1"><i class="fas fa-funnel-dollar text-primary"></i> Sales Funnel Detail</h2>
+                <p class="text-muted mb-0">{{ entry.company_name }}</p>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary">
+                    <i class="fas fa-edit"></i> Edit
+                </a>
+                <a href="{% url 'sales_funnel:dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Funnel
+                </a>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Deal Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Company Name</div>
+                                <div class="fw-semibold">{{ entry.company_name }}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Stage</div>
+                                <div><span class="badge bg-{{ entry.stage_color }}">{{ entry.get_stage_display }}</span></div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Date Created</div>
+                                <div>{{ entry.date_created|date:"M d, Y" }}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Expected Close</div>
+                                <div>{{ entry.expected_close_date|date:"M d, Y"|default:"Not set" }}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Cost</div>
+                                <div>₱{{ entry.cost|floatformat:2|intcomma }}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Retail</div>
+                                <div class="fw-semibold">₱{{ entry.retail|floatformat:2|intcomma }}</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Profit</div>
+                                <div class="{% if entry.profit > 0 %}text-success{% elif entry.profit < 0 %}text-danger{% endif %}">
+                                    ₱{{ entry.profit|floatformat:2|intcomma }}
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="text-muted small">Probability</div>
+                                <div>{{ entry.probability }}%</div>
+                            </div>
+                            <div class="col-12 mb-3">
+                                <div class="text-muted small">Requirement Description</div>
+                                <div>{{ entry.requirement_description|linebreaksbr }}</div>
+                            </div>
+                            <div class="col-12">
+                                <div class="text-muted small">Notes</div>
+                                <div>{{ entry.notes|default:"No notes recorded."|linebreaksbr }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Status</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <span class="text-muted small d-block">Deal Outcome</span>
+                            {% if entry.deal_outcome == 'won' %}
+                                <span class="badge bg-success">Won</span>
+                            {% elif entry.deal_outcome == 'lost' %}
+                                <span class="badge bg-danger">Lost</span>
+                            {% else %}
+                                <span class="badge bg-info">Active</span>
+                            {% endif %}
+                        </p>
+                        <p class="mb-2">
+                            <span class="text-muted small d-block">Closed</span>
+                            {{ entry.is_closed|yesno:"Yes,No" }}
+                        </p>
+                        <p class="mb-0">
+                            <span class="text-muted small d-block">Closed Date</span>
+                            {{ entry.closed_date|date:"M d, Y"|default:"Not closed" }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-header bg-white">
+                        <h5 class="mb-0">Linked Records</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">
+                            <span class="text-muted small d-block">Salesperson</span>
+                            {{ entry.salesperson.get_full_name|default:entry.salesperson.username }}
+                        </p>
+                        <p class="mb-3">
+                            <span class="text-muted small d-block">Customer</span>
+                            {% if entry.customer %}
+                                <a href="{% url 'customer_detail' entry.customer.id %}">{{ entry.customer.company_name }}</a>
+                            {% else %}
+                                Not linked
+                            {% endif %}
+                        </p>
+                        <p class="mb-0">
+                            <span class="text-muted small d-block">Proposal</span>
+                            {% if entry.proposal %}
+                                <a href="{% url 'proposal_detail' entry.proposal.id %}">{{ entry.proposal.proposal_number }}</a>
+                            {% else %}
+                                Not linked
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
