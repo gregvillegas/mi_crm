@@ -83,6 +83,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'gamification.context_processors.gamification_status',
+                'customers.context_processors.customer_request_notifications',
             ],
         },
     },

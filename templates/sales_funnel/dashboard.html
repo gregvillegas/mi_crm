@@ -24,70 +24,82 @@
 <!-- Statistics Cards -->
 <style>
 .kpi-card{min-height:130px}
+.kpi-card-link{display:block;color:inherit;text-decoration:none}
+.kpi-card-link:hover{color:inherit;text-decoration:none}
+.kpi-card-clickable{transition:transform .15s ease,box-shadow .15s ease}
+.kpi-card-clickable:hover{transform:translateY(-2px);box-shadow:0 .5rem 1rem rgba(0,0,0,.15)!important}
 </style>
 <div class="row mb-4">
     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-        <div class="card bg-info text-white kpi-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Active Entries</h6>
-                        <h3>{{ stats.total_entries }}</h3>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-list-alt fa-2x"></i>
+        <a href="{% url 'sales_funnel:dashboard' %}" class="kpi-card-link">
+            <div class="card bg-info text-white kpi-card kpi-card-clickable">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Active Entries</h6>
+                            <h3>{{ stats.total_entries }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-list-alt fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-        <div class="card bg-success text-white kpi-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Won Deals</h6>
-                        <h3>{{ stats.won_count }}</h3>
-                        <small>₱{{ stats.won_value|floatformat:0|intcomma }}</small>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-trophy fa-2x"></i>
+        <a href="{% url 'sales_funnel:deals_history' %}?outcome=won" class="kpi-card-link">
+            <div class="card bg-success text-white kpi-card kpi-card-clickable">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Won Deals</h6>
+                            <h3>{{ stats.won_count }}</h3>
+                            <small>₱{{ stats.won_value|floatformat:0|intcomma }}</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-trophy fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-        <div class="card bg-danger text-white kpi-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Lost Deals</h6>
-                        <h3>{{ stats.lost_count }}</h3>
-                        <small>₱{{ stats.lost_value|floatformat:0|intcomma }}</small>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-times-circle fa-2x"></i>
+        <a href="{% url 'sales_funnel:deals_history' %}?outcome=lost" class="kpi-card-link">
+            <div class="card bg-danger text-white kpi-card kpi-card-clickable">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Lost Deals</h6>
+                            <h3>{{ stats.lost_count }}</h3>
+                            <small>₱{{ stats.lost_value|floatformat:0|intcomma }}</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-times-circle fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
-        <div class="card bg-primary text-white kpi-card">
-            <div class="card-body">
-                <div class="d-flex justify-content-between">
-                    <div>
-                        <h6 class="card-title">Win Rate</h6>
-                        <h3>{{ stats.win_rate|floatformat:1 }}%</h3>
-                        <small>{{ stats.total_closed }} closed</small>
-                    </div>
-                    <div class="align-self-center">
-                        <i class="fas fa-percentage fa-2x"></i>
+        <a href="{% url 'sales_funnel:deals_history' %}" class="kpi-card-link">
+            <div class="card bg-primary text-white kpi-card kpi-card-clickable">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Win Rate</h6>
+                            <h3>{{ stats.win_rate|floatformat:1 }}%</h3>
+                            <small>{{ stats.total_closed }} closed</small>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-percentage fa-2x"></i>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 <!--
     <div class="col-lg-2 col-md-4 col-sm-6 mb-3">
@@ -173,6 +185,10 @@
             <div class="col-md-3">
                 <label class="form-label">Salesperson</label>
                 {{ filter_form.salesperson }}
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Group</label>
+                {{ filter_form.group }}
             </div>
             <div class="col-md-3">
                 <label class="form-label">Min Amount (₱)</label>

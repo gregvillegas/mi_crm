@@ -574,6 +574,7 @@ document.addEventListener('DOMContentLoaded', function() {
     function attachPriceFormatting(input) {
         if (!input || input.dataset.priceFormattingBound === '1') return;
         input.dataset.priceFormattingBound = '1';
+        if (input.readOnly) return;
         input.addEventListener('focus', () => {
             input.value = input.value.replace(/,/g, '');
         });
@@ -581,6 +582,10 @@ document.addEventListener('DOMContentLoaded', function() {
             if (input.value.trim() === '') return;
             input.value = formatMoneyInput(input.value, true);
         });
+    }
+    const INTERNAL_UPLIFT_RATE = 0.05;
+    function getBaseCost(cost) {
+        return cost * (1 + INTERNAL_UPLIFT_RATE);
     }
     function computeUnitPrice(row) {
         const costInput = row.querySelector('input[name$="unit_cost"]');
@@ -590,10 +595,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!costInput || !priceInput || !marginInput) return;
         const cost = parseNumberInput(costInput.value);
         const margin = parseFloat(marginInput.value) || 0;
-        if (margin > 0) {
-            const price = cost * (1 + margin / 100);
-            priceInput.value = formatMoneyInput(price.toFixed(2), true);
-        }
+        const baseCost = getBaseCost(cost);
+        const price = baseCost * (1 + margin / 100);
+        priceInput.value = formatMoneyInput(price.toFixed(2), true);
         updateAmount(row);
     }
     function updateAmount(row) {
@@ -619,8 +623,9 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             const cost = parseNumberInput(costInput.value);
             const price = parseNumberInput(priceInput.value);
-            if (marginInput.value === '' && cost > 0 && price >= 0) {
-                const margin = ((price - cost) / Math.max(cost, 0.000001)) * 100;
+            const baseCost = getBaseCost(cost);
+            if (marginInput.value === '' && baseCost > 0 && price >= 0) {
+                const margin = ((price - baseCost) / Math.max(baseCost, 0.000001)) * 100;
                 if (isFinite(margin)) {
                     marginInput.value = margin.toFixed(2);
                 }

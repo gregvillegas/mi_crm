@@ -13,6 +13,9 @@ urlpatterns = [
     path('executive/', views.executive_dashboard, name='executive_dashboard'),
     path('avp/group/<int:group_id>/activities/', views.avp_group_activities, name='avp_group_activities'),
     path('group/<int:group_id>/fiscal-summary/', views.group_fiscal_summary, name='group_fiscal_summary'),
+    path('group/<int:group_id>/fiscal-summary/export/excel/', views.export_group_fiscal_summary_excel, name='export_group_fiscal_summary_excel'),
+    path('group/<int:group_id>/fiscal-summary/export/pdf/', views.export_group_fiscal_summary_pdf, name='export_group_fiscal_summary_pdf'),
+    path('team-performance/export/excel/', views.export_team_fiscal_summary_excel, name='export_team_fiscal_summary_excel'),
     
     # Activity management
     path('activity/create/', views.create_activity, name='create_activity'),

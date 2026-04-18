@@ -1,12 +1,19 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse, HttpResponseForbidden
+from django.http import JsonResponse, HttpResponseForbidden, HttpResponse
 from django.utils import timezone
 from django.db.models import Q, Count, Avg, Sum, F
 from django.core.paginator import Paginator
 from datetime import datetime, timedelta
 from django.db import models
+from io import BytesIO
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import landscape, legal
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet
 from .models import (
     SalesActivity, ActivityType, ActivityLog, SupervisorReport,
     ActivityReminder, CallActivity, MeetingActivity, EmailActivity,
@@ -22,6 +29,190 @@ from .forms import (
 from teams.models import Group, TeamMembership, SupervisorCommitment
 from users.models import User
 from customers.models import Customer
+
+
+def _resolve_month_context(month_param):
+    today = timezone.now().date()
+    if month_param:
+        try:
+            dt = datetime.strptime(month_param, "%Y-%m").date()
+            month_start = dt.replace(day=1)
+        except Exception:
+            month_start = today.replace(day=1)
+    else:
+        month_start = today.replace(day=1)
+
+    selected_month_str = month_start.strftime("%Y-%m")
+
+    if month_start.month == 12:
+        fiscal_year = month_start.year + 1
+    else:
+        fiscal_year = month_start.year
+
+    fiscal_start = datetime(fiscal_year - 1, 12, 1).date()
+    fiscal_end = datetime(fiscal_year, 11, 30).date()
+
+    fiscal_months = []
+    curr = fiscal_start
+    for _ in range(12):
+        fiscal_months.append({
+            'date': curr,
+            'label': curr.strftime('%b').upper(),
+        })
+        if curr.month == 12:
+            curr = curr.replace(year=curr.year + 1, month=1)
+        else:
+            curr = curr.replace(month=curr.month + 1)
+
+    return {
+        'today': today,
+        'month_start': month_start,
+        'selected_month': selected_month_str,
+        'fiscal_year': fiscal_year,
+        'fiscal_start': fiscal_start,
+        'fiscal_end': fiscal_end,
+        'fiscal_months': fiscal_months,
+        'fiscal_year_label': f"FISCAL YEAR {fiscal_year} ({fiscal_start.strftime('%B %Y').upper()} - {fiscal_end.strftime('%B %Y').upper()})",
+    }
+
+
+def _build_group_fiscal_summary_data(group, month_start):
+    month_ctx = _resolve_month_context(month_start.strftime("%Y-%m"))
+    salespeople = User.objects.filter(
+        team_membership__group=group,
+        role='salesperson',
+        is_active=True
+    )
+
+    fiscal_summary = []
+    for sp in salespeople:
+        try:
+            membership = TeamMembership.objects.get(user=sp)
+            quota = membership.quota
+        except TeamMembership.DoesNotExist:
+            quota = 0
+
+        monthly_data = []
+        sp_fiscal_deals = SalesFunnel.objects.filter(
+            salesperson=sp,
+            deal_outcome='won',
+            closed_date__gte=month_ctx['fiscal_start'],
+            closed_date__lte=month_ctx['fiscal_end']
+        )
+
+        total_fiscal_profit = 0
+        for m in month_ctx['fiscal_months']:
+            m_start = m['date']
+            if m_start.month == 12:
+                m_end = m_start.replace(year=m_start.year + 1, month=1) - timedelta(days=1)
+            else:
+                m_end = m_start.replace(month=m_start.month + 1) - timedelta(days=1)
+
+            m_profit = sp_fiscal_deals.filter(
+                closed_date__gte=m_start,
+                closed_date__lte=m_end
+            ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0
+            monthly_data.append(m_profit)
+            total_fiscal_profit += m_profit
+
+        fiscal_summary.append({
+            'salesperson': sp,
+            'quota': quota * 12,
+            'monthly_data': monthly_data,
+            'total_profit': total_fiscal_profit
+        })
+
+    return {
+        'group': group,
+        'selected_month': month_ctx['selected_month'],
+        'fiscal_year_label': month_ctx['fiscal_year_label'],
+        'fiscal_months': month_ctx['fiscal_months'],
+        'fiscal_summary': fiscal_summary,
+    }
+
+
+def _write_group_summary_sheet(ws, summary):
+    ws.append([summary['group'].name, summary['group'].team.name, summary['selected_month']])
+    ws.append([summary['fiscal_year_label']])
+    header = ['Salesperson', 'Annual Quota'] + [m['label'] for m in summary['fiscal_months']] + ['Total Profit']
+    ws.append(header)
+
+    title_fill = PatternFill(fill_type='solid', fgColor='1D4ED8')
+    title_font = Font(color='FFFFFF', bold=True)
+    header_fill = PatternFill(fill_type='solid', fgColor='E5E7EB')
+    header_font = Font(bold=True)
+
+    for cell in ws[1]:
+        cell.font = title_font
+        cell.fill = title_fill
+    for cell in ws[2]:
+        cell.font = title_font
+        cell.fill = title_fill
+    for cell in ws[3]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+
+    for row in summary['fiscal_summary']:
+        ws.append([
+            row['salesperson'].get_full_name() or row['salesperson'].username,
+            float(row['quota']),
+            *[float(v) for v in row['monthly_data']],
+            float(row['total_profit']),
+        ])
+
+    for column in ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']:
+        for cell in ws[column]:
+            if isinstance(cell.value, (int, float)):
+                cell.number_format = u'"P"#,##0.00'
+
+    widths = {
+        'A': 28, 'B': 16, 'C': 12, 'D': 12, 'E': 12, 'F': 12, 'G': 12, 'H': 12,
+        'I': 12, 'J': 12, 'K': 12, 'L': 12, 'M': 12, 'N': 12, 'O': 16
+    }
+    for col, width in widths.items():
+        ws.column_dimensions[col].width = width
+
+
+def _build_group_fiscal_summary_pdf(summary):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(legal), leftMargin=20, rightMargin=20, topMargin=20, bottomMargin=20)
+    styles = getSampleStyleSheet()
+    elements = [
+        Paragraph("Monthly Achievement Summary", styles['Title']),
+        Paragraph(f"{summary['group'].name} - {summary['group'].team.name}", styles['Heading2']),
+        Paragraph(summary['fiscal_year_label'], styles['Heading3']),
+        Spacer(1, 12),
+    ]
+
+    table_data = [['Salesperson', 'Annual Quota'] + [m['label'] for m in summary['fiscal_months']] + ['Total Profit']]
+    for item in summary['fiscal_summary']:
+        table_data.append([
+            item['salesperson'].get_full_name() or item['salesperson'].username,
+            f"P{item['quota']:,.2f}",
+            *[f"P{profit:,.2f}" if profit > 0 else '-' for profit in item['monthly_data']],
+            f"P{item['total_profit']:,.2f}",
+        ])
+
+    table = Table(table_data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1D4ED8')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.grey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.HexColor('#F8FAFC')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 
 @login_required
 def dashboard(request):
@@ -508,88 +699,8 @@ def group_fiscal_summary(request, group_id):
         # Simplified check - in real app might be stricter
         pass 
     
-    # Determine fiscal year based on month parameter or current date
-    month_param = request.GET.get('month')
-    today = timezone.now().date()
-    
-    if month_param:
-        try:
-            dt = datetime.strptime(month_param, "%Y-%m").date()
-            month_start = dt.replace(day=1)
-        except Exception:
-            month_start = today.replace(day=1)
-    else:
-        month_start = today.replace(day=1)
-        
-    selected_month_str = month_start.strftime("%Y-%m")
-    
-    # Calculate Fiscal Year parameters
-    if month_start.month == 12:
-        fiscal_year = month_start.year + 1
-    else:
-        fiscal_year = month_start.year
-        
-    fiscal_start = datetime(fiscal_year - 1, 12, 1).date()
-    fiscal_end = datetime(fiscal_year, 11, 30).date()
-    
-    # Generate list of months for the table header
-    fiscal_months = []
-    curr = fiscal_start
-    for _ in range(12):
-        fiscal_months.append({
-            'date': curr,
-            'label': curr.strftime('%b').upper(), 
-        })
-        if curr.month == 12:
-            curr = curr.replace(year=curr.year + 1, month=1)
-        else:
-            curr = curr.replace(month=curr.month + 1)
-            
-    # Get salespeople
-    salespeople = User.objects.filter(
-        team_membership__group=group,
-        role='salesperson',
-        is_active=True
-    )
-    
-    fiscal_summary = []
-    for sp in salespeople:
-        try:
-            membership = TeamMembership.objects.get(user=sp)
-            quota = membership.quota
-        except TeamMembership.DoesNotExist:
-            quota = 0
-            
-        monthly_data = []
-        sp_fiscal_deals = SalesFunnel.objects.filter(
-            salesperson=sp,
-            deal_outcome='won',
-            closed_date__gte=fiscal_start,
-            closed_date__lte=fiscal_end
-        )
-        
-        total_fiscal_profit = 0
-        
-        for m in fiscal_months:
-            m_start = m['date']
-            if m_start.month == 12:
-                 m_end = m_start.replace(year=m_start.year + 1, month=1) - timedelta(days=1)
-            else:
-                 m_end = m_start.replace(month=m_start.month + 1) - timedelta(days=1)
-            
-            m_profit = sp_fiscal_deals.filter(
-                closed_date__gte=m_start,
-                closed_date__lte=m_end
-            ).aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0
-            monthly_data.append(m_profit)
-            total_fiscal_profit += m_profit
-        
-        fiscal_summary.append({
-            'salesperson': sp,
-            'quota': quota * 12, # Annual quota
-            'monthly_data': monthly_data,
-            'total_profit': total_fiscal_profit
-        })
+    month_ctx = _resolve_month_context(request.GET.get('month'))
+    summary = _build_group_fiscal_summary_data(group, month_ctx['month_start'])
         
     # Determine back link based on role
     if user.role in ['avp', 'admin', 'vp', 'gm', 'president']:
@@ -601,15 +712,104 @@ def group_fiscal_summary(request, group_id):
 
     context = {
         'group': group,
-        'selected_month': selected_month_str,
-        'fiscal_year_label': f"FISCAL YEAR {fiscal_year} ({fiscal_start.strftime('%B %Y').upper()} - {fiscal_end.strftime('%B %Y').upper()})",
-        'fiscal_months': fiscal_months,
-        'fiscal_summary': fiscal_summary,
+        'selected_month': summary['selected_month'],
+        'fiscal_year_label': summary['fiscal_year_label'],
+        'fiscal_months': summary['fiscal_months'],
+        'fiscal_summary': summary['fiscal_summary'],
         'back_url_name': back_url_name,
         'back_label': back_label,
     }
     
     return render(request, 'sales_monitoring/group_fiscal_summary.html', context)
+
+
+@login_required
+def export_group_fiscal_summary_excel(request, group_id):
+    user = request.user
+    allowed_roles = ['supervisor', 'asm', 'teamlead', 'avp', 'admin', 'vp', 'gm', 'president']
+    if user.role not in allowed_roles:
+        return HttpResponseForbidden("You don't have permission to access this page.")
+
+    group = get_object_or_404(Group, id=group_id)
+    if user.role == 'avp' and group.team.avp != user:
+        return HttpResponseForbidden("You don't have permission to view this group.")
+
+    month_ctx = _resolve_month_context(request.GET.get('month'))
+    summary = _build_group_fiscal_summary_data(group, month_ctx['month_start'])
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = group.name[:31]
+    _write_group_summary_sheet(ws, summary)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"group_fiscal_summary_{group.name}_{summary['selected_month']}.xlsx".replace(' ', '_')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def export_group_fiscal_summary_pdf(request, group_id):
+    user = request.user
+    allowed_roles = ['supervisor', 'asm', 'teamlead', 'avp', 'admin', 'vp', 'gm', 'president']
+    if user.role not in allowed_roles:
+        return HttpResponseForbidden("You don't have permission to access this page.")
+
+    group = get_object_or_404(Group, id=group_id)
+    if user.role == 'avp' and group.team.avp != user:
+        return HttpResponseForbidden("You don't have permission to view this group.")
+
+    month_ctx = _resolve_month_context(request.GET.get('month'))
+    summary = _build_group_fiscal_summary_data(group, month_ctx['month_start'])
+    pdf_buffer = _build_group_fiscal_summary_pdf(summary)
+
+    response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
+    filename = f"group_fiscal_summary_{group.name}_{summary['selected_month']}.pdf".replace(' ', '_')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def export_team_fiscal_summary_excel(request):
+    user = request.user
+    if user.role not in ['avp', 'admin', 'vp', 'gm', 'president']:
+        return HttpResponseForbidden("You don't have permission to access this page.")
+
+    if user.role == 'avp':
+        from teams.models import Team
+        groups = Group.objects.filter(team__in=Team.objects.filter(avp=user))
+    else:
+        groups = Group.objects.all()
+
+    month_ctx = _resolve_month_context(request.GET.get('month'))
+    wb = Workbook()
+    first_sheet = True
+
+    for group in groups.order_by('team__name', 'name'):
+        summary = _build_group_fiscal_summary_data(group, month_ctx['month_start'])
+        ws = wb.active if first_sheet else wb.create_sheet(title=group.name[:31])
+        ws.title = group.name[:31]
+        _write_group_summary_sheet(ws, summary)
+        first_sheet = False
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"team_fiscal_summary_{month_ctx['selected_month']}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 @login_required
 def admin_dashboard(request):

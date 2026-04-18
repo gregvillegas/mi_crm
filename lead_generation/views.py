@@ -47,8 +47,8 @@ def lead_dashboard(request):
     # Calculate dashboard statistics
     total_leads = leads.count()
     new_leads = leads.filter(status='new').count()
-    qualified_leads = leads.filter(is_qualified=True).count()
-    hot_leads = leads.filter(priority='hot').count()
+    lost_leads = leads.filter(status='lost').count()
+    hot_leads = leads.filter(Q(priority='hot') | Q(lead_score__gte=80)).count()
     
     # Conversion statistics
     converted_leads = leads.filter(status='converted').count()
@@ -75,7 +75,7 @@ def lead_dashboard(request):
     context = {
         'total_leads': total_leads,
         'new_leads': new_leads,
-        'qualified_leads': qualified_leads,
+        'lost_leads': lost_leads,
         'hot_leads': hot_leads,
         'converted_leads': converted_leads,
         'conversion_rate': conversion_rate,

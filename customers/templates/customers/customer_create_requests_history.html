@@ -2,11 +2,13 @@
 {% block content %}
 <div class="container">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2>Customer Request History</h2>
+    <h2>{{ page_title|default:"Customer Request History" }}</h2>
     <div>
+      {% if user.role in 'admin,avp,gm,vp' %}
       <a href="{% url 'customer_create_requests' %}" class="btn btn-outline-secondary btn-sm">
         <i class="fas fa-inbox"></i> Pending Requests
       </a>
+      {% endif %}
     </div>
   </div>
   <div class="card">

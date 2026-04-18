@@ -135,6 +135,28 @@
             margin-left: 0.5rem;
             white-space: nowrap;
         }
+        .notification-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 0.65rem;
+            min-width: 18px;
+            height: 18px;
+            line-height: 18px;
+            padding: 0;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0 !important;
+            white-space: nowrap;
+        }
+        .notification-menu {
+            width: 360px;
+            max-width: 90vw;
+        }
+        .notification-item {
+            white-space: normal;
+        }
         .navbar-nav .nav-link:hover span {
             display: inline-block;
         }
@@ -311,6 +333,44 @@
                 </ul>
                 <ul class="navbar-nav ms-auto align-items-center">
                     {% if user.is_authenticated %}
+                        {% if user.role in 'admin,avp,gm,vp,salesperson' %}
+                        <li class="nav-item dropdown me-2">
+                            <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
+                                <i class="fas fa-bell"></i>
+                                {% if customer_request_notification_count %}
+                                <span class="badge rounded-pill bg-danger notification-badge">{{ customer_request_notification_count }}</span>
+                                {% endif %}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end shadow notification-menu" aria-labelledby="notificationsDropdown">
+                                <li><h6 class="dropdown-header">Customer Request Notifications</h6></li>
+                                {% for item in customer_request_notifications %}
+                                <li>
+                                    <a class="dropdown-item notification-item" href="{% url item.url_name %}">
+                                        <div class="fw-bold">{{ item.title }}</div>
+                                        <div class="small text-muted">{{ item.message }}</div>
+                                        <div class="small {% if item.status == 'rejected' %}text-danger{% elif item.status == 'approved' %}text-success{% else %}text-warning{% endif %}">
+                                            {{ item.timestamp|date:"M d, Y H:i" }}
+                                        </div>
+                                    </a>
+                                </li>
+                                {% empty %}
+                                <li><span class="dropdown-item-text text-muted">No notifications.</span></li>
+                                {% endfor %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    {% if user.role == 'salesperson' %}
+                                    <a class="dropdown-item" href="{% url 'customer_create_request_history' %}">
+                                        <i class="fas fa-history me-2"></i>View My Request History
+                                    </a>
+                                    {% else %}
+                                    <a class="dropdown-item" href="{% url 'customer_create_requests' %}">
+                                        <i class="fas fa-inbox me-2"></i>View Pending Requests
+                                    </a>
+                                    {% endif %}
+                                </li>
+                            </ul>
+                        </li>
+                        {% endif %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 {% if user.profile_picture %}

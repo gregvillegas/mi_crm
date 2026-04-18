@@ -100,12 +100,15 @@ def funnel_dashboard(request):
     if filter_form.is_valid():
         stage = filter_form.cleaned_data.get('stage')
         salesperson = filter_form.cleaned_data.get('salesperson')
+        group = filter_form.cleaned_data.get('group')
         min_amount = filter_form.cleaned_data.get('min_amount')
         date_from = filter_form.cleaned_data.get('date_from')
         date_to = filter_form.cleaned_data.get('date_to')
         
         if stage:
             funnel_entries = funnel_entries.filter(stage=stage)
+        if group:
+            funnel_entries = funnel_entries.filter(salesperson__team_membership__group=group)
         if salesperson:
             funnel_entries = funnel_entries.filter(salesperson=salesperson)
         if min_amount is not None:
@@ -256,11 +259,14 @@ def export_funnel_report(request):
     if form.is_valid():
         stage = form.cleaned_data.get('stage')
         salesperson = form.cleaned_data.get('salesperson')
+        group = form.cleaned_data.get('group')
         min_amount = form.cleaned_data.get('min_amount')
         date_from = form.cleaned_data.get('date_from')
         date_to = form.cleaned_data.get('date_to')
         if stage:
             qs = qs.filter(stage=stage)
+        if group:
+            qs = qs.filter(salesperson__team_membership__group=group)
         if salesperson:
             qs = qs.filter(salesperson=salesperson)
         if min_amount is not None:
@@ -459,6 +465,7 @@ def close_entry(request, entry_id):
 def deals_history(request):
     """View to show comprehensive won/lost deal statistics"""
     user = request.user
+    outcome = request.GET.get('outcome', '').strip().lower()
     
     # Get closed deals based on user role - similar logic to funnel_dashboard
     if user.role == 'salesperson':
@@ -512,6 +519,13 @@ def deals_history(request):
     # Separate won and lost deals
     won_deals = closed_deals.filter(deal_outcome='won').select_related('salesperson', 'customer')
     lost_deals = closed_deals.filter(deal_outcome='lost').select_related('salesperson', 'customer')
+    
+    if outcome == 'won':
+        won_deals = won_deals
+        lost_deals = lost_deals.none()
+    elif outcome == 'lost':
+        lost_deals = lost_deals
+        won_deals = won_deals.none()
     
     # Calculate overall statistics
     won_stats = {
@@ -583,6 +597,7 @@ def deals_history(request):
         'top_salespeople': top_salespeople,
         'date_from': date_from,
         'date_to': date_to,
+        'outcome': outcome,
         'can_see_all_salespeople': user.role in ['supervisor', 'teamlead', 'asm', 'avp', 'admin', 'president', 'gm', 'vp'],
         'average_deal_value': average_deal_value,
         'average_won_deal': average_won_deal,

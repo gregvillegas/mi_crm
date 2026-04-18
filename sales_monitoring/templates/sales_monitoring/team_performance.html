@@ -18,6 +18,9 @@
                         <a href="{% url 'sales_monitoring:dashboard' %}" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Back to Dashboard
                         </a>
+                        <a href="{% url 'sales_monitoring:export_team_fiscal_summary_excel' %}?month={{ selected_month }}" class="btn btn-success">
+                            <i class="fas fa-file-excel"></i> Export All Groups Excel
+                        </a>
                         <a href="{% url 'sales_monitoring:activity_reports' %}" class="btn btn-primary">
                             <i class="fas fa-chart-bar"></i> Generate Reports
                         </a>

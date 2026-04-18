@@ -4,6 +4,7 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.db import models
 from django.db.models import Sum
+from django.utils import timezone
 from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord, CustomerNote, CustomerContact, CustomerCreateRequest
 from .forms import CustomerForm, CustomerContactFormSet, SalespersonCustomerForm
 from users.models import User
@@ -250,7 +251,7 @@ def _find_similar_customers(company_name, threshold=0.75):
     matches = []
     if not base:
         return matches
-    for c in Customer.objects.all().only('id','company_name'):
+    for c in Customer.objects.select_related('salesperson').all():
         norm = _normalize_company_name(c.company_name)
         if not norm:
             continue
@@ -261,8 +262,47 @@ def _find_similar_customers(company_name, threshold=0.75):
         subset_bonus = 0.1 if (a.issubset(b) or b.issubset(a)) else 0
         score = min(1.0, max(jacc, ratio) + subset_bonus)
         if score >= threshold:
-            matches.append({'id': c.id, 'company_name': c.company_name, 'score': round(score, 3)})
+            matches.append(_serialize_similar_match(c, round(score, 3)))
     return sorted(matches, key=lambda m: m['score'], reverse=True)[:5]
+
+
+def _serialize_similar_match(customer, score):
+    salesperson = customer.salesperson
+    return {
+        'id': customer.id,
+        'company_name': customer.company_name,
+        'score': round(score, 3),
+        'salesperson_initials': (salesperson.initials or salesperson.username[:3].upper()) if salesperson else '',
+        'salesperson_name': ((salesperson.get_full_name() or salesperson.username) if salesperson else 'Unassigned'),
+        'status': customer.display_status or 'Unknown',
+    }
+
+
+def _enrich_similar_matches(matches):
+    if not matches:
+        return []
+    match_ids = [m.get('id') for m in matches if m.get('id')]
+    customers_by_id = {
+        customer.id: customer
+        for customer in Customer.objects.select_related('salesperson').filter(id__in=match_ids)
+    }
+    enriched = []
+    for match in matches:
+        customer = customers_by_id.get(match.get('id'))
+        if customer:
+            current = _serialize_similar_match(customer, match.get('score', 0))
+            current['score'] = match.get('score', current['score'])
+            enriched.append(current)
+        else:
+            enriched.append({
+                'id': match.get('id'),
+                'company_name': match.get('company_name', 'Unknown Customer'),
+                'score': match.get('score', 0),
+                'salesperson_initials': match.get('salesperson_initials', ''),
+                'salesperson_name': match.get('salesperson_name', 'Unassigned'),
+                'status': match.get('status') or 'Unknown',
+            })
+    return enriched
 
 @login_required
 def create_customer(request):
@@ -351,6 +391,8 @@ def customer_create_requests(request):
         messages.error(request, "You don't have access to approval requests.")
         return redirect('customer_list')
     qs = CustomerCreateRequest.objects.filter(status='pending')
+    for req in qs:
+        req.display_similar_matches = _enrich_similar_matches(req.similar_matches)
     return render(request, 'customers/customer_create_requests.html', {'requests': qs})
 
 @login_required
@@ -378,11 +420,19 @@ def reject_customer_request(request, pk):
 
 @login_required
 def customer_create_request_history(request):
-    if request.user.role not in ['admin', 'avp', 'gm', 'vp']:
+    if request.user.role not in ['admin', 'avp', 'gm', 'vp', 'salesperson']:
         messages.error(request, "You don't have access to request history.")
         return redirect('customer_list')
-    qs = CustomerCreateRequest.objects.exclude(status='pending').order_by('-reviewed_at', '-created_at')
-    return render(request, 'customers/customer_create_requests_history.html', {'requests': qs})
+    if request.user.role == 'salesperson':
+        qs = CustomerCreateRequest.objects.filter(requested_by=request.user).exclude(status='pending').order_by('-reviewed_at', '-created_at')
+        unseen_ids = list(qs.filter(requester_seen_at__isnull=True).values_list('id', flat=True))
+        if unseen_ids:
+            CustomerCreateRequest.objects.filter(id__in=unseen_ids).update(requester_seen_at=timezone.now())
+        page_title = 'My Customer Request History'
+    else:
+        qs = CustomerCreateRequest.objects.exclude(status='pending').order_by('-reviewed_at', '-created_at')
+        page_title = 'Customer Request History'
+    return render(request, 'customers/customer_create_requests_history.html', {'requests': qs, 'page_title': page_title})
 
 @login_required
 def transfer_customer(request, pk):

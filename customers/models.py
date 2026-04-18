@@ -218,6 +218,7 @@ class CustomerCreateRequest(models.Model):
     reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='customer_create_reviews')
     reviewed_at = models.DateTimeField(null=True, blank=True)
     decision_notes = models.TextField(blank=True)
+    requester_seen_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -245,7 +246,8 @@ class CustomerCreateRequest(models.Model):
         self.status = 'approved'
         self.reviewed_by = reviewer
         self.reviewed_at = timezone.now()
-        self.save(update_fields=['status','reviewed_by','reviewed_at'])
+        self.requester_seen_at = None
+        self.save(update_fields=['status','reviewed_by','reviewed_at', 'requester_seen_at'])
         return customer
 
     def reject(self, reviewer, notes=''):
@@ -253,8 +255,18 @@ class CustomerCreateRequest(models.Model):
         self.reviewed_by = reviewer
         self.reviewed_at = timezone.now()
         self.decision_notes = notes or ''
-        self.save(update_fields=['status','reviewed_by','reviewed_at','decision_notes'])
+        self.requester_seen_at = None
+        self.save(update_fields=['status','reviewed_by','reviewed_at','decision_notes', 'requester_seen_at'])
         return self
+
+    @property
+    def is_requester_unread(self):
+        return self.status != 'pending' and self.requester_seen_at is None
+
+    def mark_seen_by_requester(self):
+        if self.requested_by_id and self.status != 'pending' and self.requester_seen_at is None:
+            self.requester_seen_at = timezone.now()
+            self.save(update_fields=['requester_seen_at'])
 
 class CustomerHistory(models.Model):
     """Model to track all changes made to customers for audit trail and salesperson credit"""

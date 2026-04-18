@@ -25,10 +25,18 @@
             <td>{{ req.email }}</td>
             <td>{{ req.requested_by.get_full_name|default:req.requested_by.username }}</td>
             <td>
-              {% if req.similar_matches %}
+              {% if req.display_similar_matches %}
                 <ul class="mb-0">
-                  {% for m in req.similar_matches %}
-                    <li>{{ m.company_name }} <small class="text-muted">(score {{ m.score }})</small></li>
+                  {% for m in req.display_similar_matches %}
+                    <li>
+                      <strong>{{ m.company_name }}</strong>
+                      <small class="text-muted">(score {{ m.score }})</small>
+                      <br>
+                      <small class="text-muted">
+                        AE: {% if m.salesperson_initials %}<span class="badge bg-secondary">{{ m.salesperson_initials }}</span> {{ m.salesperson_name }}{% else %}Unassigned{% endif %}
+                        | Status: <span class="badge bg-{% if 'Inactive' in m.status %}secondary{% elif 'VIP' in m.status %}warning text-dark{% else %}success{% endif %}">{{ m.status }}</span>
+                      </small>
+                    </li>
                   {% endfor %}
                 </ul>
               {% else %}

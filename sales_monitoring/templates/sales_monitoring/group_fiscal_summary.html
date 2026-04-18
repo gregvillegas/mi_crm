@@ -17,6 +17,12 @@
                         <input type="month" class="form-control" name="month" value="{{ selected_month }}">
                         <button class="btn btn-primary" type="submit">Go</button>
                     </form>
+                    <a href="{% url 'sales_monitoring:export_group_fiscal_summary_excel' group.id %}?month={{ selected_month }}" class="btn btn-success ms-2">
+                        <i class="fas fa-file-excel"></i> Export Excel
+                    </a>
+                    <a href="{% url 'sales_monitoring:export_group_fiscal_summary_pdf' group.id %}?month={{ selected_month }}" class="btn btn-danger">
+                        <i class="fas fa-file-pdf"></i> Export PDF
+                    </a>
                     <a href="{% url back_url_name %}?month={{ selected_month }}" class="btn btn-secondary ms-2">
                         <i class="fas fa-arrow-left"></i> {{ back_label }}
                     </a>

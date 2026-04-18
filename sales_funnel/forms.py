@@ -131,6 +131,11 @@ class FunnelFilterForm(forms.Form):
         required=False,
         widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
     )
+    group = forms.ModelChoiceField(
+        queryset=Group.objects.none(),
+        required=False,
+        widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
+    )
     min_amount = forms.DecimalField(
         required=False,
         min_value=0,
@@ -157,29 +162,53 @@ class FunnelFilterForm(forms.Form):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         qs = User.objects.filter(role='salesperson', is_active=True)
+        group_qs = Group.objects.none()
         if user:
             if user.role == 'salesperson':
                 qs = User.objects.filter(id=user.id)
             elif user.role == 'supervisor':
                 groups = Group.objects.filter(supervisor=user)
+                group_qs = groups
                 salespeople_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
                 qs = User.objects.filter(id__in=salespeople_ids)
             elif user.role == 'teamlead':
                 teamlead_groups = Group.objects.filter(teamlead=user)
+                group_qs = teamlead_groups
                 salespeople_ids = TeamMembership.objects.filter(group__in=teamlead_groups).values_list('user_id', flat=True)
                 qs = User.objects.filter(id__in=salespeople_ids)
             elif user.role == 'asm':
                 asm_teams = user.asm_teams.all()
                 groups = Group.objects.filter(team__in=asm_teams)
+                group_qs = groups
                 salespeople_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
                 qs = User.objects.filter(id__in=salespeople_ids)
             elif user.role == 'avp':
                 teams = Team.objects.filter(avp=user)
                 groups = Group.objects.filter(team__in=teams)
+                group_qs = groups
                 salespeople_ids = TeamMembership.objects.filter(group__in=groups).values_list('user_id', flat=True)
                 qs = User.objects.filter(id__in=salespeople_ids)
             else:
                 qs = User.objects.filter(role='salesperson', is_active=True)
+                group_qs = Group.objects.all()
+        else:
+            group_qs = Group.objects.all()
+
+        selected_group_id = None
+        if self.is_bound:
+            selected_group_id = self.data.get(self.add_prefix('group')) or self.data.get('group')
+        else:
+            initial_group = self.initial.get('group')
+            if hasattr(initial_group, 'pk'):
+                selected_group_id = initial_group.pk
+            else:
+                selected_group_id = initial_group
+
+        if selected_group_id:
+            qs = qs.filter(team_membership__group_id=selected_group_id)
+
+        self.fields['group'].queryset = group_qs.select_related('team').distinct().order_by('team__name', 'name')
+        self.fields['group'].empty_label = '-- All Groups --'
         self.fields['salesperson'].queryset = qs.order_by('first_name', 'last_name')
         self.fields['salesperson'].empty_label = '-- All Salespeople --'
 
