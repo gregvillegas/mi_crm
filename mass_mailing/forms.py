@@ -4,6 +4,44 @@ from django import forms
 from django.forms import ClearableFileInput, inlineformset_factory
 from .models import Campaign, CampaignAsset, MediaLibraryAsset
 from customers.models import Customer
+from lead_generation.models import Lead
+
+
+def get_allowed_leads_queryset(user):
+    leads = Lead.objects.filter(is_active=True).exclude(status__in=['converted', 'lost'])
+    if not user:
+        return Lead.objects.none()
+
+    if user.role == 'salesperson':
+        return leads.filter(assigned_to=user)
+    if user.role == 'supervisor':
+        member_ids = [user.id]
+        for group in user.managed_groups.all():
+            member_ids.extend(group.members.values_list('user_id', flat=True))
+        return leads.filter(assigned_to_id__in=set(member_ids))
+    if user.role == 'teamlead':
+        member_ids = [user.id]
+        for group in user.led_groups.all():
+            member_ids.extend(group.members.values_list('user_id', flat=True))
+        return leads.filter(assigned_to_id__in=set(member_ids))
+    if user.role == 'asm':
+        member_ids = [user.id]
+        for team in user.asm_teams.all():
+            for group in team.groups.all():
+                member_ids.extend(group.members.values_list('user_id', flat=True))
+                if group.supervisor_id:
+                    member_ids.append(group.supervisor_id)
+        return leads.filter(assigned_to_id__in=set(member_ids))
+    if user.role == 'avp':
+        member_ids = [user.id]
+        for team in user.managed_teams.all():
+            for group in team.groups.all():
+                member_ids.extend(group.members.values_list('user_id', flat=True))
+                if group.supervisor_id:
+                    member_ids.append(group.supervisor_id)
+        return leads.filter(assigned_to_id__in=set(member_ids))
+
+    return leads
 
 class CampaignForm(forms.ModelForm):
     customers = forms.ModelMultipleChoiceField(
@@ -11,6 +49,12 @@ class CampaignForm(forms.ModelForm):
         required=False,
         widget=forms.SelectMultiple(attrs={'class': 'form-control select2'}),
         help_text="Select customers to receive this campaign. Opted-out customers will be automatically excluded."
+    )
+    leads = forms.ModelMultipleChoiceField(
+        queryset=Lead.objects.none(),
+        required=False,
+        widget=forms.SelectMultiple(attrs={'class': 'form-control select2'}),
+        help_text="Select CRM leads to receive this campaign. Converted and lost leads are excluded."
     )
     csv_file = forms.FileField(
         required=False,
@@ -63,6 +107,7 @@ class CampaignForm(forms.ModelForm):
                 self.fields['customers'].queryset = Customer.objects.filter(salesperson=user, is_active=True)
             else:
                 self.fields['customers'].queryset = Customer.objects.filter(is_active=True)
+            self.fields['leads'].queryset = get_allowed_leads_queryset(user)
 
     def clean(self):
         cleaned = super().clean()
@@ -73,6 +118,9 @@ class CampaignForm(forms.ModelForm):
         if recipient_mode == 'crm':
             if not cleaned.get('customers'):
                 self.add_error('customers', 'Select at least one CRM customer.')
+        elif recipient_mode == 'crm_leads':
+            if not cleaned.get('leads'):
+                self.add_error('leads', 'Select at least one CRM lead.')
         elif recipient_mode == 'csv':
             if cleaned.get('csv_file'):
                 try:

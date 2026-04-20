@@ -306,8 +306,16 @@
                         <div class="mb-4" id="crmRecipientsSection">
                             {{ form.customers|as_crispy_field }}
                             <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllBtn">Select All</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllBtn">Deselect All</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllCustomersBtn">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllCustomersBtn">Deselect All</button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4" id="crmLeadRecipientsSection" style="display:none;">
+                            {{ form.leads|as_crispy_field }}
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="selectAllLeadsBtn">Select All</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="deselectAllLeadsBtn">Deselect All</button>
                             </div>
                         </div>
 
@@ -360,24 +368,35 @@
 <script>
     $(document).ready(function() {
         $('.select2').select2({
-            placeholder: "Search and select customers...",
+            placeholder: "Search and select recipients...",
             allowClear: true,
             width: '100%'
         });
 
-        $('#selectAllBtn').click(function() {
-            $('.select2 > option').prop("selected", "selected");
-            $('.select2').trigger("change");
+        $('#selectAllCustomersBtn').click(function() {
+            $('#id_customers > option').prop("selected", "selected");
+            $('#id_customers').trigger("change");
         });
 
-        $('#deselectAllBtn').click(function() {
-            $('.select2 > option').prop("selected", false);
-            $('.select2').trigger("change");
+        $('#deselectAllCustomersBtn').click(function() {
+            $('#id_customers > option').prop("selected", false);
+            $('#id_customers').trigger("change");
+        });
+
+        $('#selectAllLeadsBtn').click(function() {
+            $('#id_leads > option').prop("selected", "selected");
+            $('#id_leads').trigger("change");
+        });
+
+        $('#deselectAllLeadsBtn').click(function() {
+            $('#id_leads > option').prop("selected", false);
+            $('#id_leads').trigger("change");
         });
 
         function toggleRecipientMode() {
             const mode = $('#id_recipient_mode').val();
             $('#crmRecipientsSection').toggle(mode === 'crm');
+            $('#crmLeadRecipientsSection').toggle(mode === 'crm_leads');
             $('#csvRecipientsSection').toggle(mode === 'csv');
             $('#manualRecipientsSection').toggle(mode === 'manual');
         }

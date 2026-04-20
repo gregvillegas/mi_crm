@@ -24,6 +24,7 @@ class ActivityType(models.Model):
 
 class SalesActivity(models.Model):
     """Individual sales activities performed by salespeople"""
+    CLIENT_MEETING_TYPE_NAMES = {'client meeting', 'meeting', 'client call'}
     
     STATUS_CHOICES = [
         ('planned', 'Planned'),
@@ -74,6 +75,16 @@ class SalesActivity(models.Model):
     reviewed_by_supervisor = models.BooleanField(default=False)
     supervisor_notes = models.TextField(blank=True)
     supervisor_reviewed_at = models.DateTimeField(null=True, blank=True)
+    engineer_required = models.BooleanField(
+        default=False,
+        help_text='Whether engineering support is required for this client meeting'
+    )
+    meeting_notification_sent_at = models.DateTimeField(null=True, blank=True)
+    meeting_notification_sent_for = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Scheduled start datetime for which the last meeting reminder was sent'
+    )
     
     class Meta:
         ordering = ['-scheduled_start', '-created_at']
@@ -104,13 +115,27 @@ class SalesActivity(models.Model):
         if self.scheduled_end and self.status not in ['completed', 'cancelled']:
             return timezone.now() > self.scheduled_end
         return False
+
+    @property
+    def is_client_meeting(self):
+        """Identify activities that should use client meeting behavior."""
+        activity_type_name = (self.activity_type.name or '').strip().lower() if self.activity_type_id else ''
+        return activity_type_name in self.CLIENT_MEETING_TYPE_NAMES or hasattr(self, 'meeting_details')
     
-    def mark_reviewed_by_supervisor(self, supervisor_user, notes=''):
+    def mark_reviewed_by_supervisor(self, supervisor_user, notes='', engineer_required=None):
         """Mark activity as reviewed by supervisor"""
         self.reviewed_by_supervisor = True
         self.supervisor_notes = notes
+        if engineer_required is not None:
+            self.engineer_required = engineer_required
         self.supervisor_reviewed_at = timezone.now()
-        self.save(update_fields=['reviewed_by_supervisor', 'supervisor_notes', 'supervisor_reviewed_at'])
+        self.save(update_fields=['reviewed_by_supervisor', 'supervisor_notes', 'engineer_required', 'supervisor_reviewed_at'])
+
+    def mark_meeting_notification_sent(self):
+        """Track that a meeting reminder email has been sent for the current schedule."""
+        self.meeting_notification_sent_at = timezone.now()
+        self.meeting_notification_sent_for = self.scheduled_start
+        self.save(update_fields=['meeting_notification_sent_at', 'meeting_notification_sent_for'])
 
     def save(self, *args, **kwargs):
         """Override save to ensure timestamps are set correctly"""

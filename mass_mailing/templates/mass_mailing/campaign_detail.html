@@ -155,7 +155,9 @@
                             <td>{{ recipient.email }}</td>
                             <td>
                                 {% if recipient.source_type == 'customer' %}
-                                    <span class="badge bg-primary">CRM</span>
+                                    <span class="badge bg-primary">CRM Customer</span>
+                                {% elif recipient.source_type == 'lead' %}
+                                    <span class="badge bg-success">CRM Lead</span>
                                 {% elif recipient.source_type == 'csv' %}
                                     <span class="badge bg-info text-dark">CSV</span>
                                 {% else %}

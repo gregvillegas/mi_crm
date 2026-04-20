@@ -87,6 +87,7 @@
                                     <th>Status</th>
                                     <th>Priority</th>
                                     <th>Scheduled</th>
+                                    <th>Engineering</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -116,13 +117,24 @@
                                             {% endif %}
                                         </td>
                                         <td>
+                                            {% if activity.is_client_meeting and activity.engineer_required %}
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-user-cog"></i> Required
+                                            </span>
+                                            {% elif activity.is_client_meeting %}
+                                            <span class="badge bg-light text-dark border">Not Required</span>
+                                            {% else %}
+                                            <span class="text-muted small">N/A</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
                                             <a href="{% url 'sales_monitoring:activity_detail' activity.pk %}" class="btn btn-outline-primary btn-sm"><i class="fas fa-eye"></i> View</a>
                                         </td>
                                     </tr>
                                     {% endfor %}
                                 {% else %}
                                     <tr>
-                                        <td colspan="8" class="text-center text-muted py-4">
+                                        <td colspan="9" class="text-center text-muted py-4">
                                             <i class="fas fa-inbox" style="font-size: 3rem;"></i>
                                             <h4 class="mt-3">No Activities Found</h4>
                                             <p>No activities match your current filters.</p>

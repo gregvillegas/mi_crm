@@ -8,14 +8,14 @@ class Command(BaseCommand):
         activity_types = [
             {
                 'name': 'Phone Call',
-                'description': 'Phone calls to customers and prospects',
+                'description': 'Cold calls, warm calls, follow-up calls, support calls, and other customer phone conversations.',
                 'icon': 'fas fa-phone',
                 'color': 'primary',
                 'requires_customer': True,
             },
             {
-                'name': 'Meeting',
-                'description': 'In-person or virtual meetings with customers',
+                'name': 'Client Meeting',
+                'description': 'Client-facing meetings such as initial meetings, demos, proposal presentations, negotiations, and closing meetings.',
                 'icon': 'fas fa-handshake',
                 'color': 'success',
                 'requires_customer': True,

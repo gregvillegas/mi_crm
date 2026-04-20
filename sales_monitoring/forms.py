@@ -331,17 +331,27 @@ class SupervisorReviewForm(forms.Form):
         initial=True,
         help_text='Check to mark this activity as reviewed'
     )
+    engineer_required = forms.BooleanField(
+        required=False,
+        help_text='Check when engineering support is required for this client meeting'
+    )
     
     def __init__(self, *args, **kwargs):
+        include_engineer_required = kwargs.pop('include_engineer_required', False)
         super().__init__(*args, **kwargs)
+        if not include_engineer_required:
+            self.fields.pop('engineer_required')
         self.helper = FormHelper()
         self.helper.form_tag = False
-        self.helper.layout = Layout(
-            'supervisor_notes',
+        layout_fields = ['supervisor_notes']
+        if include_engineer_required:
+            layout_fields.append('engineer_required')
+        layout_fields.extend([
             'mark_as_reviewed',
-            Submit('submit', 'Submit Review', css_class='btn btn-success'),
+            Submit('submit', 'Save Review', css_class='btn btn-success'),
             Button('cancel', 'Cancel', css_class='btn btn-secondary', onclick='history.back()'),
-        )
+        ])
+        self.helper.layout = Layout(*layout_fields)
 
 class ActivityFilterForm(forms.Form):
     """Form for filtering activities in supervisor dashboard"""

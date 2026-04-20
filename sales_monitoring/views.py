@@ -311,6 +311,10 @@ def supervisor_dashboard(request):
         ).count(),
         'pending_review': activities.filter(reviewed_by_supervisor=False).count(),
         'this_week_activities': activities.filter(scheduled_start__date__gte=week_start).count(),
+        'engineering_required_meetings': activities.filter(
+            engineer_required=True,
+            activity_type__name__in=['Client Meeting', 'Meeting', 'Client Call']
+        ).count(),
     }
     
     # Activity type breakdown
@@ -488,6 +492,10 @@ def avp_dashboard(request):
         'overdue_activities': activities.filter(
             scheduled_end__lt=timezone.now(),
             status__in=['planned', 'in_progress']
+        ).count(),
+        'engineering_required_meetings': activities.filter(
+            engineer_required=True,
+            activity_type__name__in=['Client Meeting', 'Meeting', 'Client Call']
         ).count(),
     }
     
@@ -989,25 +997,47 @@ def activity_detail(request, pk):
     
     # Supervisor/Teamlead review form
     review_form = None
-    if user.role in ['supervisor', 'asm', 'teamlead'] and not activity.reviewed_by_supervisor:
+    can_review = user.role in ['supervisor', 'asm', 'teamlead']
+    if can_review:
         if request.method == 'POST' and 'review_submit' in request.POST:
-            review_form = SupervisorReviewForm(request.POST)
+            review_form = SupervisorReviewForm(request.POST, include_engineer_required=activity.is_client_meeting)
             if review_form.is_valid():
                 cd = review_form.cleaned_data
                 if cd['mark_as_reviewed']:
-                    activity.mark_reviewed_by_supervisor(user, cd['supervisor_notes'])
+                    previous_notes = activity.supervisor_notes
+                    previous_engineer_required = activity.engineer_required
+                    activity.mark_reviewed_by_supervisor(
+                        user,
+                        cd['supervisor_notes'],
+                        cd.get('engineer_required'),
+                    )
                     
                     ActivityLog.log_activity_change(
                         activity=activity,
                         action='reviewed',
-                        description='Activity reviewed by supervisor',
-                        changed_by=user
+                        description='Activity review updated by supervisor',
+                        changed_by=user,
+                        old_value={
+                            'supervisor_notes': previous_notes,
+                            'engineer_required': previous_engineer_required,
+                        },
+                        new_value={
+                            'supervisor_notes': activity.supervisor_notes,
+                            'engineer_required': activity.engineer_required,
+                        }
                     )
                     
-                    messages.success(request, 'Activity marked as reviewed!')
+                    messages.success(request, 'Activity review saved successfully!')
                     return redirect('sales_monitoring:activity_detail', pk=pk)
         else:
-            review_form = SupervisorReviewForm()
+            review_form = SupervisorReviewForm(
+                include_engineer_required=activity.is_client_meeting,
+                initial={
+                    'supervisor_notes': activity.supervisor_notes,
+                    'mark_as_reviewed': True,
+                    'engineer_required': activity.engineer_required,
+                }
+            )
     
     context = {
         'activity': activity,
@@ -1018,6 +1048,7 @@ def activity_detail(request, pk):
         'task_details': task_details,
         'activity_logs': activity_logs,
         'review_form': review_form,
+        'can_review': can_review,
     }
     
     return render(request, 'sales_monitoring/activity_detail.html', context)

@@ -121,6 +121,20 @@
                         </div>
                     </div>
                     {% endif %}
+
+                    {% if activity.is_client_meeting %}
+                    <div class="mt-3">
+                        <div class="alert {% if activity.engineer_required %}alert-warning{% else %}alert-light{% endif %}">
+                            <i class="fas fa-user-cog"></i>
+                            <strong>Engineering Support:</strong>
+                            {% if activity.engineer_required %}
+                                Required for this client meeting
+                            {% else %}
+                                Not required
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
                     
                     {% if activity.is_overdue %}
                     <div class="mt-3">
@@ -156,17 +170,17 @@
                     <div class="alert alert-warning">
                         <i class="fas fa-clock"></i> <strong>Pending Review</strong>
                     </div>
-                    
-                    {% if user.role in 'supervisor,asm' and review_form %}
+                    {% endif %}
+
+                    {% if can_review and review_form %}
                     <div id="review" class="mt-3">
-                        <h6>Add Review</h6>
+                        <h6>{% if activity.reviewed_by_supervisor %}Update Review{% else %}Add Review{% endif %}</h6>
                         <form method="post">
                             {% csrf_token %}
                             {% crispy review_form %}
                             <input type="hidden" name="review_submit" value="1">
                         </form>
                     </div>
-                    {% endif %}
                     {% endif %}
                 </div>
             </div>

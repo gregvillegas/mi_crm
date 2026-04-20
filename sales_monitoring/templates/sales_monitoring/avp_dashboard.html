@@ -85,7 +85,7 @@
 
     <!-- Additional Statistics Row -->
     <div class="row mb-4">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <a href="{% url 'sales_monitoring:activity_calendar' %}?view=week" class="text-decoration-none">
                 <div class="card border-warning text-center">
                     <div class="card-body">
@@ -95,7 +95,7 @@
                 </div>
             </a>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
             <a href="{% url 'sales_monitoring:activity_calendar' %}?view=month" class="text-decoration-none">
                 <div class="card border-primary text-center">
                     <div class="card-body">
@@ -105,7 +105,15 @@
                 </div>
             </a>
         </div>
-        <div class="col-md-4">
+        <div class="col-md-3">
+            <div class="card border-warning text-center">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ stats.engineering_required_meetings }}</h3>
+                    <p class="card-text">Meetings Requiring Engineering</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
             <div class="card border-info text-center">
                 <div class="card-body">
                     <h3 class="text-info">

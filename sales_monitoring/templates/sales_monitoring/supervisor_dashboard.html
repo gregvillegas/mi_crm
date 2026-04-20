@@ -86,6 +86,17 @@
             </div>
         </div>
         <div class="col-md-2">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-warning">
+                        <i class="fas fa-user-cog"></i><br>
+                        {{ stats.engineering_required_meetings }}
+                    </h5>
+                    <p class="card-text small">Meetings with Engineer</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
             <a href="{% url 'sales_monitoring:activity_calendar' %}?view=week" class="text-decoration-none">
                 <div class="card border-info">
                     <div class="card-body text-center">
@@ -161,6 +172,7 @@
                                     <th>Status</th>
                                     <th>Priority</th>
                                     <th>Scheduled</th>
+                                    <th>Engineering</th>
                                     <th>Review Status</th>
                                     <th>Actions</th>
                                 </tr>
@@ -202,6 +214,17 @@
                                         <small class="text-muted">{{ activity.scheduled_start|time:"g:i A" }}</small>
                                         {% else %}
                                         <em class="text-muted">Not scheduled</em>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if activity.is_client_meeting and activity.engineer_required %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="fas fa-user-cog"></i> Required
+                                        </span>
+                                        {% elif activity.is_client_meeting %}
+                                        <span class="badge bg-light text-dark border">Not Required</span>
+                                        {% else %}
+                                        <span class="text-muted small">N/A</span>
                                         {% endif %}
                                     </td>
                                     <td>

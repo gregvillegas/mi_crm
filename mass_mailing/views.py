@@ -11,6 +11,7 @@ from .models import Campaign, CampaignRecipient, OptOut, MediaLibraryAsset, Camp
 from .forms import CampaignForm, UnsubscribeForm, CampaignAssetFormSet, MediaLibraryAssetForm
 from .rendering import render_campaign_html
 from customers.models import Customer
+from lead_generation.models import Lead
 
 
 def can_manage_media_library(user):
@@ -63,9 +64,11 @@ def serialize_recipients_for_textarea(campaign):
 
 def get_initial_form_values(campaign):
     initial_customers = Customer.objects.filter(id__in=campaign.recipients.exclude(customer__isnull=True).values_list('customer_id', flat=True))
+    initial_leads = Lead.objects.filter(id__in=campaign.recipients.exclude(lead__isnull=True).values_list('lead_id', flat=True))
     recipient_lines = serialize_recipients_for_textarea(campaign)
     return {
         'customers': initial_customers,
+        'leads': initial_leads,
         'manual_recipients': recipient_lines if campaign.recipient_mode == 'manual' else '',
         'csv_paste_recipients': recipient_lines if campaign.recipient_mode == 'csv' else '',
     }
@@ -104,6 +107,26 @@ def build_recipient_payloads(form):
                 'email': email,
                 'source_type': 'customer',
             })
+    elif mode == 'crm_leads':
+        for lead in form.cleaned_data['leads']:
+            email = (lead.email or '').strip().lower()
+            if not email:
+                continue
+            if email in opted_out_emails:
+                skipped_opt_out += 1
+                continue
+            if email in seen:
+                continue
+            seen.add(email)
+            payloads.append({
+                'customer': None,
+                'lead': lead,
+                'company_name': lead.company_name or '',
+                'contact_name': lead.full_name or '',
+                'position': lead.job_title or '',
+                'email': email,
+                'source_type': 'lead',
+            })
     else:
         parsed = form.cleaned_data.get('parsed_csv_recipients') if mode == 'csv' else form.cleaned_data.get('parsed_manual_recipients')
         for item in parsed or []:
@@ -118,6 +141,7 @@ def build_recipient_payloads(form):
             seen.add(email)
             payloads.append({
                 'customer': None,
+                'lead': None,
                 'company_name': item.get('company_name', ''),
                 'contact_name': item.get('contact_name', ''),
                 'position': item.get('position', ''),
@@ -134,6 +158,7 @@ def save_campaign_recipients(campaign, recipient_payloads):
         CampaignRecipient.objects.create(
             campaign=campaign,
             customer=payload['customer'],
+            lead=payload.get('lead'),
             company_name=payload['company_name'],
             contact_name=payload['contact_name'],
             position=payload['position'],

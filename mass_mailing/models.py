@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from users.models import User
 from customers.models import Customer
+from lead_generation.models import Lead
 
 class Campaign(models.Model):
     STATUS_CHOICES = (
@@ -35,6 +36,7 @@ class Campaign(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     RECIPIENT_MODE_CHOICES = (
         ('crm', 'CRM Customers'),
+        ('crm_leads', 'CRM Leads'),
         ('csv', 'CSV Upload'),
         ('manual', 'Manual Entry'),
     )
@@ -105,6 +107,7 @@ class CampaignRecipient(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     campaign = models.ForeignKey(Campaign, on_delete=models.CASCADE, related_name='recipients')
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, null=True, blank=True)
+    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, null=True, blank=True)
     source_type = models.CharField(max_length=20, default='customer')
     company_name = models.CharField(max_length=255, blank=True)
     contact_name = models.CharField(max_length=255, blank=True)
@@ -124,6 +127,8 @@ class CampaignRecipient(models.Model):
             return self.company_name
         if self.customer_id:
             return self.customer.company_name
+        if self.lead_id:
+            return self.lead.company_name
         return ''
 
     @property
@@ -132,6 +137,8 @@ class CampaignRecipient(models.Model):
             return self.contact_name
         if self.customer_id:
             return self.customer.contact_person_name
+        if self.lead_id:
+            return self.lead.full_name
         return ''
 
 
