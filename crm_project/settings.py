@@ -84,6 +84,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'gamification.context_processors.gamification_status',
                 'customers.context_processors.customer_request_notifications',
+                'sales_proposals.context_processors.proposal_approval_notifications',
             ],
         },
     },

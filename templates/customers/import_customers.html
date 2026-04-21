@@ -22,6 +22,12 @@
                         <li><a href="{% url 'download_sample_csv' %}" class="alert-link"><i class="fas fa-download"></i> Download sample CSV</a> for the complete format reference</li>
                     </ul>
                 </div>
+                <div class="alert alert-warning">
+                    <strong>Need to import additional contact persons?</strong>
+                    Use the separate
+                    <a href="{% url 'import_customer_contacts' %}" class="alert-link">Customer Contacts CSV import</a>
+                    to add `CustomerContact` rows without creating duplicate customers or changing existing customer links.
+                </div>
                 
                 <form method="post" enctype="multipart/form-data">
                     {% csrf_token %}

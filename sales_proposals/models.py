@@ -232,23 +232,65 @@ class Proposal(models.Model):
         return [u for u in chain if u]
 
     def ensure_approval_chain(self):
-        if not self.approval_required:
-            return
         from django.db import transaction
         with transaction.atomic():
             steps = list(self.approval_steps.order_by('level'))
-            if steps and any(s.status in ['approved', 'rejected'] for s in steps) and self.approval_status == 'pending':
-                for s in steps:
-                    s.delete()
+            if not self.approval_required:
+                if steps:
+                    self.approval_steps.all().delete()
+                fields_to_update = []
+                if self.approval_status != 'not_required':
+                    self.approval_status = 'not_required'
+                    fields_to_update.append('approval_status')
+                if self.approval_submitted_at is not None:
+                    self.approval_submitted_at = None
+                    fields_to_update.append('approval_submitted_at')
+                if self.approved_at is not None:
+                    self.approved_at = None
+                    fields_to_update.append('approved_at')
+                if fields_to_update:
+                    self.save(update_fields=fields_to_update)
+                return
+
+            chain = self.get_approval_chain()
+            expected_ids = [user.id for user in chain if user]
+            existing_ids = [step.approver_id for step in steps]
+            has_decisions = any(step.status in ['approved', 'rejected'] for step in steps)
+            chain_changed = expected_ids != existing_ids
+
+            # Safest behavior: if the approver chain changes or any approver already acted,
+            # restart the workflow so stale approvals do not remain attached to edited content.
+            if steps and (chain_changed or has_decisions):
+                self.approval_steps.all().delete()
                 steps = []
+                self.approval_status = 'pending'
+                self.approved_at = None
+                self.approval_submitted_at = None
+                self.approval_version = self.approval_version + 1
+                self.save(update_fields=[
+                    'approval_status',
+                    'approved_at',
+                    'approval_submitted_at',
+                    'approval_version',
+                ])
+
             if not steps:
-                chain = self.get_approval_chain()
                 for idx, user in enumerate(chain, start=1):
                     ProposalApprovalStep.objects.create(proposal=self, level=idx, approver=user, status='pending')
                 if chain:
                     self.approval_status = 'in_progress'
                     self.approval_submitted_at = timezone.now()
-                    self.save()
+                    self.approved_at = None
+                    self.save(update_fields=['approval_status', 'approval_submitted_at', 'approved_at'])
+
+    def get_current_pending_step(self):
+        return self.approval_steps.filter(status='pending').order_by('level', 'created_at').first()
+
+    def can_user_decide_current_step(self, user):
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        current_step = self.get_current_pending_step()
+        return bool(current_step and current_step.approver_id == user.id)
 
     def __str__(self):
         return f"{self.proposal_number} - {self.customer.company_name}"

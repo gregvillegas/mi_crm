@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">Import Customer Contacts from CSV</h3>
+                <a href="{% url 'import_customers' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-users"></i> Customer Import
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Safest Import Path:</strong>
+                    This importer adds or updates related additional contacts only. It does not create new customers,
+                    replace customer IDs, or modify links used by proposals, activities, tickets, campaigns, or lead conversions.
+                </div>
+
+                <div class="alert alert-secondary">
+                    <strong>CSV Format Instructions:</strong>
+                    <ul class="mb-0">
+                        <li><strong>Required columns:</strong> `customer_email`, `contact_name`</li>
+                        <li><strong>Optional columns:</strong> `contact_position`, `contact_email`, `contact_phone`, `is_primary`</li>
+                        <li><strong>Customer match:</strong> `customer_email` must match an existing customer email exactly</li>
+                        <li><strong>Updates:</strong> Existing contacts are matched first by `contact_email`, then by contact name for the same customer</li>
+                        <li><strong>Limit:</strong> Up to 4 additional contacts per customer</li>
+                        <li><strong>Primary flag:</strong> Use `Yes`/`No`, `True`/`False`, or `1`/`0`</li>
+                        <li>
+                            <a href="{% url 'download_customer_contacts_sample_csv' %}" class="alert-link">
+                                <i class="fas fa-download"></i> Download customer contacts sample CSV
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="csv_file" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">Import Customer Contacts</button>
+                        <a href="{% url 'download_customer_contacts_sample_csv' %}" class="btn btn-outline-info">
+                            Download Sample CSV
+                        </a>
+                        <a href="{% url 'customer_list' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

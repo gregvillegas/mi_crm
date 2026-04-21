@@ -100,11 +100,11 @@
     <div class="card-body">
         <p class="text-muted mb-3">All salespeople who have handled this customer:</p>
         <div class="row">
-            {% for username, first_name, last_name, initials in salespeople_history %}
+            {% for salesperson in salespeople_history %}
                 <div class="col-md-3 mb-2">
                     <div class="d-flex align-items-center">
-                        <span class="badge bg-primary me-2">{{ initials|default:username|slice:":3" }}</span>
-                        <span>{{ first_name }} {{ last_name }}{% if not first_name %}{{ username }}{% endif %}</span>
+                        <span class="badge bg-primary me-2">{{ salesperson.initials|default:salesperson.username|slice:":3" }}</span>
+                        <span>{{ salesperson.get_full_name|default:salesperson.username }}</span>
                     </div>
                 </div>
             {% endfor %}

@@ -22,7 +22,9 @@ urlpatterns = [
     path('<int:pk>/add-note/', views.add_customer_note, name='add_customer_note'),
     path('export/', views.export_customers, name='export_customers'),
     path('import/', views.import_customers, name='import_customers'),
+    path('import-contacts/', views.import_customer_contacts, name='import_customer_contacts'),
     path('sample-csv/', views.download_sample_csv, name='download_sample_csv'),
+    path('sample-contacts-csv/', views.download_customer_contacts_sample_csv, name='download_customer_contacts_sample_csv'),
     
     # Admin backup and restore functionality
     path('<int:pk>/edit/', views.edit_customer, name='edit_customer'),

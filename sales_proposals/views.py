@@ -14,6 +14,7 @@ from users.models import User
 from sales_monitoring.models import SalesActivity, ActivityType
 from sales_funnel.models import SalesFunnel
 from django.db import transaction
+from django.db.models import F, Min, Q
 from django.utils import timezone
 from django.conf import settings
 from reportlab.pdfgen import canvas
@@ -857,15 +858,37 @@ Best regards,
 
 @login_required
 def approvals_inbox(request):
-    steps = ProposalApprovalStep.objects.filter(approver=request.user, status='pending').select_related('proposal', 'proposal__customer')
+    steps = (
+        ProposalApprovalStep.objects
+        .filter(approver=request.user, status='pending')
+        .annotate(
+            current_pending_level=Min(
+                'proposal__approval_steps__level',
+                filter=Q(proposal__approval_steps__status='pending')
+            )
+        )
+        .filter(level=F('current_pending_level'))
+        .select_related('proposal', 'proposal__customer')
+        .order_by('-proposal__approval_submitted_at', '-created_at')
+    )
     return render(request, 'sales_proposals/approvals_inbox.html', {'steps': steps})
 
 @login_required
 def approve_proposal(request, pk):
     proposal = get_object_or_404(Proposal, pk=pk)
-    step = ProposalApprovalStep.objects.filter(proposal=proposal, approver=request.user, status='pending').order_by('level').first()
+    current_step = proposal.get_current_pending_step()
+    step = ProposalApprovalStep.objects.filter(
+        proposal=proposal,
+        approver=request.user,
+        status='pending'
+    ).order_by('level').first()
     if not step:
         messages.error(request, 'No pending approval step assigned to you.')
+        return redirect('proposal_detail', pk=pk)
+    if not current_step or current_step.id != step.id:
+        waiting_label = f'Level {current_step.level}' if current_step else 'the current approval level'
+        waiting_name = current_step.approver.get_full_name() or current_step.approver.username if current_step and current_step.approver else 'the assigned approver'
+        messages.error(request, f'Approval order is enforced. Please wait for {waiting_label} ({waiting_name}) first.')
         return redirect('proposal_detail', pk=pk)
     if request.method == 'POST':
         step.status = 'approved'
@@ -886,9 +909,19 @@ def approve_proposal(request, pk):
 @login_required
 def reject_proposal(request, pk):
     proposal = get_object_or_404(Proposal, pk=pk)
-    step = ProposalApprovalStep.objects.filter(proposal=proposal, approver=request.user, status='pending').order_by('level').first()
+    current_step = proposal.get_current_pending_step()
+    step = ProposalApprovalStep.objects.filter(
+        proposal=proposal,
+        approver=request.user,
+        status='pending'
+    ).order_by('level').first()
     if not step:
         messages.error(request, 'No pending approval step assigned to you.')
+        return redirect('proposal_detail', pk=pk)
+    if not current_step or current_step.id != step.id:
+        waiting_label = f'Level {current_step.level}' if current_step else 'the current approval level'
+        waiting_name = current_step.approver.get_full_name() or current_step.approver.username if current_step and current_step.approver else 'the assigned approver'
+        messages.error(request, f'Approval order is enforced. Please wait for {waiting_label} ({waiting_name}) first.')
         return redirect('proposal_detail', pk=pk)
     if request.method == 'POST':
         step.status = 'rejected'

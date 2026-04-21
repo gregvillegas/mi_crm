@@ -333,15 +333,18 @@
                 </ul>
                 <ul class="navbar-nav ms-auto align-items-center">
                     {% if user.is_authenticated %}
-                        {% if user.role in 'admin,avp,gm,vp,salesperson' %}
+                        {% if user.role in 'admin,avp,gm,vp,salesperson,supervisor,asm' or customer_request_notification_count or proposal_approval_notification_count %}
                         <li class="nav-item dropdown me-2">
                             <a class="nav-link position-relative" href="#" id="notificationsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
                                 <i class="fas fa-bell"></i>
-                                {% if customer_request_notification_count %}
-                                <span class="badge rounded-pill bg-danger notification-badge">{{ customer_request_notification_count }}</span>
+                                {% with total_notification_count=customer_request_notification_count|add:proposal_approval_notification_count %}
+                                {% if total_notification_count %}
+                                <span class="badge rounded-pill bg-danger notification-badge">{{ total_notification_count }}</span>
                                 {% endif %}
+                                {% endwith %}
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end shadow notification-menu" aria-labelledby="notificationsDropdown">
+                                {% if customer_request_notifications %}
                                 <li><h6 class="dropdown-header">Customer Request Notifications</h6></li>
                                 {% for item in customer_request_notifications %}
                                 <li>
@@ -353,10 +356,35 @@
                                         </div>
                                     </a>
                                 </li>
-                                {% empty %}
-                                <li><span class="dropdown-item-text text-muted">No notifications.</span></li>
                                 {% endfor %}
+                                {% if proposal_approval_notifications %}
                                 <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                {% endif %}
+
+                                {% if proposal_approval_notifications %}
+                                <li><h6 class="dropdown-header">Proposal Approval Notifications</h6></li>
+                                {% for item in proposal_approval_notifications %}
+                                <li>
+                                    <a class="dropdown-item notification-item" href="{{ item.url }}">
+                                        <div class="fw-bold">{{ item.title }}</div>
+                                        <div class="small text-muted">{{ item.message }}</div>
+                                        <div class="small text-warning">
+                                            {{ item.timestamp|date:"M d, Y H:i" }}
+                                        </div>
+                                    </a>
+                                </li>
+                                {% endfor %}
+                                {% endif %}
+
+                                {% if not customer_request_notifications and not proposal_approval_notifications %}
+                                <li><span class="dropdown-item-text text-muted">No notifications.</span></li>
+                                {% endif %}
+
+                                {% if customer_request_notifications or proposal_approval_notifications %}
+                                <li><hr class="dropdown-divider"></li>
+                                {% endif %}
+                                {% if customer_request_notifications %}
                                 <li>
                                     {% if user.role == 'salesperson' %}
                                     <a class="dropdown-item" href="{% url 'customer_create_request_history' %}">
@@ -368,6 +396,14 @@
                                     </a>
                                     {% endif %}
                                 </li>
+                                {% endif %}
+                                {% if proposal_approval_notifications %}
+                                <li>
+                                    <a class="dropdown-item" href="{% url 'approvals_inbox' %}">
+                                        <i class="fas fa-check-circle me-2"></i>View Proposal Approvals
+                                    </a>
+                                </li>
+                                {% endif %}
                             </ul>
                         </li>
                         {% endif %}

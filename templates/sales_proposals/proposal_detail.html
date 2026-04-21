@@ -3,6 +3,17 @@
 
 {% block content %}
 <div class="container mb-5">
+    <style>
+        .history-toggle-btn {
+            padding: 0;
+            font-size: 0.875rem;
+            text-decoration: none;
+        }
+        .history-toggle-btn:hover,
+        .history-toggle-btn:focus {
+            text-decoration: underline;
+        }
+    </style>
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2>Proposal {{ proposal.proposal_number }}</h2>
         <div class="btn-group">
@@ -208,47 +219,58 @@
                             {% endif %}
                             {% if log.details %}
                             <div class="mt-2">
-                                <small class="text-muted">Details</small>
-                                <ul class="mb-0">
-                                    {% for key, change in log.details.items %}
-                                        {% if key != 'items' %}
-                                            <li>
-                                                <strong>{{ key|cut:"_"|title }}</strong>:
-                                                <span class="text-muted">{{ change.from|default:"—" }}</span>
-                                                <span class="mx-1">→</span>
-                                                <span>{{ change.to|default:"—" }}</span>
+                                <button
+                                    class="btn btn-link text-decoration-none history-toggle-btn"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#change-log-details-{{ log.id }}"
+                                    aria-expanded="false"
+                                    aria-controls="change-log-details-{{ log.id }}">
+                                    View details
+                                </button>
+                                <div class="collapse mt-2" id="change-log-details-{{ log.id }}">
+                                    <small class="text-muted">Details</small>
+                                    <ul class="mb-0">
+                                        {% for key, change in log.details.items %}
+                                            {% if key != 'items' %}
+                                                <li>
+                                                    <strong>{{ key|cut:"_"|title }}</strong>:
+                                                    <span class="text-muted">{{ change.from|default:"—" }}</span>
+                                                    <span class="mx-1">→</span>
+                                                    <span>{{ change.to|default:"—" }}</span>
+                                                </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        {% if log.details.items %}
+                                            <li class="mt-1">
+                                                <strong>Items</strong>:
+                                                <ul class="mb-0">
+                                                    {% for item_id, item_change in log.details.items.items %}
+                                                        <li>
+                                                            {% if item_change.status == 'added' %}
+                                                                Added item (ID {{ item_id }}): {{ item_change.after.part_number|default:"" }} — {{ item_change.after.description|default:"" }} (Qty {{ item_change.after.quantity|default:"" }}, Unit {{ item_change.after.unit_price|default:"" }}, Warranty {{ item_change.after.warranty|default:"" }})
+                                                            {% elif item_change.status == 'deleted' %}
+                                                                Deleted item (ID {{ item_id }}): {{ item_change.before.part_number|default:"" }} — {{ item_change.before.description|default:"" }}
+                                                            {% elif item_change.status == 'updated' %}
+                                                                Updated item (ID {{ item_id }}):
+                                                                <ul class="mb-0">
+                                                                    <li>Part #: {{ item_change.before.part_number|default:"—" }} → {{ item_change.after.part_number|default:"—" }}</li>
+                                                                    <li>Description: {{ item_change.before.description|default:"—" }} → {{ item_change.after.description|default:"—" }}</li>
+                                                                    <li>Qty: {{ item_change.before.quantity|default:"—" }} → {{ item_change.after.quantity|default:"—" }}</li>
+                                                                    <li>Unit Cost: {{ item_change.before.unit_cost|default:"—" }} → {{ item_change.after.unit_cost|default:"—" }}</li>
+                                                                    <li>Unit Price: {{ item_change.before.unit_price|default:"—" }} → {{ item_change.after.unit_price|default:"—" }}</li>
+                                                                    <li>Warranty: {{ item_change.before.warranty|default:"—" }} → {{ item_change.after.warranty|default:"—" }}</li>
+                                                                </ul>
+                                                            {% else %}
+                                                                Item (ID {{ item_id }}) updated.
+                                                            {% endif %}
+                                                        </li>
+                                                    {% endfor %}
+                                                </ul>
                                             </li>
                                         {% endif %}
-                                    {% endfor %}
-                                    {% if log.details.items %}
-                                        <li class="mt-1">
-                                            <strong>Items</strong>:
-                                            <ul class="mb-0">
-                                                {% for item_id, item_change in log.details.items.items %}
-                                                    <li>
-                                                        {% if item_change.status == 'added' %}
-                                                            Added item (ID {{ item_id }}): {{ item_change.after.part_number|default:"" }} — {{ item_change.after.description|default:"" }} (Qty {{ item_change.after.quantity|default:"" }}, Unit {{ item_change.after.unit_price|default:"" }}, Warranty {{ item_change.after.warranty|default:"" }})
-                                                        {% elif item_change.status == 'deleted' %}
-                                                            Deleted item (ID {{ item_id }}): {{ item_change.before.part_number|default:"" }} — {{ item_change.before.description|default:"" }}
-                                                        {% elif item_change.status == 'updated' %}
-                                                            Updated item (ID {{ item_id }}):
-                                                            <ul class="mb-0">
-                                                                <li>Part #: {{ item_change.before.part_number|default:"—" }} → {{ item_change.after.part_number|default:"—" }}</li>
-                                                                <li>Description: {{ item_change.before.description|default:"—" }} → {{ item_change.after.description|default:"—" }}</li>
-                                                                <li>Qty: {{ item_change.before.quantity|default:"—" }} → {{ item_change.after.quantity|default:"—" }}</li>
-                                                                <li>Unit Cost: {{ item_change.before.unit_cost|default:"—" }} → {{ item_change.after.unit_cost|default:"—" }}</li>
-                                                                <li>Unit Price: {{ item_change.before.unit_price|default:"—" }} → {{ item_change.after.unit_price|default:"—" }}</li>
-                                                                <li>Warranty: {{ item_change.before.warranty|default:"—" }} → {{ item_change.after.warranty|default:"—" }}</li>
-                                                            </ul>
-                                                        {% else %}
-                                                            Item (ID {{ item_id }}) updated.
-                                                        {% endif %}
-                                                    </li>
-                                                {% endfor %}
-                                            </ul>
-                                        </li>
-                                    {% endif %}
-                                </ul>
+                                    </ul>
+                                </div>
                             </div>
                             {% endif %}
                         </li>

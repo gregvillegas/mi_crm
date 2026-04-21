@@ -946,15 +946,15 @@ def customer_history(request, pk):
         'field_updates': history.filter(action='field_updated').count(),
     }
     
-    # Get unique salespeople who have handled this customer
-    salespeople_history = history.filter(
-        salesperson_at_time__isnull=False
-    ).values_list(
-        'salesperson_at_time__username',
-        'salesperson_at_time__first_name',
-        'salesperson_at_time__last_name',
-        'salesperson_at_time__initials'
-    ).distinct()
+    # Show each attributed salesperson only once in the summary card.
+    salesperson_ids = list(
+        history.filter(salesperson_at_time__isnull=False)
+        .values_list('salesperson_at_time_id', flat=True)
+        .distinct()
+    )
+    salespeople_history = User.objects.filter(id__in=salesperson_ids).order_by(
+        'first_name', 'last_name', 'username'
+    )
     
     context = {
         'customer': customer,
