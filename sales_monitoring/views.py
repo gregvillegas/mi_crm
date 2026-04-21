@@ -903,9 +903,19 @@ def create_activity(request):
         form = SalesActivityForm(request.POST, user=user)
         if form.is_valid():
             activity = form.save(commit=False)
-            if user.role == 'salesperson':
-                activity.salesperson = user
+            activity.salesperson = form.cleaned_data.get('resolved_salesperson')
             activity.save()
+
+            if activity.customer and (not activity.customer.is_active or activity.customer.auto_inactive_flag):
+                reactivated_fields = []
+                if not activity.customer.is_active:
+                    activity.customer.is_active = True
+                    reactivated_fields.append('is_active')
+                if activity.customer.auto_inactive_flag:
+                    activity.customer.auto_inactive_flag = False
+                    reactivated_fields.append('auto_inactive_flag')
+                if reactivated_fields:
+                    activity.customer.save(update_fields=reactivated_fields)
             
             # Log the activity creation
             ActivityLog.log_activity_change(

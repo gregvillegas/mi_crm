@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Sum
 from django.utils import timezone
 from .models import Customer, CustomerBackup, CustomerHistory, DelinquencyRecord, CustomerNote, CustomerContact, CustomerCreateRequest
@@ -641,6 +641,147 @@ def import_customers(request):
     
     return render(request, 'customers/import_customers.html')
 
+
+@login_required
+@user_passes_test(is_admin)
+def import_customer_contacts(request):
+    """Import additional customer contacts from CSV without changing Customer records."""
+    if request.method == 'POST':
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            messages.error(request, 'Please select a CSV file to upload.')
+            return redirect('import_customer_contacts')
+
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'Please upload a valid CSV file.')
+            return redirect('import_customer_contacts')
+
+        try:
+            raw = csv_file.read()
+            decoded_text = None
+            for encoding in ['utf-8-sig', 'utf-8', 'cp1252', 'latin-1']:
+                try:
+                    decoded_text = raw.decode(encoding)
+                    break
+                except UnicodeDecodeError:
+                    continue
+
+            if decoded_text is None:
+                messages.error(request, 'Unable to read the CSV file. Unsupported encoding.')
+                return redirect('import_customer_contacts')
+
+            reader = csv.DictReader(io.StringIO(decoded_text))
+            if not reader.fieldnames:
+                messages.error(request, 'The CSV file is missing a header row.')
+                return redirect('import_customer_contacts')
+
+            def _first_value(row, keys):
+                normalized = {}
+                for key, value in row.items():
+                    normalized_key = (key or '').strip().lower().replace(' ', '_')
+                    normalized[normalized_key] = value
+                for key in keys:
+                    value = normalized.get(key)
+                    if value is not None:
+                        return str(value).strip()
+                return ''
+
+            def _parse_bool(value):
+                return str(value).strip().lower() in ['yes', 'true', '1', 'y']
+
+            created_count = 0
+            updated_count = 0
+            errors = []
+
+            for row_num, row in enumerate(reader, start=2):
+                customer_email = _first_value(row, ['customer_email', 'customer'])
+                contact_name = _first_value(row, ['contact_name', 'name'])
+                position = _first_value(row, ['contact_position', 'position', 'title'])
+                contact_email = _first_value(row, ['contact_email', 'email'])
+                phone = _first_value(row, ['contact_phone', 'phone', 'mobile'])
+                is_primary = _parse_bool(_first_value(row, ['is_primary', 'primary']))
+
+                if not any([customer_email, contact_name, position, contact_email, phone]):
+                    continue
+
+                if not customer_email or not contact_name:
+                    errors.append(
+                        f'Row {row_num}: Customer Email and Contact Name are required'
+                    )
+                    continue
+
+                customer = Customer.objects.filter(email__iexact=customer_email).first()
+                if not customer:
+                    errors.append(
+                        f'Row {row_num}: Customer with email "{customer_email}" was not found'
+                    )
+                    continue
+
+                existing_contact = None
+                if contact_email:
+                    existing_contact = CustomerContact.objects.filter(
+                        customer=customer,
+                        email__iexact=contact_email,
+                    ).first()
+
+                if existing_contact is None:
+                    existing_contact = CustomerContact.objects.filter(
+                        customer=customer,
+                        name__iexact=contact_name,
+                    ).first()
+
+                if existing_contact is None and customer.contacts.count() >= 4:
+                    errors.append(
+                        f'Row {row_num}: Customer "{customer.company_name}" already has 4 additional contacts'
+                    )
+                    continue
+
+                try:
+                    with transaction.atomic():
+                        if existing_contact:
+                            existing_contact.name = contact_name
+                            existing_contact.position = position
+                            existing_contact.email = contact_email or None
+                            existing_contact.phone = phone
+                            existing_contact.is_primary = is_primary
+                            existing_contact.save()
+                            updated_count += 1
+                        else:
+                            CustomerContact.objects.create(
+                                customer=customer,
+                                name=contact_name,
+                                position=position,
+                                email=contact_email or None,
+                                phone=phone,
+                                is_primary=is_primary,
+                            )
+                            created_count += 1
+                except Exception as exc:
+                    errors.append(f'Row {row_num}: Error saving contact - {exc}')
+
+            if created_count or updated_count:
+                messages.success(
+                    request,
+                    f'Customer contacts import complete. '
+                    f'Created: {created_count}, Updated: {updated_count}.'
+                )
+
+            if errors:
+                error_message = f'Encountered {len(errors)} errors:\n' + '\n'.join(errors[:10])
+                if len(errors) > 10:
+                    error_message += f'\n... and {len(errors) - 10} more errors.'
+                messages.warning(request, error_message)
+
+            if not created_count and not updated_count and not errors:
+                messages.info(request, 'No contact rows were found to import.')
+
+        except Exception as exc:
+            messages.error(request, f'Error processing CSV file: {exc}')
+
+        return redirect('import_customer_contacts')
+
+    return render(request, 'customers/import_customer_contacts.html')
+
 @login_required
 @user_passes_test(is_admin)
 def download_sample_csv(request):
@@ -673,6 +814,42 @@ def download_sample_csv(request):
         '2024-01-17 08:15:00', '2024-01-30 10:30:00'
     ])
     
+    return response
+
+
+@login_required
+@user_passes_test(is_admin)
+def download_customer_contacts_sample_csv(request):
+    """Download a sample CSV template for importing additional customer contacts."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="customer_contacts_import_sample.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow([
+        'customer_email',
+        'contact_name',
+        'contact_position',
+        'contact_email',
+        'contact_phone',
+        'is_primary',
+    ])
+    writer.writerow([
+        'john.doe@abccorp.com',
+        'Maria Santos',
+        'Procurement Manager',
+        'maria.santos@abccorp.com',
+        '+639171112233',
+        'Yes',
+    ])
+    writer.writerow([
+        'john.doe@abccorp.com',
+        'Peter Cruz',
+        'IT Manager',
+        'peter.cruz@abccorp.com',
+        '+639181234567',
+        'No',
+    ])
+
     return response
 
 

@@ -12,10 +12,16 @@ from customers.models import Customer
 from users.models import User
 
 class SalesActivityForm(forms.ModelForm):
+    salesperson = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='salesperson', is_active=True),
+        required=False,
+        help_text='Required when creating an activity as admin or manager and the customer has no assigned salesperson.'
+    )
+
     class Meta:
         model = SalesActivity
         fields = [
-            'title', 'description', 'activity_type', 'customer', 'status', 'priority',
+            'title', 'description', 'activity_type', 'customer', 'salesperson', 'status', 'priority',
             'scheduled_start', 'scheduled_end', 'notes', 'follow_up_required', 'follow_up_date'
         ]
         widgets = {
@@ -33,11 +39,54 @@ class SalesActivityForm(forms.ModelForm):
         # Limit customers to those assigned to the current user if they're a salesperson
         if self.user and self.user.role == 'salesperson':
             self.fields['customer'].queryset = Customer.objects.filter(
-                salesperson=self.user, is_active=True
+                salesperson=self.user
             )
+            self.fields['salesperson'].widget = forms.HiddenInput()
+            self.fields['salesperson'].required = False
+        elif self.user and self.user.role == 'supervisor':
+            salesperson_ids = []
+            for group in self.user.managed_groups.all():
+                salesperson_ids.extend(
+                    group.members.filter(user__role='salesperson').values_list('user_id', flat=True)
+                )
+            self.fields['salesperson'].queryset = User.objects.filter(id__in=set(salesperson_ids), is_active=True)
+        elif self.user and self.user.role == 'teamlead':
+            salesperson_ids = []
+            for group in self.user.led_groups.all():
+                salesperson_ids.extend(
+                    group.members.filter(user__role='salesperson').values_list('user_id', flat=True)
+                )
+            self.fields['salesperson'].queryset = User.objects.filter(id__in=set(salesperson_ids), is_active=True)
+        elif self.user and self.user.role == 'asm':
+            salesperson_ids = []
+            for team in self.user.asm_teams.all():
+                for group in team.groups.all():
+                    salesperson_ids.extend(
+                        group.members.filter(user__role='salesperson').values_list('user_id', flat=True)
+                    )
+            self.fields['salesperson'].queryset = User.objects.filter(id__in=set(salesperson_ids), is_active=True)
+        elif self.user and self.user.role == 'avp':
+            salesperson_ids = []
+            for team in self.user.managed_teams.all():
+                for group in team.groups.all():
+                    salesperson_ids.extend(
+                        group.members.filter(user__role='salesperson').values_list('user_id', flat=True)
+                    )
+            self.fields['salesperson'].queryset = User.objects.filter(id__in=set(salesperson_ids), is_active=True)
         
         # Set up crispy forms
         self.helper = FormHelper()
+        detail_row = [
+            Column('customer', css_class='form-group col-md-6'),
+        ]
+        if self.user and self.user.role != 'salesperson':
+            detail_row.append(Column('salesperson', css_class='form-group col-md-3'))
+            detail_row.append(Column('priority', css_class='form-group col-md-1'))
+            detail_row.append(Column('status', css_class='form-group col-md-2'))
+        else:
+            detail_row.append(Column('priority', css_class='form-group col-md-3'))
+            detail_row.append(Column('status', css_class='form-group col-md-3'))
+
         self.helper.layout = Layout(
             Fieldset(
                 'Activity Details',
@@ -46,11 +95,7 @@ class SalesActivityForm(forms.ModelForm):
                     Column('activity_type', css_class='form-group col-md-4'),
                 ),
                 'description',
-                Row(
-                    Column('customer', css_class='form-group col-md-6'),
-                    Column('priority', css_class='form-group col-md-3'),
-                    Column('status', css_class='form-group col-md-3'),
-                ),
+                Row(*detail_row),
             ),
             Fieldset(
                 'Scheduling',
@@ -79,6 +124,7 @@ class SalesActivityForm(forms.ModelForm):
         follow_up_date = cleaned_data.get('follow_up_date')
         activity_type = cleaned_data.get('activity_type')
         customer = cleaned_data.get('customer')
+        selected_salesperson = cleaned_data.get('salesperson')
         
         # Validate scheduling
         if scheduled_start and scheduled_end:
@@ -92,6 +138,17 @@ class SalesActivityForm(forms.ModelForm):
         # Validate customer requirement
         if activity_type and activity_type.requires_customer and not customer:
             raise ValidationError(f'Customer is required for {activity_type.name} activities.')
+
+        # Determine responsible salesperson for non-sales creators
+        if self.user and self.user.role != 'salesperson':
+            if customer and customer.salesperson:
+                cleaned_data['resolved_salesperson'] = customer.salesperson
+            elif selected_salesperson:
+                cleaned_data['resolved_salesperson'] = selected_salesperson
+            else:
+                self.add_error('salesperson', 'Select a salesperson, or assign the customer to a salesperson first.')
+        elif self.user and self.user.role == 'salesperson':
+            cleaned_data['resolved_salesperson'] = self.user
         
         return cleaned_data
 
