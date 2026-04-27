@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.microimage.crm.app-mergeDebugResources-48:/values-de/values-de.xml",
+            "outputFile": "com.microimage.crm.app-mergeDebugResources-49:/values-de/values-de.xml",
             "map": [
                 {
                     "source": "/Users/greg/.gradle/caches/transforms-3/c910872695562bbea14a1286c6bff213/transformed/material3-1.1.1/res/values-de/values-de.xml",

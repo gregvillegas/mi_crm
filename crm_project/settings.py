@@ -230,6 +230,18 @@ EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'Rtyu1029@!Brx4*svv'
 #EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 #EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = 'sales@microimageph.com'
+COMPANY_NAME = 'MICRO IMAGE INTERNATIONAL CORP.'
+COMPANY_OFFICE_PHONE = '8-840-4323'
+COMPANY_ADDRESS = (
+    'Unit 53, 62 & 101 Legaspi Suites Building, 178 Salcedo St., '
+    'Legaspi Village, Makati City 1229'
+)
+COMPANY_WEBSITE_URL = 'https://www.microimageph.com'
+COMPANY_WEBSITE_LABEL = 'www.microimageph.com'
+COMPANY_FACEBOOK_URL = '    https://www.facebook.com/MicroImagePh'
+COMPANY_INSTAGRAM_URL = 'https://www.instagram.com/MicroImagePh'
+COMPANY_X_URL = 'https://twitter.com/MicroImagePh'
+COMPANY_LINKEDIN_URL = 'https://www.linkedin.com/company/MicroImagePh'
 
 # Fallback to filebased backend if SMTP credentials are missing (Safety for local dev)
 if not EMAIL_HOST_USER:

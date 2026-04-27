@@ -9,14 +9,24 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework import routers
 from users.api import UserViewSet, CustomAuthToken
-from crm_project.api_views import SalesFunnelViewSet, ProposalViewSet, SalesActivityViewSet
+from crm_project.api_views import (
+    CampaignViewSet,
+    CustomerCreateRequestViewSet,
+    CustomerViewSet,
+    ProposalViewSet,
+    SalesActivityViewSet,
+    SalesFunnelViewSet,
+)
 
 # API Router
 router = routers.DefaultRouter()
 router.register(r'users', UserViewSet)
+router.register(r'customers', CustomerViewSet, basename='customers')
+router.register(r'customer-requests', CustomerCreateRequestViewSet, basename='customer-requests')
 router.register(r'funnel', SalesFunnelViewSet, basename='funnel')
 router.register(r'proposals', ProposalViewSet, basename='proposals')
 router.register(r'activities', SalesActivityViewSet, basename='activities')
+router.register(r'campaigns', CampaignViewSet, basename='campaigns')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

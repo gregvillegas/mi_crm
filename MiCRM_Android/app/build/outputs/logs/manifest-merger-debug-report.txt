@@ -12,6 +12,7 @@ MERGED from [androidx.navigation:navigation-compose:2.7.5] /Users/greg/.gradle/c
 MERGED from [androidx.compose.material3:material3:1.1.1] /Users/greg/.gradle/caches/transforms-3/c910872695562bbea14a1286c6bff213/transformed/material3-1.1.1/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.compose.material:material-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/92f529c0a1dc29bbeff225a3a02b85ee/transformed/material-release/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.compose.material:material-icons-core-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/43658a17c2ffe467df32b6135e9c5f90/transformed/material-icons-core-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material:material-icons-extended-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/4044c0b89d3c7403361b605c0702a63e/transformed/material-icons-extended-release/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.compose.material:material-ripple-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/0192f9f8cc959eba2f583bf98fae20c7/transformed/material-ripple-release/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.compose.foundation:foundation-layout-android:1.5.1] /Users/greg/.gradle/caches/transforms-3/8643eadee69594c98608f75ea3c44976/transformed/foundation-layout-release/AndroidManifest.xml:2:1-7:12
 MERGED from [androidx.compose.foundation:foundation-android:1.5.1] /Users/greg/.gradle/caches/transforms-3/7b9b6294e6b02b534d02e8d805798dbe/transformed/foundation-release/AndroidManifest.xml:2:1-7:12
@@ -153,6 +154,8 @@ MERGED from [androidx.compose.material:material-android:1.5.0] /Users/greg/.grad
 MERGED from [androidx.compose.material:material-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/92f529c0a1dc29bbeff225a3a02b85ee/transformed/material-release/AndroidManifest.xml:5:5-44
 MERGED from [androidx.compose.material:material-icons-core-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/43658a17c2ffe467df32b6135e9c5f90/transformed/material-icons-core-release/AndroidManifest.xml:5:5-44
 MERGED from [androidx.compose.material:material-icons-core-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/43658a17c2ffe467df32b6135e9c5f90/transformed/material-icons-core-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-extended-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/4044c0b89d3c7403361b605c0702a63e/transformed/material-icons-extended-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-extended-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/4044c0b89d3c7403361b605c0702a63e/transformed/material-icons-extended-release/AndroidManifest.xml:5:5-44
 MERGED from [androidx.compose.material:material-ripple-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/0192f9f8cc959eba2f583bf98fae20c7/transformed/material-ripple-release/AndroidManifest.xml:5:5-44
 MERGED from [androidx.compose.material:material-ripple-android:1.5.0] /Users/greg/.gradle/caches/transforms-3/0192f9f8cc959eba2f583bf98fae20c7/transformed/material-ripple-release/AndroidManifest.xml:5:5-44
 MERGED from [androidx.compose.foundation:foundation-layout-android:1.5.1] /Users/greg/.gradle/caches/transforms-3/8643eadee69594c98608f75ea3c44976/transformed/foundation-layout-release/AndroidManifest.xml:5:5-44

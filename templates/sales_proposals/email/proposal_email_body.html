@@ -1,0 +1,102 @@
+{% autoescape on %}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Proposal Email</title>
+</head>
+<body style="margin:0; padding:0; background-color:#f5f7fb; font-family:Arial, Helvetica, sans-serif; color:#222222;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fb; margin:0; padding:18px 0;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="660" cellpadding="0" cellspacing="0" style="width:660px; max-width:660px; background-color:#ffffff; border:1px solid #e3e7ee;">
+                    <tr>
+                        <td style="padding:28px 30px 18px 30px; font-size:15px; line-height:1.65; color:#1f2937;">
+                            {% for paragraph in cover_message.splitlines %}
+                                {% if paragraph.strip %}
+                                    <p style="margin:0 0 16px 0;">{{ paragraph }}</p>
+                                {% else %}
+                                    <div style="height:10px; line-height:10px;">&nbsp;</div>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:0 30px 24px 30px;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:2px solid #d91f26; padding-top:18px;">
+                                <tr>
+                                    <td style="width:136px; vertical-align:top; padding-right:18px;">
+                                        <img src="cid:company-logo" alt="{{ signature.company_name }}" style="display:block; width:122px; max-width:100%; height:auto; margin-bottom:14px;">
+                                        {% if signature.anniversary_image_available %}
+                                        <img src="cid:company-28-years" alt="28 Years in the IT Industry" style="display:block; width:122px; max-width:100%; height:auto; margin-bottom:14px;">
+                                        {% endif %}
+                                        {% if signature.company_social_links %}
+                                        <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+                                            <tr>
+                                                {% for item in signature.company_social_links %}
+                                                <td style="padding-right:8px;">
+                                                    {% if item.label == 'Facebook' %}
+                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; font-size:22px; font-weight:700; color:#000000; text-decoration:none; border-radius:50%; border:2px solid #000000;">{{ item.icon_text }}</a>
+                                                    {% elif item.label == 'Instagram' %}
+                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:28px; text-align:center; font-size:11px; font-weight:700; color:#000000; text-decoration:none; border-radius:10px; border:2px solid #000000;">{{ item.icon_text }}</a>
+                                                    {% elif item.label == 'LinkedIn' %}
+                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:28px; text-align:center; font-size:13px; font-weight:700; color:#000000; text-decoration:none; border-radius:50%; border:2px solid #000000;">{{ item.icon_text }}</a>
+                                                    {% else %}
+                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; font-size:22px; font-weight:700; color:#000000; text-decoration:none;">{{ item.icon_text }}</a>
+                                                    {% endif %}
+                                                </td>
+                                                {% endfor %}
+                                            </tr>
+                                        </table>
+                                        {% endif %}
+                                    </td>
+                                    <td style="vertical-align:top;">
+                                        <div style="font-size:17px; line-height:1.2; font-weight:700; color:#111827; text-transform:uppercase;">
+                                            {{ signature.salesperson_name }}
+                                        </div>
+                                        {% if signature.salesperson_job_title %}
+                                        <div style="font-size:13px; line-height:1.4; color:#374151; margin-top:3px;">
+                                            {{ signature.salesperson_job_title }}
+                                        </div>
+                                        {% endif %}
+
+                                        <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:10px; font-size:12px; line-height:1.55; color:#1f2937;">
+                                            {% if signature.salesperson_mobile %}
+                                            <tr>
+                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26;">Mobile</td>
+                                                <td style="padding:0 0 4px 0;">{{ signature.salesperson_mobile }}</td>
+                                            </tr>
+                                            {% endif %}
+                                            <tr>
+                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26;">Email</td>
+                                                <td style="padding:0 0 4px 0;">
+                                                    <a href="mailto:{{ signature.salesperson_email }}" style="color:#1f2937; text-decoration:none;">{{ signature.salesperson_email }}</a>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26;">Office</td>
+                                                <td style="padding:0 0 4px 0;">{{ signature.company_office_phone }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26; vertical-align:top;">Address</td>
+                                                <td style="padding:0 0 4px 0;">{{ signature.company_address }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding:0 10px 0 0; font-weight:700; color:#d91f26;">Website</td>
+                                                <td style="padding:0;">
+                                                    <a href="{{ signature.company_website_url }}" style="color:#1f2937; text-decoration:none;">{{ signature.company_website_label }}</a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+{% endautoescape %}

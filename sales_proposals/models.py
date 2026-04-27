@@ -91,6 +91,13 @@ class Proposal(models.Model):
     # Costing (Internal)
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Total cost of all items")
     gross_profit = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Total Amount - Total Cost")
+    sales_margin_pct = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Internal total-level salesperson margin percentage.",
+    )
     
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     
@@ -179,6 +186,19 @@ class Proposal(models.Model):
             self.approval_status = 'pending'
             self.approval_version = self.approval_version + 1
         self.save()
+
+    @property
+    def internal_cost_with_uplift(self):
+        return self.total_cost * Decimal('1.05')
+
+    @property
+    def target_subtotal_before_tax(self):
+        uplifted_cost = self.internal_cost_with_uplift
+        return uplifted_cost * (Decimal('1.00') + ((self.sales_margin_pct or Decimal('0.00')) / Decimal('100.00')))
+
+    @property
+    def target_gross_profit(self):
+        return self.target_subtotal_before_tax - self.total_cost
 
     def get_approval_chain(self):
         chain = []

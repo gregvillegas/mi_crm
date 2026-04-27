@@ -124,12 +124,7 @@
                             <div class="col-md-2">
                                 {{ form.unit_cost|as_crispy_field }}
                             </div>
-                            <div class="col-md-1">
-                                <label class="form-label text-nowrap" title="Margin (%)"><i class="fas fa-percent"></i> Margin</label>
-                                <input type="number" class="form-control margin-input no-spin" step="0.01" min="0" placeholder="%">
-                                <small class="text-muted"></small>
-                            </div>
-                            <div class="col-md-2">
+                            <div class="col-md-3">
                                 {{ form.unit_price|as_crispy_field }}
                                 <small class="text-muted amount-display d-block mt-1"></small>
                             </div>
@@ -176,12 +171,7 @@
                         <div class="col-md-2">
                             {{ formset.empty_form.unit_cost|as_crispy_field }}
                         </div>
-                        <div class="col-md-1">
-                            <label class="form-label text-nowrap" title="Margin (%)"><i class="fas fa-percent"></i> Margin</label>
-                            <input type="number" class="form-control margin-input no-spin" step="0.01" min="0" placeholder="%">
-                            <small class="text-muted">Auto-computes SRP</small>
-                        </div>
-                        <div class="col-md-2">
+                        <div class="col-md-3">
                             {{ formset.empty_form.unit_price|as_crispy_field }}
                             <small class="text-muted amount-display d-block mt-1"></small>
                         </div>
@@ -202,6 +192,39 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Internal Pricing</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        {{ form.sales_margin_pct|as_crispy_field }}
+                    </div>
+                </div>
+                {% if proposal %}
+                <div class="row text-center mt-2">
+                    <div class="col-md-3">
+                        <h6>Total Cost</h6>
+                        <h5 class="text-danger">₱{{ proposal.total_cost|floatformat:2|intcomma }}</h5>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Total Price</h6>
+                        <h5 class="text-primary">₱{{ proposal.subtotal|floatformat:2|intcomma }}</h5>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Profit</h6>
+                        <h5 class="text-success">₱{{ proposal.gross_profit|floatformat:2|intcomma }}</h5>
+                    </div>
+                    <div class="col-md-3">
+                        <h6>Target Revenue</h6>
+                        <h5 class="text-info">₱{{ proposal.target_subtotal_before_tax|floatformat:2|intcomma }}</h5>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
 
@@ -328,6 +351,20 @@
                         <h4 class="text-success">₱{{ proposal.gross_profit|intcomma }}</h4>
                     </div>
                 </div>
+                <div class="row text-center mt-3">
+                    <div class="col-md-4">
+                        <h6>Total Cost + 5%</h6>
+                        <h4 class="text-warning">₱{{ proposal.internal_cost_with_uplift|floatformat:2|intcomma }}</h4>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>AM Margin</h6>
+                        <h4 class="text-secondary">{{ proposal.sales_margin_pct|floatformat:2 }}%</h4>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Target Revenue Before VAT</h6>
+                        <h4 class="text-info">₱{{ proposal.target_subtotal_before_tax|floatformat:2|intcomma }}</h4>
+                    </div>
+                </div>
             </div>
         </div>
         {% endif %}
@@ -408,7 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (newRow) {
                 container.appendChild(newRow);
                 totalFormsInput.value = formIdx + 1;
-                attachMarginHandlers(newRow);
+                attachItemHandlers(newRow);
                 renumberItems();
             }
         });
@@ -557,7 +594,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Margin -> Unit price auto computation
     function parseNumberInput(value) {
         if (value === null || value === undefined) return 0;
         const normalized = String(value).replace(/,/g, '').trim();
@@ -583,23 +619,6 @@ document.addEventListener('DOMContentLoaded', function() {
             input.value = formatMoneyInput(input.value, true);
         });
     }
-    const INTERNAL_UPLIFT_RATE = 0.05;
-    function getBaseCost(cost) {
-        return cost * (1 + INTERNAL_UPLIFT_RATE);
-    }
-    function computeUnitPrice(row) {
-        const costInput = row.querySelector('input[name$="unit_cost"]');
-        const priceInput = row.querySelector('input[name$="unit_price"]');
-        const marginInput = row.querySelector('.margin-input');
-        const qtyInput = row.querySelector('input[name$="quantity"]');
-        if (!costInput || !priceInput || !marginInput) return;
-        const cost = parseNumberInput(costInput.value);
-        const margin = parseFloat(marginInput.value) || 0;
-        const baseCost = getBaseCost(cost);
-        const price = baseCost * (1 + margin / 100);
-        priceInput.value = formatMoneyInput(price.toFixed(2), true);
-        updateAmount(row);
-    }
     function updateAmount(row) {
         const qtyInput = row.querySelector('input[name$="quantity"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
@@ -610,47 +629,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const amount = qty * price;
         amountLabel.textContent = amount ? `Amount: ₱${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
     }
-    function initMarginFromExisting(row) {
+    function initItemRow(row) {
         const costInput = row.querySelector('input[name$="unit_cost"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
-        const marginInput = row.querySelector('.margin-input');
-        const storedMargin = row.querySelector('input[name$="margin_pct"]');
-        if (!costInput || !priceInput || !marginInput) return;
+        if (!costInput || !priceInput) return;
         attachPriceFormatting(costInput);
         attachPriceFormatting(priceInput);
-        if (storedMargin && storedMargin.value) {
-            marginInput.value = parseFloat(storedMargin.value).toFixed(2);
-        } else {
-            const cost = parseNumberInput(costInput.value);
-            const price = parseNumberInput(priceInput.value);
-            const baseCost = getBaseCost(cost);
-            if (marginInput.value === '' && baseCost > 0 && price >= 0) {
-                const margin = ((price - baseCost) / Math.max(baseCost, 0.000001)) * 100;
-                if (isFinite(margin)) {
-                    marginInput.value = margin.toFixed(2);
-                }
-            }
-        }
         if (costInput.value) costInput.value = formatMoneyInput(costInput.value, true);
         if (priceInput.value) priceInput.value = formatMoneyInput(priceInput.value, true);
     }
-    function attachMarginHandlers(scope) {
+    function attachItemHandlers(scope) {
         const rows = scope ? [scope] : Array.from(document.querySelectorAll('.item-row'));
         rows.forEach(row => {
-            const costInput = row.querySelector('input[name$="unit_cost"]');
-            const marginInput = row.querySelector('.margin-input');
-            const storedMargin = row.querySelector('input[name$="margin_pct"]');
             const qtyInput = row.querySelector('input[name$="quantity"]');
             const priceInput = row.querySelector('input[name$="unit_price"]');
-            if (marginInput) {
-                marginInput.addEventListener('input', () => {
-                    if (storedMargin) storedMargin.value = marginInput.value;
-                    computeUnitPrice(row);
-                });
-            }
-            if (costInput) {
-                costInput.addEventListener('input', () => computeUnitPrice(row));
-            }
             if (qtyInput) {
                 qtyInput.addEventListener('input', () => {
                     // Display quantity as integer
@@ -666,7 +658,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (priceInput) {
                 priceInput.addEventListener('input', () => updateAmount(row));
             }
-            initMarginFromExisting(row);
+            initItemRow(row);
             updateAmount(row);
         });
     }
@@ -678,7 +670,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-    attachMarginHandlers();
+    attachItemHandlers();
     renumberItems();
 });
 </script>

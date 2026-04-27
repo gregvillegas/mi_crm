@@ -281,7 +281,7 @@ def export_funnel_report(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     writer = csv.writer(response)
     writer.writerow([
-        'Date', 'Company', 'Stage', 'Retail', 'Cost', 'Profit', 'Salesperson', 'Customer', 'Expected Close', 'Probability', 'Notes'
+        'Date', 'Company', 'Stage', 'SRP', 'Cost', 'Profit', 'Salesperson', 'Customer', 'Expected Close', 'Probability', 'Notes'
     ])
     for e in qs.select_related('salesperson', 'customer').order_by('-date_created'):
         writer.writerow([
@@ -443,7 +443,7 @@ def close_entry(request, entry_id):
         if entry.customer:
             action = 'deal_won' if won else 'deal_lost'
             profit = (entry.retail or Decimal('0')) - (entry.cost or Decimal('0'))
-            description = f"Deal {('WON' if won else 'LOST')} for {entry.company_name} (Retail ₱{entry.retail}, Cost ₱{entry.cost}, Profit ₱{profit})."
+            description = f"Deal {('WON' if won else 'LOST')} for {entry.company_name} (SRP ₱{entry.retail}, Cost ₱{entry.cost}, Profit ₱{profit})."
             try:
                 CustomerHistory.objects.create(
                     customer=entry.customer,
@@ -757,7 +757,7 @@ def import_funnel_entries(request):
             company_name = getv('Company Name')
             requirement_description = getv('Requirement Description')
             cost_val = getv('Cost')
-            retail_val = getv('Retail')
+            retail_val = getv('SRP') or getv('Retail')
             stage_val = getv('Stage')
             customer_name = getv('Customer')
             expected_close_date = getv('Expected Close Date')
@@ -779,7 +779,7 @@ def import_funnel_entries(request):
             retail = parse_decimal(retail_val)
             if cost is None or retail is None:
                 failed += 1
-                errors.append(f'Row {idx}: invalid numeric Cost/Retail')
+                errors.append(f'Row {idx}: invalid numeric Cost/SRP')
                 continue
 
             stage_key = str(stage_val).strip().lower()
@@ -805,7 +805,7 @@ def import_funnel_entries(request):
 
             if retail < cost:
                 failed += 1
-                errors.append(f'Row {idx}: Retail less than Cost')
+                errors.append(f'Row {idx}: SRP less than Cost')
                 continue
 
             customer_obj = None
@@ -897,7 +897,7 @@ def download_sample_csv(request):
     response['Content-Disposition'] = 'attachment; filename="funnel_import_sample.csv"'
     writer = csv.writer(response)
     writer.writerow([
-        'Date Created', 'Company Name', 'Requirement Description', 'Cost', 'Retail', 'Stage',
+        'Date Created', 'Company Name', 'Requirement Description', 'Cost', 'SRP', 'Stage',
         'Customer', 'Expected Close Date', 'Probability', 'Notes'
     ])
     writer.writerow([

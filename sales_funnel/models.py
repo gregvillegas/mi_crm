@@ -35,7 +35,7 @@ class SalesFunnel(models.Model):
         max_digits=12,
         decimal_places=2,
         validators=[MinValueValidator(Decimal('0.00'))],
-        help_text="Retail price quoted to customer"
+        help_text="SRP quoted to customer"
     )
     
     # Funnel Classification

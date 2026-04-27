@@ -10,11 +10,12 @@
                 <div class="alert alert-info">
                     <strong>CSV Format:</strong>
                     <ul>
-                        <li><strong>Required:</strong> Date Created, Company Name, Requirement Description, Cost, Retail, Stage</li>
+                        <li><strong>Required:</strong> Date Created, Company Name, Requirement Description, Cost, SRP, Stage</li>
                         <li><strong>Optional:</strong> Customer, Expected Close Date, Probability, Notes</li>
                         <li><strong>Date format:</strong> YYYY-MM-DD, MM/DD/YYYY or DD/MM/YYYY</li>
                         <li><strong>Stage values:</strong> Newly Quoted (Pink), Closable This Month (Yellow), Project Based (Green), Services (Blue)</li>
-                        <li><strong>Cost/Retail:</strong> numbers; commas and ₱ symbol allowed</li>
+                        <li><strong>Cost/SRP:</strong> numbers; commas and ₱ symbol allowed</li>
+                        <li><strong>Compatibility:</strong> import accepts either an <code>SRP</code> or legacy <code>Retail</code> column header</li>
                         <li><a href="{% url 'sales_funnel:download_sample_csv' %}" class="alert-link"><i class="fas fa-download"></i> Download sample CSV</a></li>
                     </ul>
                 </div>

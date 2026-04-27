@@ -1,13 +1,11 @@
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation
 from django import forms
 from django.forms import inlineformset_factory
 from .models import Proposal, ProposalItem, ProposalApprovalTier, ProposalAttachment
 from customers.models import Customer
 from teams.models import Team, Group, TeamMembership
 
-INTERNAL_PRICE_UPLIFT = Decimal('1.05')
-MONEY_QUANTIZE = Decimal('0.01')
-from django.forms import NumberInput, HiddenInput, TextInput, Textarea, ClearableFileInput
+from django.forms import NumberInput, TextInput, Textarea, ClearableFileInput
 
 
 class ProposalForm(forms.ModelForm):
@@ -38,6 +36,7 @@ class ProposalForm(forms.ModelForm):
             'closing',
             'tax_type',
             'tax_rate',
+            'sales_margin_pct',
         ]
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
@@ -46,6 +45,7 @@ class ProposalForm(forms.ModelForm):
             'introduction': forms.Textarea(attrs={'rows': 3}),
             'special_note': forms.Textarea(attrs={'rows': 1}),
             'closing': forms.Textarea(attrs={'rows': 3}),
+            'sales_margin_pct': NumberInput(attrs={'class': 'no-spin', 'step': '0.01', 'min': '0', 'inputmode': 'decimal'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -80,13 +80,12 @@ class ProposalForm(forms.ModelForm):
 class ProposalItemForm(forms.ModelForm):
     class Meta:
         model = ProposalItem
-        fields = ['part_number', 'description', 'quantity', 'unit_cost', 'unit_price', 'warranty', 'margin_pct']
+        fields = ['part_number', 'description', 'quantity', 'unit_cost', 'unit_price', 'warranty']
         widgets = {
             'description': Textarea(attrs={'rows': 3}),
             'quantity': NumberInput(attrs={'class': 'no-spin', 'step': '1', 'min': '1', 'inputmode': 'numeric'}),
             'unit_cost': TextInput(attrs={'class': 'price-input no-spin', 'inputmode': 'decimal', 'autocomplete': 'off'}),
-            'unit_price': TextInput(attrs={'class': 'price-input no-spin bg-light', 'inputmode': 'decimal', 'autocomplete': 'off', 'readonly': 'readonly', 'tabindex': '-1'}),
-            'margin_pct': HiddenInput(),
+            'unit_price': TextInput(attrs={'class': 'price-input no-spin', 'inputmode': 'decimal', 'autocomplete': 'off'}),
         }
 
     def _clean_decimal_text(self, field_name):
@@ -112,31 +111,6 @@ class ProposalItemForm(forms.ModelForm):
         if value is None:
             raise forms.ValidationError('This field is required.')
         return value
-
-    def clean(self):
-        cleaned = super().clean()
-        unit_cost = cleaned.get('unit_cost')
-        unit_price = cleaned.get('unit_price')
-        margin_pct = cleaned.get('margin_pct')
-
-        if unit_cost is None or unit_price is None:
-            return cleaned
-
-        if margin_pct not in [None, '']:
-            if not isinstance(margin_pct, Decimal):
-                try:
-                    margin_pct = Decimal(str(margin_pct))
-                except (InvalidOperation, TypeError):
-                    margin_pct = Decimal('0')
-            base_cost = unit_cost * INTERNAL_PRICE_UPLIFT
-            computed_price = (base_cost * (Decimal('1') + (margin_pct / Decimal('100')))).quantize(
-                MONEY_QUANTIZE,
-                rounding=ROUND_HALF_UP
-            )
-            cleaned['unit_price'] = computed_price
-            self.cleaned_data['unit_price'] = computed_price
-
-        return cleaned
 
 ProposalItemFormSet = inlineformset_factory(
     Proposal,

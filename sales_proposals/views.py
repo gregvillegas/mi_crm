@@ -17,6 +17,7 @@ from django.db import transaction
 from django.db.models import F, Min, Q
 from django.utils import timezone
 from django.conf import settings
+from django.template.loader import render_to_string
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
@@ -27,10 +28,125 @@ from reportlab.lib.enums import TA_RIGHT, TA_CENTER, TA_LEFT
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 import io
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 import os
+from pathlib import Path
+from email.mime.image import MIMEImage
 
 from reportlab.lib.utils import ImageReader
+
+
+def _get_proposal_email_signature_context(user):
+    social_links = []
+    social_settings = [
+        (
+            'Facebook',
+            'f',
+            getattr(settings, 'COMPANY_FACEBOOK_URL', ''),
+            'display:inline-block; width:30px; height:30px; line-height:30px; '
+            'text-align:center; font-size:22px; font-weight:700; color:#000000; '
+            'text-decoration:none; border-radius:50%; border:2px solid #000000;',
+        ),
+        (
+            'Instagram',
+            'IG',
+            getattr(settings, 'COMPANY_INSTAGRAM_URL', ''),
+            'display:inline-block; width:30px; height:30px; line-height:28px; '
+            'text-align:center; font-size:11px; font-weight:700; color:#000000; '
+            'text-decoration:none; border-radius:10px; border:2px solid #000000;',
+        ),
+        (
+            'X',
+            'X',
+            getattr(settings, 'COMPANY_X_URL', ''),
+            'display:inline-block; width:30px; height:30px; line-height:30px; '
+            'text-align:center; font-size:22px; font-weight:700; color:#000000; '
+            'text-decoration:none;',
+        ),
+        (
+            'LinkedIn',
+            'in',
+            getattr(settings, 'COMPANY_LINKEDIN_URL', ''),
+            'display:inline-block; width:30px; height:30px; line-height:28px; '
+            'text-align:center; font-size:13px; font-weight:700; color:#000000; '
+            'text-decoration:none; border-radius:50%; border:2px solid #000000;',
+        ),
+    ]
+    for label, icon_text, url, icon_style in social_settings:
+        url = (url or '').strip()
+        if url:
+            social_links.append({
+                'label': label,
+                'icon_text': icon_text,
+                'icon_style': icon_style,
+                'url': url,
+            })
+
+    job_title = ''
+    if getattr(user, 'job_title', ''):
+        job_title = user.get_job_title_display()
+    elif getattr(user, 'role', ''):
+        job_title = user.get_role_display()
+
+    return {
+        'salesperson_name': user.get_full_name() or user.username,
+        'salesperson_job_title': job_title,
+        'salesperson_email': user.email or settings.DEFAULT_FROM_EMAIL,
+        'salesperson_mobile': getattr(user, 'mobile_number', '') or '',
+        'company_name': getattr(settings, 'COMPANY_NAME', 'Micro Image International Corp.'),
+        'company_office_phone': getattr(settings, 'COMPANY_OFFICE_PHONE', '8-840-4323'),
+        'company_address': getattr(
+            settings,
+            'COMPANY_ADDRESS',
+            'Unit 53, 62 & 101 Legaspi Suites Building, 178 Salcedo St., '
+            'Legaspi Village, Makati City 1229',
+        ),
+        'company_website_url': getattr(settings, 'COMPANY_WEBSITE_URL', 'https://www.microimageph.com'),
+        'company_website_label': getattr(settings, 'COMPANY_WEBSITE_LABEL', 'www.microimageph.com'),
+        'company_social_links': social_links,
+        'anniversary_image_available': (Path(settings.BASE_DIR) / '28Years.png').exists(),
+    }
+
+
+def _build_proposal_email_text(cover_message, signature_context):
+    lines = [cover_message.strip()]
+    lines.extend([
+        '',
+        '--',
+        signature_context['salesperson_name'],
+    ])
+    if signature_context['salesperson_job_title']:
+        lines.append(signature_context['salesperson_job_title'])
+    if signature_context['salesperson_mobile']:
+        lines.append(f"Mobile: {signature_context['salesperson_mobile']}")
+    if signature_context['salesperson_email']:
+        lines.append(f"Email: {signature_context['salesperson_email']}")
+    lines.extend([
+        f"Office: {signature_context['company_office_phone']}",
+        signature_context['company_address'],
+        signature_context['company_website_label'],
+    ])
+    if signature_context['company_social_links']:
+        social_text = ', '.join(
+            f"{item['label']}: {item['url']}"
+            for item in signature_context['company_social_links']
+        )
+        lines.append(f"Socials: {social_text}")
+    return '\n'.join(line for line in lines if line is not None)
+
+
+def _attach_inline_image(email_message, cid, image_path):
+    image_path = Path(image_path)
+    if not image_path.exists():
+        return False
+
+    subtype = image_path.suffix.lower().lstrip('.') or None
+    with image_path.open('rb') as image_file:
+        image = MIMEImage(image_file.read(), _subtype=subtype)
+    image.add_header('Content-ID', f'<{cid}>')
+    image.add_header('Content-Disposition', 'inline', filename=image_path.name)
+    email_message.attach(image)
+    return True
 
 @login_required
 def proposal_list(request):
@@ -229,7 +345,8 @@ def proposal_create(request):
         'formset': formset,
         'attach_formset': attach_formset,
         'title': 'Create Proposal',
-        'customer': customer
+        'customer': customer,
+        'proposal': None,
     })
 
 @login_required
@@ -266,7 +383,7 @@ def proposal_update(request, pk):
                 changes = {}
                 from django.forms.models import model_to_dict
                 after = Proposal.objects.get(pk=proposal.pk)
-                fields_to_check = ['customer_id','date','valid_until','price_validity_mode','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','tax_type','tax_rate','include_bank_details','currency','exchange_rate']
+                fields_to_check = ['customer_id','date','valid_until','price_validity_mode','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','tax_type','tax_rate','include_bank_details','currency','exchange_rate','sales_margin_pct']
                 for f in fields_to_check:
                     if getattr(before, f) != getattr(after, f):
                         changes[f] = {'from': str(getattr(before, f)), 'to': str(getattr(after, f))}
@@ -297,7 +414,8 @@ def proposal_update(request, pk):
         'form': form,
         'formset': formset,
         'attach_formset': attach_formset,
-        'title': 'Edit Proposal'
+        'title': 'Edit Proposal',
+        'proposal': proposal,
     })
 
 @login_required
@@ -813,17 +931,38 @@ def proposal_email(request, pk):
 
 Please find attached our proposal for {proposal.subject}.
 
-Best regards,
-{proposal.created_by.get_full_name()}"""
-        message = cover
-        email = EmailMessage(
+Best regards,"""
+        signature_context = _get_proposal_email_signature_context(request.user)
+        html_message = render_to_string(
+            'sales_proposals/email/proposal_email_body.html',
+            {
+                'cover_message': cover,
+                'proposal': proposal,
+                'signature': signature_context,
+            },
+        )
+        text_message = _build_proposal_email_text(cover, signature_context)
+        from_email = request.user.email or settings.DEFAULT_FROM_EMAIL
+        email = EmailMultiAlternatives(
             subject,
-            message,
-            request.user.email,
+            text_message,
+            from_email,
             to_list,
             cc=cc_list,
             reply_to=[request.user.email]
         )
+        email.attach_alternative(html_message, 'text/html')
+        _attach_inline_image(
+            email,
+            'company-logo',
+            Path(settings.BASE_DIR) / 'core' / 'static' / 'core' / 'images' / 'mi-logo-blk.png',
+        )
+        if signature_context['anniversary_image_available']:
+            _attach_inline_image(
+                email,
+                'company-28-years',
+                Path(settings.BASE_DIR) / '28Years.png',
+            )
         email.attach(f"{proposal.proposal_number}.pdf", buffer.getvalue(), 'application/pdf')
         for att in selected_attachments:
             if att.file:

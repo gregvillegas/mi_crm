@@ -11,3 +11,5 @@ crm_project/settings.py
 *.jpeg
 *.png
 *.bmp
+micrm_android_mockup/
+

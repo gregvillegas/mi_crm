@@ -94,7 +94,7 @@ class SalesFunnelForm(forms.ModelForm):
         
         # Add helpful labels
         self.fields['cost'].label = "Cost (₱)"
-        self.fields['retail'].label = "Retail Price (₱)"
+        self.fields['retail'].label = "SRP (₱)"
         self.fields['probability'].label = "Win Probability (%)"
         
     def clean(self):
@@ -106,7 +106,7 @@ class SalesFunnelForm(forms.ModelForm):
         # Validate cost vs retail
         if cost is not None and retail is not None:
             if retail < cost:
-                raise forms.ValidationError("Retail price cannot be less than cost.")
+                raise forms.ValidationError("SRP cannot be less than cost.")
         
         # Validate probability range
         if probability is not None:

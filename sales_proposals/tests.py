@@ -7,7 +7,8 @@ from django.urls import reverse
 
 from customers.models import Customer
 from sales_proposals.context_processors import proposal_approval_notifications
-from sales_proposals.models import Proposal, ProposalApprovalStep
+from sales_proposals.forms import ProposalItemForm
+from sales_proposals.models import Proposal, ProposalApprovalStep, ProposalItem
 from teams.models import Group, Team, TeamMembership
 
 
@@ -164,3 +165,63 @@ class ProposalApprovalWorkflowTests(TestCase):
         self.assertEqual(len(steps), 3)
         self.assertEqual([step.status for step in steps], ['pending', 'pending', 'pending'])
         self.assertEqual(self.proposal.approval_status, 'in_progress')
+
+
+class ProposalPricingWorkflowTests(TestCase):
+    def test_item_form_allows_manual_unit_price_without_cost(self):
+        form = ProposalItemForm(data={
+            'part_number': 'SKU-001',
+            'description': 'Manual priced service',
+            'quantity': '2',
+            'unit_cost': '',
+            'unit_price': '125000',
+            'warranty': '',
+        })
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data['unit_cost'], Decimal('0'))
+        self.assertEqual(form.cleaned_data['unit_price'], Decimal('125000'))
+
+    def test_proposal_internal_summary_uses_total_level_margin(self):
+        user = User.objects.create_user(
+            username='pricing_user',
+            password='testpass123',
+            role='salesperson',
+            email='pricing@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Pricing Corp',
+            contact_person_name='Pat Buyer',
+            email='buyer@pricing.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Pricing Test',
+            sales_margin_pct=Decimal('10.00'),
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='SKU-100',
+            description='Server',
+            quantity=Decimal('2'),
+            unit_cost=Decimal('100.00'),
+            unit_price=Decimal('150.00'),
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='SKU-200',
+            description='Service',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('0.00'),
+            unit_price=Decimal('80.00'),
+        )
+
+        proposal.calculate_totals()
+        proposal.refresh_from_db()
+
+        self.assertEqual(proposal.total_cost, Decimal('200.00'))
+        self.assertEqual(proposal.subtotal, Decimal('380.00'))
+        self.assertEqual(proposal.internal_cost_with_uplift, Decimal('210.0000'))
+        self.assertEqual(proposal.target_subtotal_before_tax, Decimal('231.000000'))
