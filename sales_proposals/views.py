@@ -84,6 +84,12 @@ def _get_proposal_email_signature_context(user):
             'signature-twitter-icon',
             ('Twitter - TWITT.png', 'TWITT.png'),
         ),
+        (
+            'Website',
+            getattr(settings, 'COMPANY_WEBSITE_URL', 'https://www.microimageph.com'),
+            'signature-website-icon',
+            ('Website - WEB-ICON.png', 'WEB-ICON.png'),
+        ),
     ]
     for label, url, icon_cid, filenames in social_settings:
         url = (url or '').strip()
@@ -115,10 +121,13 @@ def _get_proposal_email_signature_context(user):
         ),
         'company_website_url': getattr(settings, 'COMPANY_WEBSITE_URL', 'https://www.microimageph.com'),
         'company_website_label': getattr(settings, 'COMPANY_WEBSITE_LABEL', 'www.microimageph.com'),
-        'company_website_icon_cid': register_inline_asset(
-            'signature-website-icon',
-            'Website - WEB-ICON.png',
-            'WEB-ICON.png',
+        'company_website_icon_cid': next(
+            (
+                item['icon_cid']
+                for item in social_links
+                if item['label'] == 'Website' and item['icon_cid']
+            ),
+            '',
         ),
         'company_social_links': social_links,
         'anniversary_image_cid': register_inline_asset('company-28-years', '28Years.png'),

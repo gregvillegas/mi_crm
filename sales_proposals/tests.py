@@ -265,7 +265,7 @@ class ProposalEmailSignatureTests(TestCase):
             ):
                 signature = _get_proposal_email_signature_context(user)
 
-        self.assertEqual(len(signature['company_social_links']), 3)
+        self.assertEqual(len(signature['company_social_links']), 4)
         self.assertTrue(all(item['icon_cid'] for item in signature['company_social_links']))
         self.assertEqual(signature['company_website_icon_cid'], 'signature-website-icon')
         self.assertEqual(signature['anniversary_image_cid'], 'company-28-years')
