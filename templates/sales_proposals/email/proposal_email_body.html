@@ -27,23 +27,21 @@
                                 <tr>
                                     <td style="width:136px; vertical-align:top; padding-right:18px;">
                                         <img src="cid:company-logo" alt="{{ signature.company_name }}" style="display:block; width:122px; max-width:100%; height:auto; margin-bottom:14px;">
-                                        {% if signature.anniversary_image_available %}
-                                        <img src="cid:company-28-years" alt="28 Years in the IT Industry" style="display:block; width:122px; max-width:100%; height:auto; margin-bottom:14px;">
+                                        {% if signature.anniversary_image_cid %}
+                                        <img src="cid:{{ signature.anniversary_image_cid }}" alt="28 Years in the IT Industry" style="display:block; width:122px; max-width:100%; height:auto; margin-bottom:14px;">
                                         {% endif %}
                                         {% if signature.company_social_links %}
-                                        <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:4px;">
+                                        <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:8px;">
                                             <tr>
                                                 {% for item in signature.company_social_links %}
-                                                <td style="padding-right:8px;">
-                                                    {% if item.label == 'Facebook' %}
-                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; font-size:22px; font-weight:700; color:#000000; text-decoration:none; border-radius:50%; border:2px solid #000000;">{{ item.icon_text }}</a>
-                                                    {% elif item.label == 'Instagram' %}
-                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:28px; text-align:center; font-size:11px; font-weight:700; color:#000000; text-decoration:none; border-radius:10px; border:2px solid #000000;">{{ item.icon_text }}</a>
-                                                    {% elif item.label == 'LinkedIn' %}
-                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:28px; text-align:center; font-size:13px; font-weight:700; color:#000000; text-decoration:none; border-radius:50%; border:2px solid #000000;">{{ item.icon_text }}</a>
-                                                    {% else %}
-                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; width:30px; height:30px; line-height:30px; text-align:center; font-size:22px; font-weight:700; color:#000000; text-decoration:none;">{{ item.icon_text }}</a>
-                                                    {% endif %}
+                                                <td style="padding-right:10px;">
+                                                    <a href="{{ item.url }}" title="{{ item.label }}" style="display:inline-block; text-decoration:none;">
+                                                        {% if item.icon_cid %}
+                                                        <img src="cid:{{ item.icon_cid }}" alt="{{ item.label }}" style="display:block; width:24px; height:24px; border:0;">
+                                                        {% else %}
+                                                        <span style="font-size:12px; line-height:24px; color:#1f2937; text-decoration:none;">{{ item.label }}</span>
+                                                        {% endif %}
+                                                    </a>
                                                 </td>
                                                 {% endfor %}
                                             </tr>
@@ -63,26 +61,32 @@
                                         <table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:10px; font-size:12px; line-height:1.55; color:#1f2937;">
                                             {% if signature.salesperson_mobile %}
                                             <tr>
-                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26;">Mobile</td>
+                                                <td style="padding:0 10px 4px 0; width:20px; font-size:14px; line-height:1; font-weight:700; color:#d91f26; text-align:center;">&#128241;</td>
                                                 <td style="padding:0 0 4px 0;">{{ signature.salesperson_mobile }}</td>
                                             </tr>
                                             {% endif %}
                                             <tr>
-                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26;">Email</td>
+                                                <td style="padding:0 10px 4px 0; width:20px; font-size:14px; line-height:1; font-weight:700; color:#d91f26; text-align:center;">&#9993;</td>
                                                 <td style="padding:0 0 4px 0;">
                                                     <a href="mailto:{{ signature.salesperson_email }}" style="color:#1f2937; text-decoration:none;">{{ signature.salesperson_email }}</a>
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26;">Office</td>
+                                                <td style="padding:0 10px 4px 0; width:20px; font-size:14px; line-height:1; font-weight:700; color:#d91f26; text-align:center;">&#9742;</td>
                                                 <td style="padding:0 0 4px 0;">{{ signature.company_office_phone }}</td>
                                             </tr>
                                             <tr>
-                                                <td style="padding:0 10px 4px 0; font-weight:700; color:#d91f26; vertical-align:top;">Address</td>
+                                                <td style="padding:0 10px 4px 0; width:20px; font-size:14px; line-height:1; font-weight:700; color:#d91f26; text-align:center; vertical-align:top;">&#128205;</td>
                                                 <td style="padding:0 0 4px 0;">{{ signature.company_address }}</td>
                                             </tr>
                                             <tr>
-                                                <td style="padding:0 10px 0 0; font-weight:700; color:#d91f26;">Website</td>
+                                                <td style="padding:0 10px 0 0; width:20px; font-size:14px; line-height:1; font-weight:700; color:#d91f26; text-align:center;">
+                                                    {% if signature.company_website_icon_cid %}
+                                                    <img src="cid:{{ signature.company_website_icon_cid }}" alt="Website" style="display:block; width:18px; height:18px; margin:0 auto; border:0;">
+                                                    {% else %}
+                                                    &#127760;
+                                                    {% endif %}
+                                                </td>
                                                 <td style="padding:0;">
                                                     <a href="{{ signature.company_website_url }}" style="color:#1f2937; text-decoration:none;">{{ signature.company_website_label }}</a>
                                                 </td>

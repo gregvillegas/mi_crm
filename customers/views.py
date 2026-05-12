@@ -458,6 +458,100 @@ def transfer_customer(request, pk):
 def is_admin(user):
     return user.role == 'admin'
 
+
+def _decode_csv_upload(csv_file):
+    raw = csv_file.read()
+    for encoding in ['utf-8-sig', 'utf-8', 'cp1252', 'latin-1']:
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return None
+
+
+def _normalize_csv_row(row):
+    normalized = {}
+    for key, value in row.items():
+        normalized_key = (key or '').strip().lower().replace(' ', '_')
+        normalized[normalized_key] = value
+    return normalized
+
+
+def _first_csv_value(row, keys):
+    normalized = _normalize_csv_row(row)
+    for key in keys:
+        value = normalized.get(key)
+        if value is not None:
+            return str(value).strip()
+    return ''
+
+
+def _parse_csv_bool(value):
+    return str(value).strip().lower() in ['yes', 'true', '1', 'y']
+
+
+def _map_customer_choice(raw_value, choices):
+    value = (raw_value or '').strip()
+    if not value:
+        return ''
+
+    def _normalize_choice_text(text):
+        normalized = str(text).strip().lower()
+        if normalized.endswith(' city'):
+            normalized = normalized[:-5]
+        normalized = normalized.replace('&', 'and')
+        normalized = normalized.replace('<', ' ').replace('>', ' ')
+        normalized = normalized.replace('(', ' ').replace(')', ' ')
+        normalized = ' '.join(normalized.replace('/', ' ').split())
+        return normalized
+
+    lowered = _normalize_choice_text(value)
+    display_to_value = {
+        _normalize_choice_text(label): db_value
+        for db_value, label in choices
+    }
+    value_to_value = {
+        _normalize_choice_text(db_value): db_value
+        for db_value, _label in choices
+    }
+
+    if lowered in value_to_value:
+        return value_to_value[lowered]
+    if lowered in display_to_value:
+        return display_to_value[lowered]
+
+    for db_value, label in choices:
+        normalized_label = _normalize_choice_text(label)
+        normalized_db_value = _normalize_choice_text(db_value)
+        if lowered in normalized_label or lowered in normalized_db_value:
+            return db_value
+    return None
+
+
+def _customer_with_contacts_header():
+    header = [
+        'company_name',
+        'contact_person_name',
+        'contact_person_position',
+        'email',
+        'phone_number',
+        'address',
+        'industry',
+        'territory',
+        'active_status',
+        'salesperson_initials',
+    ]
+    for index in range(2, 6):
+        header.extend([
+            f'contact_{index}_name',
+            f'contact_{index}_position',
+            f'contact_{index}_email',
+            f'contact_{index}_phone',
+            f'contact_{index}_is_primary',
+        ])
+    return header
+
+
 @login_required
 @user_passes_test(is_admin)
 def export_customers(request):
@@ -495,6 +589,57 @@ def export_customers(request):
     
     return response
 
+
+@login_required
+@user_passes_test(is_admin)
+def export_customers_with_contacts(request):
+    """Export customers in the one-row-per-customer format used by the customer+contacts importer."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="customers_with_contacts_export.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(_customer_with_contacts_header())
+
+    customers = (
+        Customer.objects.all()
+        .select_related('salesperson')
+        .prefetch_related('contacts')
+        .order_by('company_name', 'id')
+    )
+
+    for customer in customers:
+        salesperson_initials = customer.salesperson.initials if customer.salesperson and customer.salesperson.initials else ''
+        row = [
+            customer.company_name,
+            customer.contact_person_name,
+            customer.contact_person_position,
+            customer.email,
+            customer.phone_number,
+            customer.address,
+            customer.get_industry_display() if customer.industry else '',
+            customer.get_territory_display() if customer.territory else '',
+            'Yes' if customer.is_active else 'No',
+            salesperson_initials,
+        ]
+
+        contacts = list(customer.contacts.all()[:4])
+        for contact in contacts:
+            row.extend([
+                contact.name,
+                contact.position,
+                contact.email or '',
+                contact.phone,
+                'Yes' if contact.is_primary else 'No',
+            ])
+
+        remaining_slots = 4 - len(contacts)
+        for _ in range(remaining_slots):
+            row.extend(['', '', '', '', ''])
+
+        writer.writerow(row)
+
+    return response
+
 @login_required
 @user_passes_test(is_admin)
 def import_customers(request):
@@ -529,7 +674,38 @@ def import_customers(request):
             csv_data = csv.reader(io.StringIO(decoded_file))
             
             # Skip header row
-            next(csv_data, None)
+            header_row = next(csv_data, None)
+            if not header_row:
+                messages.error(request, 'The CSV file is missing a header row.')
+                return redirect('customer_list')
+
+            detected_headers = [
+                str(header).strip()
+                for header in header_row
+                if str(header).strip()
+            ]
+            normalized_headers = [
+                str(header).strip().lower().replace(' ', '_')
+                for header in header_row
+                if str(header).strip()
+            ]
+            normalized_header_set = set(normalized_headers)
+
+            looks_like_contacts_only_import = (
+                {'customer_email', 'contact_name'}.issubset(normalized_header_set)
+                and 'company_name' not in normalized_header_set
+                and 'contact_person_name' not in normalized_header_set
+            )
+
+            if looks_like_contacts_only_import:
+                messages.error(
+                    request,
+                    'This file looks like a contacts-only CSV, not a customer import CSV. '
+                    'Use Import Contacts instead. '
+                    f'Detected headers: {", ".join(detected_headers) or "none"}. '
+                    f'Normalized headers: {", ".join(normalized_headers) or "none"}.'
+                )
+                return redirect('customer_list')
             
             imported_count = 0
             errors = []
@@ -562,38 +738,16 @@ def import_customers(request):
                     continue
                 
                 # Validate and convert industry
-                industry_value = ''
-                if industry:
-                    industry_lower = industry.lower()
-                    industry_mapping = {choice[1].lower(): choice[0] for choice in Customer.INDUSTRY_CHOICES}
-                    if industry_lower in industry_mapping:
-                        industry_value = industry_mapping[industry_lower]
-                    else:
-                        # Try to find partial match
-                        for display, value in Customer.INDUSTRY_CHOICES:
-                            if industry_lower in display.lower():
-                                industry_value = value
-                                break
-                        if not industry_value:
-                            errors.append(f'Row {row_num}: Invalid industry "{industry}"')
-                            continue
+                industry_value = _map_customer_choice(industry, Customer.INDUSTRY_CHOICES)
+                if industry and industry_value is None:
+                    errors.append(f'Row {row_num}: Invalid industry "{industry}"')
+                    continue
                 
                 # Validate and convert territory
-                territory_value = ''
-                if territory:
-                    territory_lower = territory.lower()
-                    territory_mapping = {choice[1].lower(): choice[0] for choice in Customer.TERRITORY_CHOICES}
-                    if territory_lower in territory_mapping:
-                        territory_value = territory_mapping[territory_lower]
-                    else:
-                        # Try to find partial match
-                        for display, value in Customer.TERRITORY_CHOICES:
-                            if territory_lower in display.lower():
-                                territory_value = value
-                                break
-                        if not territory_value:
-                            errors.append(f'Row {row_num}: Invalid territory "{territory}"')
-                            continue
+                territory_value = _map_customer_choice(territory, Customer.TERRITORY_CHOICES)
+                if territory and territory_value is None:
+                    errors.append(f'Row {row_num}: Invalid territory "{territory}"')
+                    continue
                 
                 # Parse active status
                 is_active = active_status.lower() in ['yes', 'true', '1']
@@ -673,6 +827,46 @@ def import_customer_contacts(request):
             reader = csv.DictReader(io.StringIO(decoded_text))
             if not reader.fieldnames:
                 messages.error(request, 'The CSV file is missing a header row.')
+                return redirect('import_customer_contacts')
+
+            detected_headers = [
+                (header or '').strip()
+                for header in reader.fieldnames
+                if (header or '').strip()
+            ]
+            normalized_headers = [
+                header.strip().lower().replace(' ', '_')
+                for header in reader.fieldnames
+                if (header or '').strip()
+            ]
+            normalized_header_set = set(normalized_headers)
+
+            looks_like_customer_import = (
+                'customer_email' not in normalized_header_set
+                and 'contact_name' not in normalized_header_set
+                and {
+                    'company_name',
+                    'contact_person_name',
+                    'email',
+                }.issubset(normalized_header_set)
+            )
+
+            if looks_like_customer_import:
+                has_extra_contact_columns = any(
+                    header.startswith('contact_2_') for header in normalized_headers
+                )
+                suggested_import = (
+                    'Import Customers + Contacts'
+                    if has_extra_contact_columns
+                    else 'Legacy Customer Import'
+                )
+                messages.error(
+                    request,
+                    'This file looks like a customer import CSV, not a contacts-only CSV. '
+                    f'Use {suggested_import} instead. '
+                    f'Detected headers: {", ".join(detected_headers) or "none"}. '
+                    f'Normalized headers: {", ".join(normalized_headers) or "none"}.'
+                )
                 return redirect('import_customer_contacts')
 
             def _first_value(row, keys):
@@ -782,6 +976,206 @@ def import_customer_contacts(request):
 
     return render(request, 'customers/import_customer_contacts.html')
 
+
+@login_required
+@user_passes_test(is_admin)
+def import_customers_with_contacts(request):
+    """Import customers and up to 4 additional contacts from one CSV row per customer."""
+    if request.method == 'POST':
+        csv_file = request.FILES.get('csv_file')
+        if not csv_file:
+            messages.error(request, 'Please select a CSV file to upload.')
+            return redirect('import_customers_with_contacts')
+
+        if not csv_file.name.endswith('.csv'):
+            messages.error(request, 'Please upload a valid CSV file.')
+            return redirect('import_customers_with_contacts')
+
+        try:
+            decoded_text = _decode_csv_upload(csv_file)
+            if decoded_text is None:
+                messages.error(request, 'Unable to read the CSV file. Unsupported encoding.')
+                return redirect('import_customers_with_contacts')
+
+            reader = csv.DictReader(io.StringIO(decoded_text))
+            if not reader.fieldnames:
+                messages.error(request, 'The CSV file is missing a header row.')
+                return redirect('import_customers_with_contacts')
+
+            detected_headers = [
+                (header or '').strip()
+                for header in reader.fieldnames
+                if (header or '').strip()
+            ]
+            normalized_headers = [
+                header.strip().lower().replace(' ', '_')
+                for header in reader.fieldnames
+                if (header or '').strip()
+            ]
+
+            imported_count = 0
+            contact_count = 0
+            errors = []
+
+            for row_num, row in enumerate(reader, start=2):
+                company_name = _first_csv_value(row, ['company_name', 'company'])
+                contact_person_name = _first_csv_value(
+                    row,
+                    ['contact_person_name', 'primary_contact_name', 'main_contact_name'],
+                )
+                contact_person_position = _first_csv_value(
+                    row,
+                    ['contact_person_position', 'primary_contact_position', 'main_contact_position'],
+                )
+                email = _first_csv_value(row, ['email', 'customer_email', 'primary_contact_email'])
+                phone_number = _first_csv_value(row, ['phone_number', 'phone', 'mobile', 'primary_contact_phone'])
+                address = _first_csv_value(row, ['address'])
+                industry = _first_csv_value(row, ['industry'])
+                territory = _first_csv_value(row, ['territory'])
+                active_status = _first_csv_value(row, ['active_status', 'is_active']) or 'Yes'
+                salesperson_initials = _first_csv_value(
+                    row,
+                    ['salesperson_initials', 'salesperson', 'salesperson_username'],
+                )
+
+                if not any(row.values()):
+                    continue
+
+                if not company_name or not contact_person_name or not email:
+                    missing_parts = []
+                    if not company_name:
+                        missing_parts.append('company_name')
+                    if not contact_person_name:
+                        missing_parts.append('contact_person_name')
+                    if not email:
+                        missing_parts.append('email')
+
+                    errors.append(
+                        f'Row {row_num}: Required customer fields could not be read '
+                        f'({", ".join(missing_parts)}). '
+                        f'Detected headers: {", ".join(detected_headers) or "none"}. '
+                        f'Normalized headers: {", ".join(normalized_headers) or "none"}.'
+                    )
+                    continue
+
+                if Customer.objects.filter(email__iexact=email).exists():
+                    errors.append(f'Row {row_num}: Customer with email {email} already exists')
+                    continue
+
+                industry_value = _map_customer_choice(industry, Customer.INDUSTRY_CHOICES)
+                if industry and industry_value is None:
+                    errors.append(f'Row {row_num}: Invalid industry "{industry}"')
+                    continue
+
+                territory_value = _map_customer_choice(territory, Customer.TERRITORY_CHOICES)
+                if territory and territory_value is None:
+                    errors.append(f'Row {row_num}: Invalid territory "{territory}"')
+                    continue
+
+                is_active = _parse_csv_bool(active_status)
+
+                salesperson = None
+                if salesperson_initials:
+                    salesperson = User.objects.filter(
+                        initials__iexact=salesperson_initials,
+                        role='salesperson',
+                        is_active=True,
+                    ).first()
+                    if salesperson is None:
+                        errors.append(
+                            f'Row {row_num}: Active salesperson with initials "{salesperson_initials}" not found'
+                        )
+                        continue
+
+                extra_contacts = []
+                for index in range(2, 6):
+                    extra_name = _first_csv_value(
+                        row,
+                        [f'contact_{index}_name', f'additional_contact_{index}_name'],
+                    )
+                    extra_position = _first_csv_value(
+                        row,
+                        [f'contact_{index}_position', f'additional_contact_{index}_position'],
+                    )
+                    extra_email = _first_csv_value(
+                        row,
+                        [f'contact_{index}_email', f'additional_contact_{index}_email'],
+                    )
+                    extra_phone = _first_csv_value(
+                        row,
+                        [f'contact_{index}_phone', f'contact_{index}_mobile', f'additional_contact_{index}_phone'],
+                    )
+                    extra_primary = _parse_csv_bool(
+                        _first_csv_value(
+                            row,
+                            [f'contact_{index}_is_primary', f'additional_contact_{index}_is_primary'],
+                        )
+                    )
+
+                    if not any([extra_name, extra_position, extra_email, extra_phone]):
+                        continue
+
+                    if not extra_name:
+                        errors.append(f'Row {row_num}: Contact {index} name is required when other contact {index} fields are filled')
+                        extra_contacts = None
+                        break
+
+                    extra_contacts.append({
+                        'name': extra_name,
+                        'position': extra_position,
+                        'email': extra_email or None,
+                        'phone': extra_phone,
+                        'is_primary': extra_primary,
+                    })
+
+                if extra_contacts is None:
+                    continue
+
+                try:
+                    with transaction.atomic():
+                        customer = Customer.objects.create(
+                            company_name=company_name,
+                            contact_person_name=contact_person_name,
+                            contact_person_position=contact_person_position,
+                            email=email,
+                            phone_number=phone_number,
+                            address=address,
+                            industry=industry_value or '',
+                            territory=territory_value or '',
+                            is_active=is_active,
+                            salesperson=salesperson,
+                        )
+
+                        for contact_data in extra_contacts[:4]:
+                            CustomerContact.objects.create(customer=customer, **contact_data)
+
+                        imported_count += 1
+                        contact_count += len(extra_contacts[:4])
+                except Exception as exc:
+                    errors.append(f'Row {row_num}: Error creating customer - {exc}')
+
+            if imported_count > 0:
+                messages.success(
+                    request,
+                    f'Successfully imported {imported_count} customers and {contact_count} additional contacts.',
+                )
+
+            if errors:
+                error_message = f'Encountered {len(errors)} errors:\n' + '\n'.join(errors[:10])
+                if len(errors) > 10:
+                    error_message += f'\n... and {len(errors) - 10} more errors.'
+                messages.warning(request, error_message)
+
+            if not imported_count and not errors:
+                messages.info(request, 'No customer rows were found to import.')
+
+        except Exception as exc:
+            messages.error(request, f'Error processing CSV file: {exc}')
+
+        return redirect('import_customers_with_contacts')
+
+    return render(request, 'customers/import_customers_with_contacts.html')
+
 @login_required
 @user_passes_test(is_admin)
 def download_sample_csv(request):
@@ -848,6 +1242,83 @@ def download_customer_contacts_sample_csv(request):
         'peter.cruz@abccorp.com',
         '+639181234567',
         'No',
+    ])
+
+    return response
+
+
+@login_required
+@user_passes_test(is_admin)
+def download_customer_with_contacts_sample_csv(request):
+    """Download a sample CSV template for importing customers with extra contacts in one file."""
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="customer_with_contacts_import_sample.csv"'
+
+    writer = csv.writer(response)
+    writer.writerow(_customer_with_contacts_header())
+    writer.writerow([
+        'ABC Corporation',
+        'John Doe',
+        'CEO',
+        'john.doe@abccorp.com',
+        '+1234567890',
+        '123 Main St, Makati City, Metro Manila',
+        'Technology',
+        'Makati City',
+        'Yes',
+        'JDS',
+        'Maria Santos',
+        'Procurement Manager',
+        'maria.santos@abccorp.com',
+        '+639171112233',
+        'No',
+        'Peter Cruz',
+        'IT Manager',
+        'peter.cruz@abccorp.com',
+        '+639181234567',
+        'No',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+    ])
+    writer.writerow([
+        'XYZ Industries',
+        'Jane Smith',
+        'Purchasing Manager',
+        'jane.smith@xyzind.com',
+        '+0987654321',
+        '456 Oak Ave, Pasig City, Metro Manila',
+        'Manufacturing',
+        'Pasig City',
+        'Yes',
+        '',
+        'Anna Reyes',
+        'Finance Officer',
+        'anna.reyes@xyzind.com',
+        '+639199998888',
+        'Yes',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
     ])
 
     return response

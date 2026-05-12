@@ -6,13 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material.icons.filled.VpnKey
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,9 +34,12 @@ import kotlinx.coroutines.launch
 fun LoginScreen(onLoginSuccess: (String) -> Unit) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var serverAddress by remember { mutableStateOf("10.20.20.2:8001") }
     var passwordVisible by remember { mutableStateOf(false) }
     var keepSignedIn by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var showServerSettings by remember { mutableStateOf(false) }
+    
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -91,13 +88,48 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                 fontSize = 18.sp,
                 color = Color.Black
             )
-            Text(
-                "Authorized personnel only",
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
+            
+            IconButton(onClick = { showServerSettings = !showServerSettings }) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Server Settings",
+                    tint = if (showServerSettings) MiRed else Color.Gray
+                )
+            }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            if (showServerSettings) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("SERVER CONFIGURATION", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TextField(
+                            value = serverAddress,
+                            onValueChange = { serverAddress = it },
+                            placeholder = { Text("e.g. micrm.microimageph.com") },
+                            leadingIcon = { Icon(Icons.Default.Dns, contentDescription = null) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White
+                            )
+                        )
+                        Text("Current: $serverAddress", fontSize = 10.sp, color = Color.Gray)
+                    }
+                }
+            } else {
+                Text(
+                    "Authorized personnel only",
+                    fontSize = 14.sp,
+                    color = Color.Gray
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // Login Card
             Card(
@@ -165,16 +197,17 @@ fun LoginScreen(onLoginSuccess: (String) -> Unit) {
                     Button(
                         onClick = {
                             isLoading = true
+                            RetrofitClient.updateBaseUrl(serverAddress)
                             scope.launch {
                                 try {
                                     val response = RetrofitClient.apiService.login(LoginRequest(username, password))
                                     if (response.isSuccessful && response.body() != null) {
                                         onLoginSuccess(response.body()!!.token)
                                     } else {
-                                        Toast.makeText(context, "Login Failed", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Login Failed: ${response.code()}", Toast.LENGTH_SHORT).show()
                                     }
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Connection Error: ${e.message}", Toast.LENGTH_LONG).show()
                                 } finally {
                                     isLoading = false
                                 }

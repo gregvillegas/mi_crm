@@ -1,5 +1,7 @@
 package com.microimage.crm.ui.campaign
 
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,8 +20,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.navigation.NavController
 import com.microimage.crm.api.RetrofitClient
+import com.microimage.crm.model.CampaignPreview
 import com.microimage.crm.model.CampaignSummary
 import kotlinx.coroutines.launch
 
@@ -31,6 +35,9 @@ fun CampaignListScreen(token: String, navController: NavController) {
     var campaigns by remember { mutableStateOf<List<CampaignSummary>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    var previewData by remember { mutableStateOf<CampaignPreview?>(null) }
+    var showPreviewDialog by remember { mutableStateOf(false) }
 
     fun loadCampaigns() {
         isLoading = true
@@ -81,10 +88,16 @@ fun CampaignListScreen(token: String, navController: NavController) {
                             campaign = campaign,
                             onPreview = {
                                 scope.launch {
-                                    val res = RetrofitClient.apiService.previewCampaign("Token $token", campaign.id)
-                                    if (res.isSuccessful) {
-                                        // Show preview dialog or navigate
-                                        Toast.makeText(context, "Preview: ${res.body()?.subject}", Toast.LENGTH_SHORT).show()
+                                    try {
+                                        val res = RetrofitClient.apiService.previewCampaign("Token $token", campaign.id)
+                                        if (res.isSuccessful && res.body() != null) {
+                                            previewData = res.body()
+                                            showPreviewDialog = true
+                                        } else {
+                                            Toast.makeText(context, "Preview failed: ${res.code()}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             },
@@ -111,6 +124,38 @@ fun CampaignListScreen(token: String, navController: NavController) {
                 }
             }
         }
+    }
+
+    if (showPreviewDialog && previewData != null) {
+        // Calculate the base URL for the WebView to resolve relative image paths
+        // If baseUrl is http://10.20.20.2:8001/api/v1/, we want http://10.20.20.2:8001/
+        val rootBaseUrl = RetrofitClient.baseUrl.substringBefore("/api/v1/") + "/"
+
+        AlertDialog(
+            onDismissRequest = { showPreviewDialog = false },
+            title = { Text(previewData?.subject ?: "Campaign Preview", fontSize = 16.sp) },
+            text = {
+                Box(modifier = Modifier.fillMaxWidth().height(400.dp)) {
+                    AndroidView(
+                        factory = { ctx ->
+                            WebView(ctx).apply {
+                                webViewClient = WebViewClient()
+                                settings.javaScriptEnabled = true
+                                settings.loadWithOverviewMode = true
+                                settings.useWideViewPort = true
+                                loadDataWithBaseURL(rootBaseUrl, previewData?.renderedBody ?: "", "text/html", "UTF-8", null)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showPreviewDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }
 

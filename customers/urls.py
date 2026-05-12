@@ -21,9 +21,12 @@ urlpatterns = [
     path('<int:pk>/history/', views.customer_history, name='customer_history'),
     path('<int:pk>/add-note/', views.add_customer_note, name='add_customer_note'),
     path('export/', views.export_customers, name='export_customers'),
+    path('export-with-contacts/', views.export_customers_with_contacts, name='export_customers_with_contacts'),
     path('import/', views.import_customers, name='import_customers'),
+    path('import-with-contacts/', views.import_customers_with_contacts, name='import_customers_with_contacts'),
     path('import-contacts/', views.import_customer_contacts, name='import_customer_contacts'),
     path('sample-csv/', views.download_sample_csv, name='download_sample_csv'),
+    path('sample-with-contacts-csv/', views.download_customer_with_contacts_sample_csv, name='download_customer_with_contacts_sample_csv'),
     path('sample-contacts-csv/', views.download_customer_contacts_sample_csv, name='download_customer_contacts_sample_csv'),
     
     # Admin backup and restore functionality

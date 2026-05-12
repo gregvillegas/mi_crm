@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">Import Customers With Multiple Contacts</h3>
+                <a href="{% url 'import_customers' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-file-import"></i> Legacy Customer Import
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Safest single-file option:</strong>
+                    This importer keeps the existing primary contact on the `Customer` record and stores
+                    extra contacts as related `CustomerContact` rows. That avoids changing customer IDs or
+                    breaking proposal, activity, mailing, ticket, and reporting links.
+                </div>
+
+                <div class="alert alert-secondary">
+                    <strong>CSV Format Instructions:</strong>
+                    <ul class="mb-0">
+                        <li><strong>Required base columns:</strong> `company_name`, `contact_person_name`, `email`</li>
+                        <li><strong>Optional base columns:</strong> `contact_person_position`, `phone_number`, `address`, `industry`, `territory`, `active_status`, `salesperson_initials`</li>
+                        <li><strong>Additional contacts:</strong> use `contact_2_*` through `contact_5_*` columns for up to 4 extra contacts</li>
+                        <li><strong>Per-contact fields:</strong> `contact_N_name`, `contact_N_position`, `contact_N_email`, `contact_N_phone`, `contact_N_is_primary`</li>
+                        <li><strong>Primary contact safety:</strong> the main contact always remains on the `Customer` row for compatibility with other apps</li>
+                        <li><strong>Salesperson match:</strong> `salesperson_initials` must match an active salesperson initials value</li>
+                        <li>
+                            <a href="{% url 'download_customer_with_contacts_sample_csv' %}" class="alert-link">
+                                <i class="fas fa-download"></i> Download customer + contacts sample CSV
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-warning">
+                    <strong>Need the old format?</strong>
+                    Use the
+                    <a href="{% url 'import_customers' %}" class="alert-link">legacy customer import</a>
+                    for one primary contact only, or the
+                    <a href="{% url 'import_customer_contacts' %}" class="alert-link">contacts-only import</a>
+                    to add related contacts to existing customers.
+                </div>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="csv_file" class="form-label">Select CSV File</label>
+                        <input type="file" class="form-control" id="csv_file" name="csv_file" accept=".csv" required>
+                    </div>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="submit" class="btn btn-primary">Import Customers With Contacts</button>
+                        <a href="{% url 'download_customer_with_contacts_sample_csv' %}" class="btn btn-outline-info">
+                            Download Sample CSV
+                        </a>
+                        <a href="{% url 'export_customers_with_contacts' %}" class="btn btn-outline-success">
+                            Export Current Format
+                        </a>
+                        <a href="{% url 'customer_list' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

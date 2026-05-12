@@ -8,7 +8,7 @@ class SalesFunnelForm(forms.ModelForm):
     class Meta:
         model = SalesFunnel
         fields = [
-            'date_created', 'company_name', 'requirement_description',
+            'date_created', 'company_name', 'brand', 'requirement_description',
             'cost', 'retail', 'stage', 'customer', 'expected_close_date',
             'probability', 'notes'
         ]
@@ -20,6 +20,10 @@ class SalesFunnelForm(forms.ModelForm):
             'company_name': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Enter company name'
+            }),
+            'brand': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Enter brand (e.g. Cisco, IBM, Dell)'
             }),
             'requirement_description': forms.Textarea(attrs={
                 'class': 'form-control',
@@ -125,6 +129,15 @@ class FunnelFilterForm(forms.Form):
         choices=[('', 'All Stages')] + SalesFunnel.FUNNEL_STAGES,
         required=False,
         widget=forms.Select(attrs={'class': 'form-select form-select-sm'})
+    )
+    brand = forms.CharField(
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control form-control-sm',
+            'placeholder': 'Type brand (e.g. Cisco, IBM, Dell)',
+            'autocomplete': 'off',
+            'list': 'brandSuggestions',
+        })
     )
     salesperson = forms.ModelChoiceField(
         queryset=User.objects.none(),

@@ -29,6 +29,13 @@
                     <div class="mb-3">
                         {{ form.company_name|as_crispy_field }}
                     </div>
+
+                    <div class="mb-3">
+                        {{ form.brand|as_crispy_field }}
+                        <div class="form-text">
+                            <i class="fas fa-tag"></i> Optional - Use the product or solution brand, such as Cisco, IBM, or Dell
+                        </div>
+                    </div>
                     
                     <div class="mb-3">
                         {{ form.customer|as_crispy_field }}

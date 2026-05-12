@@ -1,14 +1,18 @@
 from decimal import Decimal
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
 from django.test import RequestFactory, TestCase
+from django.test.utils import override_settings
 from django.urls import reverse
 
 from customers.models import Customer
 from sales_proposals.context_processors import proposal_approval_notifications
 from sales_proposals.forms import ProposalItemForm
 from sales_proposals.models import Proposal, ProposalApprovalStep, ProposalItem
+from sales_proposals.views import _get_proposal_email_signature_context
 from teams.models import Group, Team, TeamMembership
 
 
@@ -225,3 +229,44 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertEqual(proposal.subtotal, Decimal('380.00'))
         self.assertEqual(proposal.internal_cost_with_uplift, Decimal('210.0000'))
         self.assertEqual(proposal.target_subtotal_before_tax, Decimal('231.000000'))
+
+
+class ProposalEmailSignatureTests(TestCase):
+    def test_signature_context_picks_up_email_signature_icons_from_templates_static(self):
+        user = User.objects.create_user(
+            username='signature_user',
+            password='testpass123',
+            role='salesperson',
+            email='signature@example.com',
+            first_name='Sig',
+            last_name='User',
+        )
+
+        with TemporaryDirectory() as tmpdir:
+            base_dir = Path(tmpdir)
+            icon_dir = base_dir / 'templates' / 'core' / 'static' / 'core' / 'images' / 'email_signature'
+            icon_dir.mkdir(parents=True, exist_ok=True)
+            for filename in [
+                'FB.png',
+                'IG.png',
+                'TWITT.png',
+                'WEB-ICON.png',
+            ]:
+                (icon_dir / filename).write_bytes(b'fake-png')
+            (base_dir / '28Years.png').write_bytes(b'fake-png')
+
+            with override_settings(
+                BASE_DIR=base_dir,
+                COMPANY_FACEBOOK_URL='https://facebook.com/MicroImagePH',
+                COMPANY_INSTAGRAM_URL='https://instagram.com/MicroImagePH',
+                COMPANY_X_URL='https://twitter.com/MicroImagePH',
+                COMPANY_WEBSITE_URL='https://www.microimageph.com',
+                COMPANY_WEBSITE_LABEL='www.microimageph.com',
+            ):
+                signature = _get_proposal_email_signature_context(user)
+
+        self.assertEqual(len(signature['company_social_links']), 3)
+        self.assertTrue(all(item['icon_cid'] for item in signature['company_social_links']))
+        self.assertEqual(signature['company_website_icon_cid'], 'signature-website-icon')
+        self.assertEqual(signature['anniversary_image_cid'], 'company-28-years')
+        self.assertEqual(len(signature['inline_images']), 5)

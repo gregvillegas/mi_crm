@@ -31,6 +31,9 @@ def is_exec_admin(user):
 def can_add_entry(user):
     return user.role in ['salesperson', 'supervisor', 'asm', 'avp']
 
+def can_import_entries(user):
+    return user.role in ['salesperson', 'supervisor', 'asm', 'avp', 'admin']
+
 @login_required
 @user_passes_test(can_access_funnel)
 def funnel_dashboard(request):
@@ -94,11 +97,13 @@ def funnel_dashboard(request):
             is_active=True,
             is_closed=False
         )
+    accessible_entries = funnel_entries
     
     # Apply filters if provided
     filter_form = FunnelFilterForm(request.GET, user=user)
     if filter_form.is_valid():
         stage = filter_form.cleaned_data.get('stage')
+        brand = filter_form.cleaned_data.get('brand')
         salesperson = filter_form.cleaned_data.get('salesperson')
         group = filter_form.cleaned_data.get('group')
         min_amount = filter_form.cleaned_data.get('min_amount')
@@ -107,6 +112,8 @@ def funnel_dashboard(request):
         
         if stage:
             funnel_entries = funnel_entries.filter(stage=stage)
+        if brand:
+            funnel_entries = funnel_entries.filter(brand__icontains=brand.strip())
         if group:
             funnel_entries = funnel_entries.filter(salesperson__team_membership__group=group)
         if salesperson:
@@ -204,6 +211,13 @@ def funnel_dashboard(request):
             'profit': services_entries.aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0,
         },
     }
+    brand_suggestions = list(
+        accessible_entries.exclude(brand__isnull=True)
+        .exclude(brand='')
+        .order_by('brand')
+        .values_list('brand', flat=True)
+        .distinct()
+    )
     
     context = {
         'quoted_entries': quoted_entries,
@@ -214,9 +228,11 @@ def funnel_dashboard(request):
         'stage_totals': stage_totals,
         'filter_form': filter_form,
         'can_add': can_add_entry(user),
+        'can_import': can_import_entries(user),
         'can_edit_all': user.role in ['admin', 'supervisor', 'asm', 'avp'],
         'view_mode': view_mode,
         'show_actions': view_mode != 'table',
+        'brand_suggestions': brand_suggestions,
     }
     
     return render(request, 'sales_funnel/dashboard.html', context)
@@ -258,6 +274,7 @@ def export_funnel_report(request):
     form = FunnelFilterForm(request.GET, user=user)
     if form.is_valid():
         stage = form.cleaned_data.get('stage')
+        brand = form.cleaned_data.get('brand')
         salesperson = form.cleaned_data.get('salesperson')
         group = form.cleaned_data.get('group')
         min_amount = form.cleaned_data.get('min_amount')
@@ -265,6 +282,8 @@ def export_funnel_report(request):
         date_to = form.cleaned_data.get('date_to')
         if stage:
             qs = qs.filter(stage=stage)
+        if brand:
+            qs = qs.filter(brand__icontains=brand.strip())
         if group:
             qs = qs.filter(salesperson__team_membership__group=group)
         if salesperson:
@@ -281,12 +300,13 @@ def export_funnel_report(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     writer = csv.writer(response)
     writer.writerow([
-        'Date', 'Company', 'Stage', 'SRP', 'Cost', 'Profit', 'Salesperson', 'Customer', 'Expected Close', 'Probability', 'Notes'
+        'Date', 'Company', 'Brand', 'Stage', 'SRP', 'Cost', 'Profit', 'Salesperson', 'Customer', 'Expected Close', 'Probability', 'Notes'
     ])
     for e in qs.select_related('salesperson', 'customer').order_by('-date_created'):
         writer.writerow([
             e.date_created.strftime('%Y-%m-%d'),
             e.company_name,
+            e.brand or '',
             e.get_stage_display(),
             f"{e.retail}",
             f"{e.cost}",
@@ -622,7 +642,7 @@ def deals_history(request):
 
 
 @login_required
-@user_passes_test(can_add_entry)
+@user_passes_test(can_import_entries)
 def import_funnel_entries(request):
     if request.method == 'POST':
         # Determine target salesperson
@@ -755,6 +775,7 @@ def import_funnel_entries(request):
             getv = lambda k: row.get(k.strip().lower())
             date_created = getv('Date Created')
             company_name = getv('Company Name')
+            brand_val = getv('Brand')
             requirement_description = getv('Requirement Description')
             cost_val = getv('Cost')
             retail_val = getv('SRP') or getv('Retail')
@@ -817,6 +838,7 @@ def import_funnel_entries(request):
             entry = SalesFunnel(
                 date_created=dc,
                 company_name=company_name.strip(),
+                brand=(str(brand_val).strip() if brand_val else ''),
                 requirement_description=str(requirement_description).strip(),
                 cost=cost,
                 retail=retail,
@@ -891,29 +913,29 @@ def normalize_funnel_stages(request):
 
 
 @login_required
-@user_passes_test(can_add_entry)
+@user_passes_test(can_import_entries)
 def download_sample_csv(request):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="funnel_import_sample.csv"'
     writer = csv.writer(response)
     writer.writerow([
-        'Date Created', 'Company Name', 'Requirement Description', 'Cost', 'SRP', 'Stage',
+        'Date Created', 'Company Name', 'Brand', 'Requirement Description', 'Cost', 'SRP', 'Stage',
         'Customer', 'Expected Close Date', 'Probability', 'Notes'
     ])
     writer.writerow([
-        '2025-11-01', 'Water District Lipa', 'Laptop i7 16GB RAM 1TB SSD x 10', '450000', '650000', 'Newly Quoted',
+        '2025-11-01', 'Water District Lipa', 'Dell', 'Laptop i7 16GB RAM 1TB SSD x 10', '450000', '650000', 'Newly Quoted',
         'Water District Lipa', '2025-12-15', '50', 'Include extended warranty'
     ])
     writer.writerow([
-        '2025-10-15', 'San Miguel Corporation', 'HP Workstation', '500000', '750000', 'Closable This Month',
+        '2025-10-15', 'San Miguel Corporation', 'HP', 'HP Workstation', '500000', '750000', 'Closable This Month',
         'San Miguel Corporation', '2025-11-30', '70', ''
     ])
     writer.writerow([
-        '2025-09-20', 'ABC Engineering', 'Project-based deployment, phased', '300000', '500000', 'Project Based',
+        '2025-09-20', 'ABC Engineering', 'Cisco', 'Project-based deployment, phased', '300000', '500000', 'Project Based',
         '', '', '40', 'Phase 1 pending approval'
     ])
     writer.writerow([
-        '2025-08-05', 'XYZ Medical Center', 'Annual maintenance services package', '120000', '200000', 'Services',
+        '2025-08-05', 'XYZ Medical Center', 'IBM', 'Annual maintenance services package', '120000', '200000', 'Services',
         'XYZ Medical Center', '2025-09-20', '60', 'Includes on-site support'
     ])
     return response

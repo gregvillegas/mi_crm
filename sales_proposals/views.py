@@ -36,50 +36,62 @@ from email.mime.image import MIMEImage
 from reportlab.lib.utils import ImageReader
 
 
+def _resolve_email_signature_asset(filename):
+    candidate_dirs = [
+        Path(settings.BASE_DIR) / 'templates' / 'core' / 'static' / 'core' / 'images' / 'email_signature',
+        Path(settings.BASE_DIR) / 'core' / 'static' / 'core' / 'images' / 'email_signature',
+        Path(settings.BASE_DIR) / 'static' / 'core' / 'images' / 'email_signature',
+        Path(settings.BASE_DIR),
+    ]
+    for directory in candidate_dirs:
+        asset_path = directory / filename
+        if asset_path.exists():
+            return asset_path
+    return None
+
+
 def _get_proposal_email_signature_context(user):
+    inline_images = []
+
+    def register_inline_asset(cid, *filenames):
+        for filename in filenames:
+            image_path = _resolve_email_signature_asset(filename)
+            if image_path:
+                inline_images.append({
+                    'cid': cid,
+                    'path': image_path,
+                })
+                return cid
+        return ''
+
     social_links = []
     social_settings = [
         (
             'Facebook',
-            'f',
             getattr(settings, 'COMPANY_FACEBOOK_URL', ''),
-            'display:inline-block; width:30px; height:30px; line-height:30px; '
-            'text-align:center; font-size:22px; font-weight:700; color:#000000; '
-            'text-decoration:none; border-radius:50%; border:2px solid #000000;',
+            'signature-facebook-icon',
+            ('Facebook - FB.png', 'FB.png'),
         ),
         (
             'Instagram',
-            'IG',
             getattr(settings, 'COMPANY_INSTAGRAM_URL', ''),
-            'display:inline-block; width:30px; height:30px; line-height:28px; '
-            'text-align:center; font-size:11px; font-weight:700; color:#000000; '
-            'text-decoration:none; border-radius:10px; border:2px solid #000000;',
+            'signature-instagram-icon',
+            ('Instagram - IG.png', 'IG.png'),
         ),
         (
-            'X',
-            'X',
+            'Twitter',
             getattr(settings, 'COMPANY_X_URL', ''),
-            'display:inline-block; width:30px; height:30px; line-height:30px; '
-            'text-align:center; font-size:22px; font-weight:700; color:#000000; '
-            'text-decoration:none;',
-        ),
-        (
-            'LinkedIn',
-            'in',
-            getattr(settings, 'COMPANY_LINKEDIN_URL', ''),
-            'display:inline-block; width:30px; height:30px; line-height:28px; '
-            'text-align:center; font-size:13px; font-weight:700; color:#000000; '
-            'text-decoration:none; border-radius:50%; border:2px solid #000000;',
+            'signature-twitter-icon',
+            ('Twitter - TWITT.png', 'TWITT.png'),
         ),
     ]
-    for label, icon_text, url, icon_style in social_settings:
+    for label, url, icon_cid, filenames in social_settings:
         url = (url or '').strip()
         if url:
             social_links.append({
                 'label': label,
-                'icon_text': icon_text,
-                'icon_style': icon_style,
                 'url': url,
+                'icon_cid': register_inline_asset(icon_cid, *filenames),
             })
 
     job_title = ''
@@ -103,8 +115,14 @@ def _get_proposal_email_signature_context(user):
         ),
         'company_website_url': getattr(settings, 'COMPANY_WEBSITE_URL', 'https://www.microimageph.com'),
         'company_website_label': getattr(settings, 'COMPANY_WEBSITE_LABEL', 'www.microimageph.com'),
+        'company_website_icon_cid': register_inline_asset(
+            'signature-website-icon',
+            'Website - WEB-ICON.png',
+            'WEB-ICON.png',
+        ),
         'company_social_links': social_links,
-        'anniversary_image_available': (Path(settings.BASE_DIR) / '28Years.png').exists(),
+        'anniversary_image_cid': register_inline_asset('company-28-years', '28Years.png'),
+        'inline_images': inline_images,
     }
 
 
@@ -957,12 +975,8 @@ Best regards,"""
             'company-logo',
             Path(settings.BASE_DIR) / 'core' / 'static' / 'core' / 'images' / 'mi-logo-blk.png',
         )
-        if signature_context['anniversary_image_available']:
-            _attach_inline_image(
-                email,
-                'company-28-years',
-                Path(settings.BASE_DIR) / '28Years.png',
-            )
+        for asset in signature_context['inline_images']:
+            _attach_inline_image(email, asset['cid'], asset['path'])
         email.attach(f"{proposal.proposal_number}.pdf", buffer.getvalue(), 'application/pdf')
         for att in selected_attachments:
             if att.file:

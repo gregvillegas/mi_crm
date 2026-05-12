@@ -20,6 +20,11 @@ class SalesFunnel(models.Model):
         max_length=200,
         help_text="Name of the company for this proposal"
     )
+    brand = models.CharField(
+        max_length=120,
+        blank=True,
+        help_text="Optional product or solution brand, e.g. Cisco, IBM, Dell"
+    )
     requirement_description = models.TextField(
         help_text="Description of the customer's requirements"
     )
@@ -128,6 +133,7 @@ class SalesFunnel(models.Model):
             models.Index(fields=['stage', 'is_active']),
             models.Index(fields=['date_created']),
             models.Index(fields=['expected_close_date']),
+            models.Index(fields=['brand']),
         ]
         verbose_name = 'Sales Funnel Entry'
         verbose_name_plural = 'Sales Funnel Entries'

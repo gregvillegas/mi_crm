@@ -60,11 +60,17 @@
                 <a href="{% url 'export_customers' %}" class="btn btn-success btn-sm customer-icon-btn" title="Export CSV" aria-label="Export CSV">
                     <i class="fas fa-download"></i><span class="btn-label">Export CSV</span>
                 </a>
+                <a href="{% url 'export_customers_with_contacts' %}" class="btn btn-outline-success btn-sm customer-icon-btn" title="Export Customers + Contacts" aria-label="Export Customers + Contacts">
+                    <i class="fas fa-file-export"></i><span class="btn-label">Export Customers + Contacts</span>
+                </a>
                 <a href="{% url 'import_customers' %}" class="btn btn-warning btn-sm customer-icon-btn" title="Import CSV" aria-label="Import CSV">
                     <i class="fas fa-upload"></i><span class="btn-label">Import CSV</span>
                 </a>
                 <a href="{% url 'import_customer_contacts' %}" class="btn btn-outline-warning btn-sm customer-icon-btn" title="Import Contacts" aria-label="Import Contacts">
                     <i class="fas fa-address-book"></i><span class="btn-label">Import Contacts</span>
+                </a>
+                <a href="{% url 'import_customers_with_contacts' %}" class="btn btn-outline-primary btn-sm customer-icon-btn" title="Import Customers + Contacts" aria-label="Import Customers + Contacts">
+                    <i class="fas fa-file-import"></i><span class="btn-label">Import Customers + Contacts</span>
                 </a>
                 <a href="{% url 'download_sample_csv' %}" class="btn btn-info btn-sm customer-icon-btn" title="Sample CSV" aria-label="Sample CSV">
                     <i class="fas fa-file-csv"></i><span class="btn-label">Sample CSV</span>

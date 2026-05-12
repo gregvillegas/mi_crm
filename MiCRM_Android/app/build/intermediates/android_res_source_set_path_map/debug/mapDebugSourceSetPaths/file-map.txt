@@ -1,0 +1,7 @@
+com.microimage.crm.app-resValues-0 /Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/build/generated/res/resValues/debug
+com.microimage.crm.app-updated_navigation_xml-1 /Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/build/generated/updated_navigation_xml/debug
+com.microimage.crm.app-packageDebugResources-2 /Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.microimage.crm.app-packageDebugResources-3 /Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.microimage.crm.app-debug-4 /Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/build/intermediates/merged_res/debug/mergeDebugResources
+com.microimage.crm.app-debug-5 /Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/debug/res
+com.microimage.crm.app-main-6 /Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/res

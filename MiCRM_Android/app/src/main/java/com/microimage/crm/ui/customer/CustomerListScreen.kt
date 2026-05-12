@@ -27,15 +27,40 @@ fun CustomerListScreen(token: String, navController: NavController) {
     var customers by remember { mutableStateOf<List<CustomerSummary>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var userRole by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         scope.launch {
             try {
-                val response = RetrofitClient.apiService.getCustomers("Token $token")
+                val authHeader = "Token $token"
+                
+                // 1. Get user role first
+                val userRes = RetrofitClient.apiService.getCurrentUser(authHeader)
+                if (userRes.isSuccessful) {
+                    userRole = userRes.body()?.role ?: ""
+                }
+
+                // 2. Fetch customers based on role
+                val response = if (userRole == "salesperson") {
+                    RetrofitClient.apiService.getMyCustomers(authHeader)
+                } else {
+                    RetrofitClient.apiService.getCustomers(authHeader)
+                }
+
                 if (response.isSuccessful) {
                     customers = response.body() ?: emptyList()
                 } else {
-                    errorMessage = "Error: ${response.code()}"
+                    // If global list fails with 404, try the "mine" endpoint as a fallback
+                    if (response.code() == 404) {
+                        val fallbackRes = RetrofitClient.apiService.getMyCustomers(authHeader)
+                        if (fallbackRes.isSuccessful) {
+                            customers = fallbackRes.body() ?: emptyList()
+                        } else {
+                            errorMessage = "Error: ${response.code()}"
+                        }
+                    } else {
+                        errorMessage = "Error: ${response.code()}"
+                    }
                 }
             } catch (e: Exception) {
                 errorMessage = e.message
@@ -69,6 +94,8 @@ fun CustomerListScreen(token: String, navController: NavController) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             } else if (errorMessage != null) {
                 Text(errorMessage!!, modifier = Modifier.align(Alignment.Center))
+            } else if (customers.isEmpty()) {
+                Text("No customers found", modifier = Modifier.align(Alignment.Center))
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),

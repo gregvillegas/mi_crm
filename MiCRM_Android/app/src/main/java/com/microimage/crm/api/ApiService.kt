@@ -38,6 +38,9 @@ interface ApiService {
     @GET("customers/")
     suspend fun getCustomers(@Header("Authorization") token: String): Response<List<CustomerSummary>>
 
+    @GET("customers/mine/")
+    suspend fun getMyCustomers(@Header("Authorization") token: String): Response<List<CustomerSummary>>
+
     @GET("customers/{id}/")
     suspend fun getCustomerDetail(
         @Header("Authorization") token: String,
