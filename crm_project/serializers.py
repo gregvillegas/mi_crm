@@ -309,6 +309,8 @@ class SalesFunnelSerializer(serializers.ModelSerializer):
 
 
 class ProposalItemSerializer(serializers.ModelSerializer):
+    bundle_components = serializers.SerializerMethodField()
+
     class Meta:
         model = ProposalItem
         fields = [
@@ -320,9 +322,15 @@ class ProposalItemSerializer(serializers.ModelSerializer):
             'unit_price',
             'availability',
             'warranty',
+            'is_bundle',
+            'bundled_items',
+            'bundle_components',
             'amount',
             'total_cost',
         ]
+
+    def get_bundle_components(self, obj):
+        return obj.bundle_components
 
 
 class ProposalApprovalStepSerializer(serializers.ModelSerializer):
@@ -405,7 +413,7 @@ class ProposalDetailSerializer(ProposalListSerializer):
             'created_by',
             'created_by_name',
             'valid_until',
-            'price_validity_mode',
+            'stock_availability',
             'contact_name',
             'contact_email',
             'contact_phone',
@@ -466,7 +474,7 @@ class ProposalCreateSerializer(serializers.ModelSerializer):
             'exchange_rate',
             'date',
             'valid_until',
-            'price_validity_mode',
+            'stock_availability',
             'payment_terms',
             'delivery_lead_time',
             'cancellation_terms',

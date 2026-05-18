@@ -63,28 +63,12 @@
                 </div>
                 <div class="row">
                     <div class="col-md-6">
-                        {{ form.price_validity_mode|as_crispy_field }}
-                    </div>
-                    <div class="col-md-6">
-                        <div class="alert alert-light border small mt-4 mb-0">
-                            Select <strong>Use market-condition notice</strong> if you want the PDF to show:
-                            <br>
-                            <em>Prices are subject to change without prior notice due to market conditions.</em>
-                        </div>
+                        {{ form.stock_availability|as_crispy_field }}
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-md-6">
-                        <div class="form-check">
-                            {{ form.validity_subject_to_prior_sale }}
-                            <label class="form-check-label" for="{{ form.validity_subject_to_prior_sale.id_for_label }}">Subject to Prior Sale</label>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="form-check">
-                            {{ form.validity_availability_at_order }}
-                            <label class="form-check-label" for="{{ form.validity_availability_at_order.id_for_label }}">Availability at the time of Order</label>
-                        </div>
+                    <div class="col-md-12">
+                        {{ form.special_note|as_crispy_field }}
                     </div>
                 </div>
             </div>
@@ -130,16 +114,28 @@
                             </div>
                             <div class="col-12 mt-2">
                                 <div class="row">
-                                    <div class="col-md-6">
+                                    <div class="col-md-5">
                                         {{ form.warranty|as_crispy_field }}
                                     </div>
-                                    <div class="col-md-2 d-flex align-items-center pt-3">
+                                    <div class="col-md-4 d-flex align-items-center pt-3">
+                                        <div class="form-check">
+                                            {{ form.is_bundle }}
+                                            <label class="form-check-label" for="{{ form.is_bundle.id_for_label }}">Bundled sub-items / part numbers</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-center pt-3">
                                         {% if formset.can_delete %}
                                             <div class="form-check">
                                                 {{ form.DELETE }}
                                                 <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">Delete</label>
                                             </div>
                                         {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row bundle-items-row mt-2">
+                                    <div class="col-md-11 offset-md-1">
+                                        {{ form.bundled_items|as_crispy_field }}
+                                        <small class="text-muted">Paste 2 columns directly from Excel, or enter one bundled component per line using <code>PART NUMBER | Description</code>.</small>
                                     </div>
                                 </div>
                             </div>
@@ -177,10 +173,16 @@
                         </div>
                         <div class="col-12 mt-2">
                             <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-5">
                                     {{ formset.empty_form.warranty|as_crispy_field }}
                                 </div>
-                                <div class="col-md-2 d-flex align-items-center pt-3">
+                                <div class="col-md-4 d-flex align-items-center pt-3">
+                                    <div class="form-check">
+                                        {{ formset.empty_form.is_bundle }}
+                                        <label class="form-check-label" for="{{ formset.empty_form.is_bundle.id_for_label }}">Bundled sub-items / part numbers</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 d-flex align-items-center pt-3">
                                     {% if formset.can_delete %}
                                         <div class="form-check">
                                             {{ formset.empty_form.DELETE }}
@@ -189,42 +191,15 @@
                                     {% endif %}
                                 </div>
                             </div>
+                            <div class="row bundle-items-row mt-2">
+                                <div class="col-md-11 offset-md-1">
+                                    {{ formset.empty_form.bundled_items|as_crispy_field }}
+                                    <small class="text-muted">Paste 2 columns directly from Excel, or enter one bundled component per line using <code>PART NUMBER | Description</code>.</small>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <div class="card mb-4 border-info">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Internal Pricing</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-12">
-                        {{ form.sales_margin_pct|as_crispy_field }}
-                    </div>
-                </div>
-                {% if proposal %}
-                <div class="row text-center mt-2">
-                    <div class="col-md-3">
-                        <h6>Total Cost</h6>
-                        <h5 class="text-danger">₱{{ proposal.total_cost|floatformat:2|intcomma }}</h5>
-                    </div>
-                    <div class="col-md-3">
-                        <h6>Total Price</h6>
-                        <h5 class="text-primary">₱{{ proposal.subtotal|floatformat:2|intcomma }}</h5>
-                    </div>
-                    <div class="col-md-3">
-                        <h6>Profit</h6>
-                        <h5 class="text-success">₱{{ proposal.gross_profit|floatformat:2|intcomma }}</h5>
-                    </div>
-                    <div class="col-md-3">
-                        <h6>Target Revenue</h6>
-                        <h5 class="text-info">₱{{ proposal.target_subtotal_before_tax|floatformat:2|intcomma }}</h5>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
 
@@ -317,57 +292,9 @@
                     </div>
                 </div>
                 {{ form.introduction|as_crispy_field }}
-                {{ form.special_note|as_crispy_field }}
                 {{ form.closing|as_crispy_field }}
-                <div class="row">
-                    <div class="col-md-4">
-                        {{ form.tax_type|as_crispy_field }}
-                    </div>
-                    <div class="col-md-4" id="tax-rate-group">
-                        {{ form.tax_rate|as_crispy_field }}
-                    </div>
-                </div>
             </div>
         </div>
-
-        <!-- Profitability Analysis (Internal) -->
-        {% if proposal %}
-        <div class="card mb-4 border-info">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0">Profitability Analysis (Internal Use Only)</h5>
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-md-4">
-                        <h6>Total Revenue (excl. VAT)</h6>
-                        <h4 class="text-primary">₱{{ proposal.subtotal|intcomma }}</h4>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Total Cost</h6>
-                        <h4 class="text-danger">₱{{ proposal.total_cost|intcomma }}</h4>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Gross Profit</h6>
-                        <h4 class="text-success">₱{{ proposal.gross_profit|intcomma }}</h4>
-                    </div>
-                </div>
-                <div class="row text-center mt-3">
-                    <div class="col-md-4">
-                        <h6>Total Cost + 5%</h6>
-                        <h4 class="text-warning">₱{{ proposal.internal_cost_with_uplift|floatformat:2|intcomma }}</h4>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>AM Margin</h6>
-                        <h4 class="text-secondary">{{ proposal.sales_margin_pct|floatformat:2 }}%</h4>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Target Revenue Before VAT</h6>
-                        <h4 class="text-info">₱{{ proposal.target_subtotal_before_tax|floatformat:2|intcomma }}</h4>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
 
         <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-5">
             <a href="{% url 'proposal_list' %}" class="btn btn-secondary me-md-2">Cancel</a>
@@ -407,6 +334,9 @@ input.no-spin {
   border: 1px solid #ced4da;
   border-radius: .375rem;
   background-color: #f8f9fa;
+}
+.bundle-items-row {
+  display: none;
 }
 </style>
 {% endblock %}
@@ -451,35 +381,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Tax handling
-    const taxTypeSelect = document.getElementById('id_tax_type');
-    const taxRateGroup = document.getElementById('tax-rate-group');
-    const taxRateInput = document.getElementById('id_tax_rate');
-
-    function toggleTaxRate() {
-        if (taxTypeSelect.value === 'VAT') {
-            taxRateGroup.style.display = 'block';
-            if (parseFloat(taxRateInput.value) === 0) {
-                taxRateInput.value = '12.00';
-            }
-        } else {
-            taxRateGroup.style.display = 'none';
-            taxRateInput.value = '0.00';
-        }
-    }
-
-    if (taxTypeSelect) {
-        taxTypeSelect.addEventListener('change', toggleTaxRate);
-        toggleTaxRate(); // Initial state
-    }
-
     // Currency handling
     const currencySelect = document.getElementById('id_currency');
     const exchangeRateGroup = document.getElementById('exchange-rate-group');
     const exchangeRateInput = document.getElementById('id_exchange_rate');
-    const priceValidityMode = document.getElementById('id_price_validity_mode');
     const validUntilInput = document.getElementById('id_valid_until');
-    const validUntilGroup = validUntilInput ? validUntilInput.closest('.col-md-6') : null;
     const includeBank = document.getElementById('id_include_bank_details');
     const bankDetails = document.getElementById('bank-details');
     const bankPHP = document.getElementById('bank-php');
@@ -501,17 +407,8 @@ document.addEventListener('DOMContentLoaded', function() {
         currencySelect.addEventListener('change', toggleExchangeRate);
         toggleExchangeRate(); // Initial state
     }
-    function togglePriceValidityMode() {
-        if (!priceValidityMode || !validUntilInput) return;
-        const useDate = priceValidityMode.value === 'date_only';
-        validUntilInput.disabled = !useDate;
-        if (validUntilGroup) {
-            validUntilGroup.style.opacity = useDate ? '1' : '0.6';
-        }
-    }
-    if (priceValidityMode) {
-        priceValidityMode.addEventListener('change', togglePriceValidityMode);
-        togglePriceValidityMode();
+    if (validUntilInput) {
+        validUntilInput.disabled = false;
     }
     function toggleBankDetails() {
         if (!bankDetails) return;
@@ -629,14 +526,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const amount = qty * price;
         amountLabel.textContent = amount ? `Amount: ₱${amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '';
     }
+    function toggleBundleRow(row) {
+        const bundleCheckbox = row.querySelector('input[name$="is_bundle"]');
+        const bundleRow = row.querySelector('.bundle-items-row');
+        if (!bundleCheckbox || !bundleRow) return;
+        bundleRow.style.display = bundleCheckbox.checked ? 'flex' : 'none';
+    }
     function initItemRow(row) {
         const costInput = row.querySelector('input[name$="unit_cost"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
-        if (!costInput || !priceInput) return;
-        attachPriceFormatting(costInput);
-        attachPriceFormatting(priceInput);
-        if (costInput.value) costInput.value = formatMoneyInput(costInput.value, true);
-        if (priceInput.value) priceInput.value = formatMoneyInput(priceInput.value, true);
+        const bundleCheckbox = row.querySelector('input[name$="is_bundle"]');
+        if (costInput) {
+            attachPriceFormatting(costInput);
+            if (costInput.value) costInput.value = formatMoneyInput(costInput.value, true);
+        }
+        if (priceInput) {
+            attachPriceFormatting(priceInput);
+            if (priceInput.value) priceInput.value = formatMoneyInput(priceInput.value, true);
+        }
+        if (bundleCheckbox) {
+            bundleCheckbox.addEventListener('change', () => toggleBundleRow(row));
+        }
+        toggleBundleRow(row);
     }
     function attachItemHandlers(scope) {
         const rows = scope ? [scope] : Array.from(document.querySelectorAll('.item-row'));

@@ -386,7 +386,19 @@ def proposal_update(request, pk):
         if form.is_valid() and formset.is_valid() and attach_formset.is_valid():
             with transaction.atomic():
                 before = Proposal.objects.get(pk=proposal.pk)
-                before_items = {i.pk: {'part_number': i.part_number, 'description': i.description, 'quantity': str(i.quantity), 'unit_cost': str(i.unit_cost), 'unit_price': str(i.unit_price), 'warranty': i.warranty} for i in before.items.all()}
+                before_items = {
+                    i.pk: {
+                        'part_number': i.part_number,
+                        'description': i.description,
+                        'quantity': str(i.quantity),
+                        'unit_cost': str(i.unit_cost),
+                        'unit_price': str(i.unit_price),
+                        'warranty': i.warranty,
+                        'is_bundle': i.is_bundle,
+                        'bundled_items': i.bundled_items,
+                    }
+                    for i in before.items.all()
+                }
                 updated = form.save()
                 items = formset.save(commit=False)
                 for item in items:
@@ -410,12 +422,24 @@ def proposal_update(request, pk):
                 changes = {}
                 from django.forms.models import model_to_dict
                 after = Proposal.objects.get(pk=proposal.pk)
-                fields_to_check = ['customer_id','date','valid_until','price_validity_mode','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','tax_type','tax_rate','include_bank_details','currency','exchange_rate','sales_margin_pct']
+                fields_to_check = ['customer_id','date','valid_until','stock_availability','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','include_bank_details','currency','exchange_rate']
                 for f in fields_to_check:
                     if getattr(before, f) != getattr(after, f):
                         changes[f] = {'from': str(getattr(before, f)), 'to': str(getattr(after, f))}
                 # Items
-                after_items = {i.pk: {'part_number': i.part_number, 'description': i.description, 'quantity': str(i.quantity), 'unit_cost': str(i.unit_cost), 'unit_price': str(i.unit_price), 'warranty': i.warranty} for i in proposal.items.all()}
+                after_items = {
+                    i.pk: {
+                        'part_number': i.part_number,
+                        'description': i.description,
+                        'quantity': str(i.quantity),
+                        'unit_cost': str(i.unit_cost),
+                        'unit_price': str(i.unit_price),
+                        'warranty': i.warranty,
+                        'is_bundle': i.is_bundle,
+                        'bundled_items': i.bundled_items,
+                    }
+                    for i in proposal.items.all()
+                }
                 item_changes = {}
                 for pk_i, before_data in before_items.items():
                     if pk_i not in after_items:
@@ -651,7 +675,7 @@ def generate_pdf_buffer(proposal):
         Paragraph("PRODUCT DESCRIPTION", styles['TableHeader']),
         Paragraph("QTY", styles['TableHeader']),
         Paragraph("UNIT PRICE", styles['TableHeader']),
-        Paragraph("TOTAL PRICE", styles['TableHeader']),
+        Paragraph("EXTENDED PRICE", styles['TableHeader']),
         Paragraph("WARRANTY", styles['TableHeader'])
     ]]
     
@@ -660,13 +684,23 @@ def generate_pdf_buffer(proposal):
     for idx, item in enumerate(proposal.items.all(), start=1):
         table_data.append([
             Paragraph(str(idx), styles['TableText']),
-            Paragraph(item.part_number, styles['TableText']),
-            Paragraph(item.description, styles['TableText']),
+            Paragraph(item.part_number or '', styles['TableText']),
+            Paragraph(item.description or '', styles['TableText']),
             Paragraph(str(int(item.quantity)) if item.quantity % 1 == 0 else str(item.quantity), styles['TableText']),
             Paragraph(f"{currency_symbol} {item.unit_price:,.2f}", styles['TableText']),
             Paragraph(f"{currency_symbol} {item.amount:,.2f}", styles['TableText']),
             Paragraph(item.warranty or proposal.warranty, styles['TableText'])
         ])
+        for component in item.bundle_components:
+            table_data.append([
+                '',
+                Paragraph(component['part_number'] or '', styles['TableText']),
+                Paragraph(component['description'] or '', styles['TableText']),
+                '',
+                '',
+                '',
+                '',
+            ])
     
     # Subtotal
     table_data.append([
@@ -676,35 +710,10 @@ def generate_pdf_buffer(proposal):
         ''
     ])
 
-    # Tax
-    tax_label = None
-    tax_amount_str = None
-
-    if proposal.tax_type == 'VAT':
-        tax_label = f"VAT ({proposal.tax_rate:.0f}%)"
-        tax_amount_str = f"{currency_symbol} {proposal.tax_amount:,.2f}"
-    elif proposal.tax_type == 'ZERO':
-        tax_label = "Zero-Rated (0%)"
-        tax_amount_str = f"{currency_symbol} 0.00"
-    elif proposal.tax_type == 'EXEMPT':
-        tax_label = "VAT-Exempt (0%)"
-        tax_amount_str = f"{currency_symbol} 0.00"
-    elif proposal.tax_rate > 0:
-        tax_label = f"Tax ({proposal.tax_rate:.0f}%)"
-        tax_amount_str = f"{currency_symbol} {proposal.tax_amount:,.2f}"
-
-    if tax_label:
-        table_data.append([
-            '', '', '', '', 
-            Paragraph(tax_label, styles['TableText']), 
-            Paragraph(tax_amount_str, styles['TableText']), 
-            ''
-        ])
-
-    # Total Investment Row
+    # Grand Total Row
     table_data.append([
         '', '', '', '', 
-        Paragraph("Total Investment", styles['TableHeader']), 
+        Paragraph("Grand Total", styles['TableHeader']), 
         Paragraph(f"{currency_symbol} {proposal.total_amount:,.2f}", styles['TableHeader']), 
         ''
     ])
@@ -750,21 +759,12 @@ def generate_pdf_buffer(proposal):
     
     cancellation_text = cancellation_texts.get(proposal.cancellation_terms, cancellation_texts.get('professional'))
     
-    # Build Price Validity text with optional notes
-    validity_parts = []
-    if getattr(proposal, 'price_validity_mode', 'date_only') == 'market_notice':
-        validity_parts.append("Prices are subject to change without prior notice due to market conditions.")
-    else:
-        validity_parts.append(f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only.")
-    if getattr(proposal, 'validity_subject_to_prior_sale', False):
-        validity_parts.append("Subject to Prior Sale.")
-    if getattr(proposal, 'validity_availability_at_order', False):
-        validity_parts.append("Availability at the time of Order.")
-    validity_text = "<br/>".join(validity_parts)
+    validity_text = f"Valid until {proposal.valid_until.strftime('%B %d, %Y') if proposal.valid_until else 'N/A'} only."
     
     tc_data = [
         [Paragraph("Terms and Conditions:", tc_label), ''],
         [Paragraph("Price Validity", tc_label), Paragraph(validity_text, tc_style)],
+        [Paragraph("Stock Availability", tc_label), Paragraph(proposal.stock_availability or "N/A", tc_style)],
         [Paragraph("Payment Terms", tc_label), Paragraph(proposal.payment_terms, tc_style)],
         [Paragraph("Cancellation", tc_label), Paragraph(cancellation_text, tc_style)],
     ]

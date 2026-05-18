@@ -24,7 +24,20 @@ class Proposal(models.Model):
         ('date_only', 'Valid until selected date'),
         ('market_notice', 'Use market-condition notice'),
     ]
+    STOCK_AVAILABILITY_CHOICES = [
+        ('', '---------'),
+        ('ON-STOCK 3 TO 5 WORKING DAYS', 'ON-STOCK 3 TO 5 WORKING DAYS'),
+        ('LIMITED STOCK', 'LIMITED STOCK'),
+        ('ORDER BASIS (30 TO 45 WORKING DAYS)', 'ORDER BASIS (30 TO 45 WORKING DAYS)'),
+        ('ORDER BASIS (60 TO 90 WORKING DAYS)', 'ORDER BASIS (60 TO 90 WORKING DAYS)'),
+        ('ORDER BASIS (90 TO 120 WORKING DAYS)', 'ORDER BASIS (90 TO 120 WORKING DAYS)'),
+        ('ORDER BASIS (7 TO 10 WORKING DAYS)', 'ORDER BASIS (7 TO 10 WORKING DAYS)'),
+        ('CONFIG TO ORDER (30 TO 45 WORKING DAYS)', 'CONFIG TO ORDER (30 TO 45 WORKING DAYS)'),
+        ('CONFIG TO ORDER (60 TO 90 WORKING DAYS)', 'CONFIG TO ORDER (60 TO 90 WORKING DAYS)'),
+        ('CONFIG TO ORDER (90 TO 120 WORKING DAYS)', 'CONFIG TO ORDER (90 TO 120 WORKING DAYS)'),
+    ]
     price_validity_mode = models.CharField(max_length=20, choices=PRICE_VALIDITY_MODE_CHOICES, default='date_only')
+    stock_availability = models.CharField(max_length=80, choices=STOCK_AVAILABILITY_CHOICES, blank=True, default='')
     subject = models.CharField(max_length=200)
     # Attention contact snapshot
     contact_name = models.CharField(max_length=120, blank=True)
@@ -65,7 +78,7 @@ class Proposal(models.Model):
     php_account_type = models.CharField(max_length=200, default="Current Account / Checking Account")
     php_branch = models.CharField(max_length=200, default="Banco De Oro - Salcedo Dela Rosa Branch")
     # USD
-    usd_beneficiary_name = models.CharField(max_length=200, default="MICROIMAGE INTERNATIONAL CORP.")
+    usd_beneficiary_name = models.CharField(max_length=200, default="MICRO IMAGE INTERNATIONAL CORP.")
     usd_beneficiary_address = models.CharField(max_length=300, default="Unit 101 Legaspi Suites Bldg., 178 Salcedo St., Makati City")
     usd_account_number = models.CharField(max_length=100, default="0123 0001 0002 1111")
     usd_bank_address = models.CharField(max_length=300, default="G/F State Condominium 1 Building, Salcedo Street, Legaspi Village, Makati, Philippines")
@@ -162,15 +175,12 @@ class Proposal(models.Model):
     def calculate_totals(self):
         self.subtotal = sum(item.amount for item in self.items.all())
         self.total_cost = sum(item.total_cost for item in self.items.all())
-        
-        # Override tax_rate based on tax_type
-        if self.tax_type in ['ZERO', 'EXEMPT']:
-            self.tax_rate = Decimal('0.00')
-        elif self.tax_type == 'VAT' and self.tax_rate == 0:
-            self.tax_rate = Decimal('12.00')
-            
-        self.tax_amount = self.subtotal * (self.tax_rate / 100)
-        self.total_amount = self.subtotal + self.tax_amount
+
+        # Tax is no longer exposed in proposals, so proposal totals stay tax-free.
+        self.tax_type = 'ZERO'
+        self.tax_rate = Decimal('0.00')
+        self.tax_amount = Decimal('0.00')
+        self.total_amount = self.subtotal
         
         # Gross profit is Total Revenue (excl tax if we consider net sales, but typically GP is Sales - COGS)
         # Assuming subtotal is Net Sales.
@@ -327,11 +337,56 @@ class ProposalItem(models.Model):
     unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Internal")
     availability = models.CharField(max_length=100, blank=True, help_text="Product availability (e.g. In Stock, 2-3 weeks)")
     warranty = models.CharField(max_length=150, blank=True, help_text="Per-item warranty (e.g., 1 year parts/labor)")
+    is_bundle = models.BooleanField(default=False, help_text="Show bundled component part numbers under this priced item")
+    bundled_items = models.TextField(blank=True, help_text="One bundled component per line. Format: PART NUMBER | Description")
     margin_pct = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Stored margin percentage for display consistency")
     amount = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
 
+    @staticmethod
+    def _split_bundle_line(raw_line):
+        line = (raw_line or '').strip()
+        if not line:
+            return None
+
+        for delimiter in ('|', '\t', ' - ', ' – ', ' — '):
+            if delimiter in line:
+                part_number, description = line.split(delimiter, 1)
+                return {
+                    'part_number': part_number.strip(),
+                    'description': description.strip(),
+                }
+
+        if ' ' not in line:
+            return {
+                'part_number': line,
+                'description': '',
+            }
+
+        return {
+            'part_number': '',
+            'description': line,
+        }
+
+    @property
+    def bundle_components(self):
+        if not self.bundled_items:
+            return []
+
+        components = []
+        for raw_line in self.bundled_items.splitlines():
+            component = self._split_bundle_line(raw_line)
+            if component:
+                components.append(component)
+        return components
+
+    @property
+    def has_bundle_components(self):
+        return bool(self.is_bundle and self.bundle_components)
+
     def save(self, *args, **kwargs):
+        if not self.is_bundle:
+            self.bundled_items = ''
         self.amount = self.quantity * self.unit_price
         self.total_cost = self.quantity * self.unit_cost
         super().save(*args, **kwargs)

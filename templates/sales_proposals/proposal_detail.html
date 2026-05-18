@@ -68,7 +68,7 @@
                                     <th>Description</th>
                                     <th class="text-end">Qty</th>
                                     <th class="text-end">Unit Price</th>
-                                    <th class="text-end">Total Price</th>
+                                    <th class="text-end">Extended Price</th>
                                     <th>Warranty</th>
                                 </tr>
                             </thead>
@@ -83,6 +83,17 @@
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.amount|intcomma }}</td>
                                     <td>{{ item.warranty }}</td>
                                 </tr>
+                                {% for component in item.bundle_components %}
+                                <tr class="table-light">
+                                    <td></td>
+                                    <td>{{ component.part_number }}</td>
+                                    <td>{{ component.description }}</td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                    <td></td>
+                                </tr>
+                                {% endfor %}
                                 {% endfor %}
                             </tbody>
                             <tfoot>
@@ -91,33 +102,8 @@
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.subtotal|intcomma }}</td>
                                     <td></td>
                                 </tr>
-                                {% if proposal.tax_type == 'VAT' %}
-                                <tr>
-                                    <td colspan="5" class="text-end">VAT ({{ proposal.tax_rate|floatformat:0 }}%):</td>
-                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.tax_amount|intcomma }}</td>
-                                    <td></td>
-                                </tr>
-                                {% elif proposal.tax_type == 'ZERO' %}
-                                <tr>
-                                    <td colspan="5" class="text-end">Zero-Rated (0%):</td>
-                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}0.00</td>
-                                    <td></td>
-                                </tr>
-                                {% elif proposal.tax_type == 'EXEMPT' %}
-                                <tr>
-                                    <td colspan="5" class="text-end">VAT-Exempt (0%):</td>
-                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}0.00</td>
-                                    <td></td>
-                                </tr>
-                                {% elif proposal.tax_rate > 0 %}
-                                <tr>
-                                    <td colspan="5" class="text-end">Tax ({{ proposal.tax_rate|floatformat:0 }}%):</td>
-                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.tax_amount|intcomma }}</td>
-                                    <td></td>
-                                </tr>
-                                {% endif %}
                                 <tr class="table-active">
-                                    <td colspan="5" class="text-end"><strong>Total Investment:</strong></td>
+                                    <td colspan="5" class="text-end"><strong>Grand Total:</strong></td>
                                     <td class="text-end"><strong>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.total_amount|intcomma }}</strong></td>
                                     <td></td>
                                 </tr>

@@ -21,7 +21,7 @@ class ProposalForm(forms.ModelForm):
             'exchange_rate',
             'date',
             'valid_until',
-            'price_validity_mode',
+            'stock_availability',
             'payment_terms',
             'delivery_lead_time',
             'cancellation_terms',
@@ -29,23 +29,31 @@ class ProposalForm(forms.ModelForm):
             # Bank details (editable)
             'php_bank_name','php_account_name','php_account_number','php_account_type','php_branch',
             'usd_beneficiary_name','usd_beneficiary_address','usd_account_number','usd_bank_address','usd_swift_code',
-            # Price Validity options
-            'validity_subject_to_prior_sale','validity_availability_at_order',
             'introduction',
             'special_note',
             'closing',
-            'tax_type',
-            'tax_rate',
-            'sales_margin_pct',
         ]
+        labels = {
+            'stock_availability': 'Stock availability',
+            'closing': 'Other terms',
+            'php_bank_name': 'PHP bank name',
+            'php_account_name': 'PHP account name',
+            'php_account_number': 'PHP account number',
+            'php_account_type': 'PHP account type',
+            'php_branch': 'PHP branch',
+            'usd_beneficiary_name': 'USD beneficiary name',
+            'usd_beneficiary_address': 'USD beneficiary address',
+            'usd_account_number': 'USD account number',
+            'usd_bank_address': 'USD bank address',
+            'usd_swift_code': 'USD swift code',
+        }
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
-            'price_validity_mode': forms.Select(attrs={'class': 'form-select'}),
+            'stock_availability': forms.Select(attrs={'class': 'form-select'}),
             'introduction': forms.Textarea(attrs={'rows': 3}),
             'special_note': forms.Textarea(attrs={'rows': 1}),
             'closing': forms.Textarea(attrs={'rows': 3}),
-            'sales_margin_pct': NumberInput(attrs={'class': 'no-spin', 'step': '0.01', 'min': '0', 'inputmode': 'decimal'}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -80,13 +88,22 @@ class ProposalForm(forms.ModelForm):
 class ProposalItemForm(forms.ModelForm):
     class Meta:
         model = ProposalItem
-        fields = ['part_number', 'description', 'quantity', 'unit_cost', 'unit_price', 'warranty']
+        fields = ['part_number', 'description', 'quantity', 'unit_cost', 'unit_price', 'warranty', 'is_bundle', 'bundled_items']
         widgets = {
             'description': Textarea(attrs={'rows': 3}),
             'quantity': NumberInput(attrs={'class': 'no-spin', 'step': '1', 'min': '1', 'inputmode': 'numeric'}),
             'unit_cost': TextInput(attrs={'class': 'price-input no-spin', 'inputmode': 'decimal', 'autocomplete': 'off'}),
             'unit_price': TextInput(attrs={'class': 'price-input no-spin', 'inputmode': 'decimal', 'autocomplete': 'off'}),
+            'bundled_items': Textarea(attrs={
+                'rows': 5,
+                'placeholder': 'Paste 2 columns from Excel (Part Number + Description), or type:\nB4YT6AV | HP IDS DSC RTX PRO 2000 8GB Ultra 9 285HX 16 inch G1i Base NB PC\n8C9M7AV | No Country of Origin Restriction',
+            }),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['unit_cost'].required = False
+        self.fields['bundled_items'].required = False
 
     def _clean_decimal_text(self, field_name):
         raw_value = self.cleaned_data.get(field_name)
@@ -111,6 +128,16 @@ class ProposalItemForm(forms.ModelForm):
         if value is None:
             raise forms.ValidationError('This field is required.')
         return value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        bundled_items = (cleaned_data.get('bundled_items') or '').strip()
+        cleaned_data['bundled_items'] = bundled_items
+
+        if cleaned_data.get('is_bundle') and not bundled_items:
+            self.add_error('bundled_items', 'Enter at least one bundled part number or component line.')
+
+        return cleaned_data
 
 ProposalItemFormSet = inlineformset_factory(
     Proposal,

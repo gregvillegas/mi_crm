@@ -10,7 +10,7 @@ from django.urls import reverse
 
 from customers.models import Customer
 from sales_proposals.context_processors import proposal_approval_notifications
-from sales_proposals.forms import ProposalItemForm
+from sales_proposals.forms import ProposalForm, ProposalItemForm
 from sales_proposals.models import Proposal, ProposalApprovalStep, ProposalItem
 from sales_proposals.views import _get_proposal_email_signature_context
 from teams.models import Group, Team, TeamMembership
@@ -186,6 +186,60 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertEqual(form.cleaned_data['unit_cost'], Decimal('0'))
         self.assertEqual(form.cleaned_data['unit_price'], Decimal('125000'))
 
+    def test_item_form_requires_bundle_lines_when_bundle_is_checked(self):
+        form = ProposalItemForm(data={
+            'part_number': 'SERVER-001',
+            'description': 'Bundled workstation',
+            'quantity': '1',
+            'unit_cost': '',
+            'unit_price': '100000',
+            'warranty': '',
+            'is_bundle': 'on',
+            'bundled_items': '',
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('bundled_items', form.errors)
+
+    def test_bundle_components_parse_part_numbers_and_descriptions(self):
+        item = ProposalItem(
+            part_number='SERVER-001',
+            description='Main bundled server',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('0'),
+            unit_price=Decimal('100000'),
+            is_bundle=True,
+            bundled_items='B4YT6AV | Base Unit\n8C9M7AV | No Country of Origin Restriction\n3 year onsite support',
+        )
+
+        self.assertEqual(
+            item.bundle_components,
+            [
+                {'part_number': 'B4YT6AV', 'description': 'Base Unit'},
+                {'part_number': '8C9M7AV', 'description': 'No Country of Origin Restriction'},
+                {'part_number': '', 'description': '3 year onsite support'},
+            ],
+        )
+
+    def test_bundle_components_parse_tab_separated_excel_paste(self):
+        item = ProposalItem(
+            part_number='SERVER-001',
+            description='Main bundled server',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('0'),
+            unit_price=Decimal('100000'),
+            is_bundle=True,
+            bundled_items='B4YT6AV\tBase Unit\n8C9M7AV\tNo Country of Origin Restriction',
+        )
+
+        self.assertEqual(
+            item.bundle_components,
+            [
+                {'part_number': 'B4YT6AV', 'description': 'Base Unit'},
+                {'part_number': '8C9M7AV', 'description': 'No Country of Origin Restriction'},
+            ],
+        )
+
     def test_proposal_internal_summary_uses_total_level_margin(self):
         user = User.objects.create_user(
             username='pricing_user',
@@ -229,6 +283,62 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertEqual(proposal.subtotal, Decimal('380.00'))
         self.assertEqual(proposal.internal_cost_with_uplift, Decimal('210.0000'))
         self.assertEqual(proposal.target_subtotal_before_tax, Decimal('231.000000'))
+
+    def test_proposal_totals_are_tax_free(self):
+        user = User.objects.create_user(
+            username='taxfree_user',
+            password='testpass123',
+            role='salesperson',
+            email='taxfree@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Tax Free Corp',
+            contact_person_name='Tina Buyer',
+            email='buyer@taxfree.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Tax Free Test',
+            tax_type='VAT',
+            tax_rate=Decimal('12.00'),
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='SKU-300',
+            description='Firewall',
+            quantity=Decimal('2'),
+            unit_cost=Decimal('100.00'),
+            unit_price=Decimal('150.00'),
+        )
+
+        proposal.calculate_totals()
+        proposal.refresh_from_db()
+
+        self.assertEqual(proposal.tax_type, 'ZERO')
+        self.assertEqual(proposal.tax_rate, Decimal('0.00'))
+        self.assertEqual(proposal.tax_amount, Decimal('0.00'))
+        self.assertEqual(proposal.subtotal, Decimal('300.00'))
+        self.assertEqual(proposal.total_amount, Decimal('300.00'))
+
+    def test_proposal_form_uses_uppercase_bank_detail_labels(self):
+        form = ProposalForm()
+
+        self.assertNotIn('tax_type', form.fields)
+        self.assertNotIn('tax_rate', form.fields)
+        self.assertNotIn('sales_margin_pct', form.fields)
+        self.assertNotIn('price_validity_mode', form.fields)
+        self.assertNotIn('validity_subject_to_prior_sale', form.fields)
+        self.assertNotIn('validity_availability_at_order', form.fields)
+        self.assertIn('stock_availability', form.fields)
+        self.assertIn('is_bundle', ProposalItemForm().fields)
+        self.assertIn('bundled_items', ProposalItemForm().fields)
+        self.assertEqual(form.fields['stock_availability'].label, 'Stock availability')
+        self.assertEqual(form.fields['php_bank_name'].label, 'PHP bank name')
+        self.assertEqual(form.fields['php_account_name'].label, 'PHP account name')
+        self.assertEqual(form.fields['usd_beneficiary_name'].label, 'USD beneficiary name')
+        self.assertEqual(form.fields['usd_bank_address'].label, 'USD bank address')
 
 
 class ProposalEmailSignatureTests(TestCase):
