@@ -1,18 +1,21 @@
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase
 from django.test.utils import override_settings
 from django.urls import reverse
 
 from customers.models import Customer
+from sales_funnel.models import SalesFunnel
 from sales_proposals.context_processors import proposal_approval_notifications
-from sales_proposals.forms import ProposalForm, ProposalItemForm
-from sales_proposals.models import Proposal, ProposalApprovalStep, ProposalItem
-from sales_proposals.views import _get_proposal_email_signature_context
+from sales_proposals.forms import ProposalAttachmentForm, ProposalForm, ProposalItemForm
+from sales_proposals.models import Proposal, ProposalApprovalStep, ProposalAttachment, ProposalItem
+from sales_proposals.views import _get_proposal_email_signature_context, update_sales_funnel
 from teams.models import Group, Team, TeamMembership
 
 
@@ -201,6 +204,48 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('bundled_items', form.errors)
 
+    def test_attachment_form_blocks_costing_matrix_include_in_email(self):
+        upload = SimpleUploadedFile(
+            'COSTING-MATRIX.xlsx',
+            b'fake-excel-content',
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        form = ProposalAttachmentForm(
+            data={'include_in_email': 'on'},
+            files={'file': upload},
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertFalse(form.cleaned_data['include_in_email'])
+
+    def test_costing_matrix_attachment_save_forces_include_in_email_false(self):
+        user = User.objects.create_user(
+            username='attach_user',
+            password='testpass123',
+            role='salesperson',
+            email='attach@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Attachment Corp',
+            contact_person_name='Ava Buyer',
+            email='buyer@attach.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Attachment Test',
+        )
+        attachment = ProposalAttachment.objects.create(
+            proposal=proposal,
+            file=SimpleUploadedFile('costing-matrix.xlsx', b'xlsx'),
+            include_in_email=True,
+            uploaded_by=user,
+        )
+
+        self.assertTrue(attachment.is_costing_matrix)
+        self.assertFalse(attachment.include_in_email)
+
     def test_bundle_components_parse_part_numbers_and_descriptions(self):
         item = ProposalItem(
             part_number='SERVER-001',
@@ -239,6 +284,235 @@ class ProposalPricingWorkflowTests(TestCase):
                 {'part_number': '8C9M7AV', 'description': 'No Country of Origin Restriction'},
             ],
         )
+
+    def test_optional_items_are_excluded_from_proposal_totals(self):
+        user = User.objects.create_user(
+            username='optional_user',
+            password='testpass123',
+            role='salesperson',
+            email='optional@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Optional Corp',
+            contact_person_name='Olive Buyer',
+            email='buyer@optional.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Optional Item Test',
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='REQ-001',
+            description='Required laptop',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('20000.00'),
+            unit_price=Decimal('30000.00'),
+            is_optional=False,
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='OPT-001',
+            description='Optional dock',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('5000.00'),
+            unit_price=Decimal('10000.00'),
+            is_optional=True,
+        )
+
+        proposal.calculate_totals()
+        proposal.refresh_from_db()
+
+        self.assertTrue(proposal.has_optional_items)
+        self.assertEqual(proposal.subtotal, Decimal('30000.00'))
+        self.assertEqual(proposal.total_cost, Decimal('20000.00'))
+        self.assertEqual(proposal.total_amount, Decimal('30000.00'))
+        optional_item = proposal.items.get(part_number='OPT-001')
+        self.assertEqual(optional_item.amount, Decimal('10000.00'))
+        self.assertEqual(proposal.quoted_total_cost, Decimal('25000.00'))
+        self.assertEqual(proposal.quoted_total_amount, Decimal('40000.00'))
+        self.assertEqual(proposal.quoted_gross_profit, Decimal('15000.00'))
+
+    def test_proposal_list_uses_quoted_total_when_optional_items_exist(self):
+        user = User.objects.create_user(
+            username='optional_list_user',
+            password='testpass123',
+            role='salesperson',
+            email='optional-list@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Quoted Corp',
+            contact_person_name='Quinn Buyer',
+            email='buyer@quoted.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Quoted Proposal',
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='REQ-100',
+            description='Required bundle base',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('10000.00'),
+            unit_price=Decimal('15000.00'),
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='OPT-100',
+            description='Optional upgrade',
+            quantity=Decimal('2'),
+            unit_cost=Decimal('5000.00'),
+            unit_price=Decimal('8000.00'),
+            is_optional=True,
+        )
+        proposal.calculate_totals()
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('proposal_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '31,000.00')
+        self.assertNotContains(response, '15,000.00')
+
+    def test_update_sales_funnel_uses_quoted_totals_when_optional_items_exist(self):
+        user = User.objects.create_user(
+            username='optional_funnel_user',
+            password='testpass123',
+            role='salesperson',
+            email='optional-funnel@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Funnel Corp',
+            contact_person_name='Finn Buyer',
+            email='buyer@funnel.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Funnel Proposal',
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='REQ-200',
+            description='Required server',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('20000.00'),
+            unit_price=Decimal('30000.00'),
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='OPT-200',
+            description='Optional storage',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('10000.00'),
+            unit_price=Decimal('15000.00'),
+            is_optional=True,
+        )
+        proposal.calculate_totals()
+
+        update_sales_funnel(proposal)
+        funnel_entry = SalesFunnel.objects.get(proposal=proposal)
+
+        self.assertEqual(funnel_entry.retail, Decimal('45000.00'))
+        self.assertEqual(funnel_entry.cost, Decimal('30000.00'))
+        self.assertEqual(funnel_entry.display_retail, Decimal('45000.00'))
+        self.assertEqual(funnel_entry.profit, Decimal('15000.00'))
+
+    def test_proposal_list_displays_reference_number_column(self):
+        user = User.objects.create_user(
+            username='reference_user',
+            password='testpass123',
+            role='salesperson',
+            email='reference@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Reference Corp',
+            contact_person_name='Rina Buyer',
+            email='buyer@reference.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Reference Display Test',
+            reference_number='REF-2026-001',
+        )
+
+        self.client.force_login(user)
+        response = self.client.get(reverse('proposal_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Reference #')
+        self.assertContains(response, proposal.reference_number)
+
+    @patch('sales_proposals.views.update_sales_funnel')
+    @patch('sales_proposals.views.log_sales_activity')
+    @patch('sales_proposals.views.EmailMultiAlternatives')
+    def test_proposal_email_excludes_costing_matrix_attachment(
+        self,
+        email_cls,
+        _log_sales_activity,
+        _update_sales_funnel,
+    ):
+        user = User.objects.create_user(
+            username='email_user',
+            password='testpass123',
+            role='salesperson',
+            email='sender@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Email Corp',
+            contact_person_name='Erin Buyer',
+            email='buyer@email.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Email Attachment Test',
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            description='Quoted line',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('100.00'),
+            unit_price=Decimal('150.00'),
+        )
+        proposal.calculate_totals()
+        safe_attachment = ProposalAttachment.objects.create(
+            proposal=proposal,
+            file=SimpleUploadedFile('brochure.pdf', b'pdf-bytes'),
+            include_in_email=True,
+            uploaded_by=user,
+        )
+        blocked_attachment = ProposalAttachment.objects.create(
+            proposal=proposal,
+            file=SimpleUploadedFile('COSTING-MATRIX.xlsx', b'xlsx-bytes'),
+            include_in_email=True,
+            uploaded_by=user,
+        )
+
+        email_instance = email_cls.return_value
+        self.client.force_login(user)
+        response = self.client.post(
+            reverse('proposal_email', args=[proposal.pk]),
+            {
+                'customer_emails': customer.email,
+                'attach_id': [str(safe_attachment.id), str(blocked_attachment.id)],
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        attached_names = [call.args[0] for call in email_instance.attach.call_args_list]
+        self.assertIn(f'{proposal.proposal_number}.pdf', attached_names)
+        self.assertIn('brochure.pdf', attached_names)
+        self.assertNotIn('COSTING-MATRIX.xlsx', attached_names)
 
     def test_proposal_internal_summary_uses_total_level_margin(self):
         user = User.objects.create_user(
@@ -332,8 +606,10 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertNotIn('validity_subject_to_prior_sale', form.fields)
         self.assertNotIn('validity_availability_at_order', form.fields)
         self.assertIn('stock_availability', form.fields)
-        self.assertIn('is_bundle', ProposalItemForm().fields)
-        self.assertIn('bundled_items', ProposalItemForm().fields)
+        item_form = ProposalItemForm()
+        self.assertIn('is_optional', item_form.fields)
+        self.assertIn('is_bundle', item_form.fields)
+        self.assertIn('bundled_items', item_form.fields)
         self.assertEqual(form.fields['stock_availability'].label, 'Stock availability')
         self.assertEqual(form.fields['php_bank_name'].label, 'PHP bank name')
         self.assertEqual(form.fields['php_account_name'].label, 'PHP account name')

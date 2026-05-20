@@ -117,19 +117,30 @@
                                     <div class="col-md-5">
                                         {{ form.warranty|as_crispy_field }}
                                     </div>
+                                    <div class="col-md-2 d-flex align-items-center pt-3">
+                                        <div class="form-check">
+                                            {{ form.is_optional }}
+                                            <label class="form-check-label" for="{{ form.is_optional.id_for_label }}">Optional item</label>
+                                        </div>
+                                    </div>
                                     <div class="col-md-4 d-flex align-items-center pt-3">
                                         <div class="form-check">
                                             {{ form.is_bundle }}
                                             <label class="form-check-label" for="{{ form.is_bundle.id_for_label }}">Bundled sub-items / part numbers</label>
                                         </div>
                                     </div>
-                                    <div class="col-md-3 d-flex align-items-center pt-3">
+                                    <div class="col-md-1 d-flex align-items-center pt-3">
                                         {% if formset.can_delete %}
                                             <div class="form-check">
                                                 {{ form.DELETE }}
                                                 <label class="form-check-label text-danger" for="{{ form.DELETE.id_for_label }}">Delete</label>
                                             </div>
                                         {% endif %}
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-11 offset-md-1">
+                                        <small class="text-muted optional-item-note" style="display:none;">Optional items are excluded from proposal totals and Grand Total is hidden when any optional item exists.</small>
                                     </div>
                                 </div>
                                 <div class="row bundle-items-row mt-2">
@@ -176,19 +187,30 @@
                                 <div class="col-md-5">
                                     {{ formset.empty_form.warranty|as_crispy_field }}
                                 </div>
+                                <div class="col-md-2 d-flex align-items-center pt-3">
+                                    <div class="form-check">
+                                        {{ formset.empty_form.is_optional }}
+                                        <label class="form-check-label" for="{{ formset.empty_form.is_optional.id_for_label }}">Optional item</label>
+                                    </div>
+                                </div>
                                 <div class="col-md-4 d-flex align-items-center pt-3">
                                     <div class="form-check">
                                         {{ formset.empty_form.is_bundle }}
                                         <label class="form-check-label" for="{{ formset.empty_form.is_bundle.id_for_label }}">Bundled sub-items / part numbers</label>
                                     </div>
                                 </div>
-                                <div class="col-md-3 d-flex align-items-center pt-3">
+                                <div class="col-md-1 d-flex align-items-center pt-3">
                                     {% if formset.can_delete %}
                                         <div class="form-check">
                                             {{ formset.empty_form.DELETE }}
                                             <label class="form-check-label text-danger" for="{{ formset.empty_form.DELETE.id_for_label }}">Delete</label>
                                         </div>
                                     {% endif %}
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-11 offset-md-1">
+                                    <small class="text-muted optional-item-note" style="display:none;">Optional items are excluded from proposal totals and Grand Total is hidden when any optional item exists.</small>
                                 </div>
                             </div>
                             <div class="row bundle-items-row mt-2">
@@ -214,7 +236,7 @@
             <div class="card-body">
                 {{ attach_formset.management_form }}
                 {% for aform in attach_formset %}
-                <div class="row align-items-end mb-2">
+                <div class="row align-items-end mb-2 attachment-row{% if aform.instance.pk and aform.instance.is_costing_matrix %} attachment-row-blocked{% endif %}" data-current-filename="{% if aform.instance.file %}{{ aform.instance.base_filename }}{% endif %}">
                     {% for hidden in aform.hidden_fields %}{{ hidden }}{% endfor %}
                     <div class="col-md-7">
                         {{ aform.file|as_crispy_field }}
@@ -224,6 +246,7 @@
                             {{ aform.include_in_email }}
                             <label class="form-check-label" for="{{ aform.include_in_email.id_for_label }}">Include in Email</label>
                         </div>
+                        <small class="text-danger attachment-email-warning ms-2">Confidential</small>
                         {% if attach_formset.can_delete %}
                         <div class="form-check">
                             {{ aform.DELETE }}
@@ -337,6 +360,12 @@ input.no-spin {
 }
 .bundle-items-row {
   display: none;
+}
+.attachment-email-warning {
+  display: none;
+}
+.attachment-row-blocked .attachment-email-warning {
+  display: inline;
 }
 </style>
 {% endblock %}
@@ -516,6 +545,37 @@ document.addEventListener('DOMContentLoaded', function() {
             input.value = formatMoneyInput(input.value, true);
         });
     }
+    function normalizeAttachmentStem(filename) {
+        if (!filename) return '';
+        const base = filename.split('/').pop().split('\\').pop();
+        const stem = base.replace(/\.[^.]+$/, '');
+        return stem.trim().toLowerCase().replace(/_/g, '-');
+    }
+    function updateAttachmentEmailCheckbox(row) {
+        const fileInput = row.querySelector('input[type="file"]');
+        const includeCheckbox = row.querySelector('input[name$="include_in_email"]');
+        const warning = row.querySelector('.attachment-email-warning');
+        if (!fileInput || !includeCheckbox) return;
+        const selectedName = fileInput.files && fileInput.files.length ? fileInput.files[0].name : '';
+        const currentName = row.getAttribute('data-current-filename') || '';
+        const stem = normalizeAttachmentStem(selectedName || currentName);
+        const blocked = stem === 'costing-matrix';
+        includeCheckbox.checked = blocked ? false : includeCheckbox.checked;
+        includeCheckbox.disabled = blocked;
+        row.classList.toggle('attachment-row-blocked', blocked);
+        if (warning) {
+            warning.style.display = blocked ? 'inline' : 'none';
+        }
+    }
+    function initAttachmentRows() {
+        document.querySelectorAll('.attachment-row').forEach(row => {
+            const fileInput = row.querySelector('input[type="file"]');
+            if (!fileInput || fileInput.dataset.attachmentGuardBound === '1') return;
+            fileInput.dataset.attachmentGuardBound = '1';
+            fileInput.addEventListener('change', () => updateAttachmentEmailCheckbox(row));
+            updateAttachmentEmailCheckbox(row);
+        });
+    }
     function updateAmount(row) {
         const qtyInput = row.querySelector('input[name$="quantity"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
@@ -532,9 +592,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!bundleCheckbox || !bundleRow) return;
         bundleRow.style.display = bundleCheckbox.checked ? 'flex' : 'none';
     }
+    function toggleOptionalNote(row) {
+        const optionalCheckbox = row.querySelector('input[name$="is_optional"]');
+        const optionalNote = row.querySelector('.optional-item-note');
+        if (!optionalCheckbox || !optionalNote) return;
+        optionalNote.style.display = optionalCheckbox.checked ? 'block' : 'none';
+    }
     function initItemRow(row) {
         const costInput = row.querySelector('input[name$="unit_cost"]');
         const priceInput = row.querySelector('input[name$="unit_price"]');
+        const optionalCheckbox = row.querySelector('input[name$="is_optional"]');
         const bundleCheckbox = row.querySelector('input[name$="is_bundle"]');
         if (costInput) {
             attachPriceFormatting(costInput);
@@ -544,9 +611,13 @@ document.addEventListener('DOMContentLoaded', function() {
             attachPriceFormatting(priceInput);
             if (priceInput.value) priceInput.value = formatMoneyInput(priceInput.value, true);
         }
+        if (optionalCheckbox) {
+            optionalCheckbox.addEventListener('change', () => toggleOptionalNote(row));
+        }
         if (bundleCheckbox) {
             bundleCheckbox.addEventListener('change', () => toggleBundleRow(row));
         }
+        toggleOptionalNote(row);
         toggleBundleRow(row);
     }
     function attachItemHandlers(scope) {
@@ -583,6 +654,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     attachItemHandlers();
     renumberItems();
+    initAttachmentRows();
 });
 </script>
 {% endblock %}

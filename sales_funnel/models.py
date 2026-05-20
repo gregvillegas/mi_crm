@@ -139,18 +139,31 @@ class SalesFunnel(models.Model):
         verbose_name_plural = 'Sales Funnel Entries'
     
     def __str__(self):
-        return f"{self.company_name} - {self.get_stage_display()} (₱{self.retail:,.2f})"
+        return f"{self.company_name} - {self.get_stage_display()} (₱{self.display_retail:,.2f})"
+
+    @property
+    def display_retail(self):
+        if self.proposal_id and self.proposal:
+            return self.proposal.quoted_amount_php
+        return self.retail
+
+    @property
+    def display_cost(self):
+        if self.proposal_id and self.proposal:
+            return self.proposal.quoted_cost_php
+        return self.cost
     
     @property
     def profit(self):
         """Calculate profit as retail - cost"""
-        return self.retail - self.cost
+        return self.display_retail - self.display_cost
     
     @property
     def profit_margin(self):
         """Calculate profit margin as percentage"""
-        if self.retail > 0:
-            return (self.profit / self.retail) * 100
+        retail = self.display_retail
+        if retail > 0:
+            return (self.profit / retail) * 100
         return 0
     
     @property
@@ -183,5 +196,5 @@ class SalesFunnel(models.Model):
         # Auto-classify services/project based on retail threshold
         if not self.is_closed and self.stage in ['project', 'services']:
             threshold = Decimal('500000')
-            self.stage = 'project' if self.retail >= threshold else 'services'
+            self.stage = 'project' if self.display_retail >= threshold else 'services'
         super().save(*args, **kwargs)

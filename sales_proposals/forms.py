@@ -88,7 +88,7 @@ class ProposalForm(forms.ModelForm):
 class ProposalItemForm(forms.ModelForm):
     class Meta:
         model = ProposalItem
-        fields = ['part_number', 'description', 'quantity', 'unit_cost', 'unit_price', 'warranty', 'is_bundle', 'bundled_items']
+        fields = ['part_number', 'description', 'quantity', 'unit_cost', 'unit_price', 'warranty', 'is_optional', 'is_bundle', 'bundled_items']
         widgets = {
             'description': Textarea(attrs={'rows': 3}),
             'quantity': NumberInput(attrs={'class': 'no-spin', 'step': '1', 'min': '1', 'inputmode': 'numeric'}),
@@ -154,6 +154,24 @@ class ProposalAttachmentForm(forms.ModelForm):
         widgets = {
             'file': ClearableFileInput(attrs={'multiple': False}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['include_in_email'].help_text = 'Disabled automatically for COSTING-MATRIX files.'
+        if getattr(self.instance, 'pk', None) and self.instance.is_costing_matrix:
+            self.fields['include_in_email'].disabled = True
+            self.fields['include_in_email'].initial = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        uploaded_file = cleaned_data.get('file') or getattr(self.instance, 'file', None)
+        if uploaded_file:
+            normalized = uploaded_file.name.rsplit('/', 1)[-1].rsplit('\\', 1)[-1]
+            stem = normalized.rsplit('.', 1)[0].strip().lower().replace('_', '-')
+            if stem == 'costing-matrix':
+                cleaned_data['include_in_email'] = False
+                self.cleaned_data['include_in_email'] = False
+        return cleaned_data
 
 ProposalAttachmentFormSet = inlineformset_factory(
     Proposal,

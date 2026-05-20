@@ -74,13 +74,20 @@
                             </thead>
                             <tbody>
                                 {% for item in proposal.items.all %}
-                                <tr>
+                                <tr{% if item.is_optional %} class="table-warning"{% endif %}>
                                     <td>{{ forloop.counter }}</td>
                                     <td>{{ item.part_number }}</td>
-                                    <td>{{ item.description }}</td>
+                                    <td>
+                                        {{ item.description }}
+                                        {% if item.is_optional %}
+                                        <div><small class="text-muted">Option {{ item.optional_option_number }}</small></div>
+                                        {% endif %}
+                                    </td>
                                     <td class="text-end">{{ item.quantity|intcomma }}</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.unit_price|intcomma }}</td>
-                                    <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.amount|intcomma }}</td>
+                                    <td class="text-end">
+                                        {% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.amount|intcomma }}
+                                    </td>
                                     <td>{{ item.warranty }}</td>
                                 </tr>
                                 {% for component in item.bundle_components %}
@@ -97,6 +104,7 @@
                                 {% endfor %}
                             </tbody>
                             <tfoot>
+                                {% if not proposal.has_optional_items %}
                                 <tr>
                                     <td colspan="5" class="text-end"><strong>Subtotal:</strong></td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.subtotal|intcomma }}</td>
@@ -107,6 +115,7 @@
                                     <td class="text-end"><strong>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.total_amount|intcomma }}</strong></td>
                                     <td></td>
                                 </tr>
+                                {% endif %}
                             </tfoot>
                         </table>
                     </div>

@@ -322,6 +322,7 @@ class ProposalItemSerializer(serializers.ModelSerializer):
             'unit_price',
             'availability',
             'warranty',
+            'is_optional',
             'is_bundle',
             'bundled_items',
             'bundle_components',
@@ -424,6 +425,7 @@ class ProposalDetailSerializer(ProposalListSerializer):
             'introduction',
             'closing',
             'subtotal',
+            'has_optional_items',
             'tax_type',
             'tax_rate',
             'tax_amount',
@@ -457,6 +459,7 @@ class ProposalCreateItemSerializer(serializers.Serializer):
     unit_price = serializers.DecimalField(max_digits=12, decimal_places=2)
     availability = serializers.CharField(required=False, allow_blank=True, max_length=100)
     warranty = serializers.CharField(required=False, allow_blank=True, max_length=150)
+    is_optional = serializers.BooleanField(required=False, default=False)
 
 
 class ProposalCreateSerializer(serializers.ModelSerializer):

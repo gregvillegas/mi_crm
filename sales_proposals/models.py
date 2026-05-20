@@ -4,6 +4,7 @@ from customers.models import Customer
 from django.utils import timezone
 from decimal import Decimal
 from django.core.validators import MinValueValidator
+from pathlib import Path
 
 class Proposal(models.Model):
     STATUS_CHOICES = [
@@ -173,8 +174,9 @@ class Proposal(models.Model):
         super().save(*args, **kwargs)
     
     def calculate_totals(self):
-        self.subtotal = sum(item.amount for item in self.items.all())
-        self.total_cost = sum(item.total_cost for item in self.items.all())
+        priced_items = self.items.filter(is_optional=False)
+        self.subtotal = sum(item.amount for item in priced_items)
+        self.total_cost = sum(item.total_cost for item in priced_items)
 
         # Tax is no longer exposed in proposals, so proposal totals stay tax-free.
         self.tax_type = 'ZERO'
@@ -209,6 +211,40 @@ class Proposal(models.Model):
     @property
     def target_gross_profit(self):
         return self.target_subtotal_before_tax - self.total_cost
+
+    @property
+    def has_optional_items(self):
+        return self.items.filter(is_optional=True).exists()
+
+    @property
+    def quoted_subtotal(self):
+        return sum(item.amount for item in self.items.all())
+
+    @property
+    def quoted_total_cost(self):
+        return sum(item.total_cost for item in self.items.all())
+
+    @property
+    def quoted_total_amount(self):
+        return self.quoted_subtotal
+
+    @property
+    def quoted_gross_profit(self):
+        return self.quoted_total_amount - self.quoted_total_cost
+
+    @property
+    def quoted_amount_php(self):
+        if self.currency == 'USD':
+            rate = self.exchange_rate if self.exchange_rate > 0 else Decimal('1.0')
+            return self.quoted_total_amount * rate
+        return self.quoted_total_amount
+
+    @property
+    def quoted_cost_php(self):
+        if self.currency == 'USD':
+            rate = self.exchange_rate if self.exchange_rate > 0 else Decimal('1.0')
+            return self.quoted_total_cost * rate
+        return self.quoted_total_cost
 
     def get_approval_chain(self):
         chain = []
@@ -337,6 +373,7 @@ class ProposalItem(models.Model):
     unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, help_text="Internal")
     availability = models.CharField(max_length=100, blank=True, help_text="Product availability (e.g. In Stock, 2-3 weeks)")
     warranty = models.CharField(max_length=150, blank=True, help_text="Per-item warranty (e.g., 1 year parts/labor)")
+    is_optional = models.BooleanField(default=False, help_text="Mark this line as optional so it is excluded from the proposal total")
     is_bundle = models.BooleanField(default=False, help_text="Show bundled component part numbers under this priced item")
     bundled_items = models.TextField(blank=True, help_text="One bundled component per line. Format: PART NUMBER | Description")
     margin_pct = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Stored margin percentage for display consistency")
@@ -384,6 +421,17 @@ class ProposalItem(models.Model):
     def has_bundle_components(self):
         return bool(self.is_bundle and self.bundle_components)
 
+    @property
+    def optional_option_number(self):
+        if not self.is_optional or not self.proposal_id or not self.pk:
+            return None
+        return (
+            self.proposal.items
+            .filter(is_optional=True, pk__lte=self.pk)
+            .order_by('pk')
+            .count()
+        )
+
     def save(self, *args, **kwargs):
         if not self.is_bundle:
             self.bundled_items = ''
@@ -398,6 +446,32 @@ class ProposalAttachment(models.Model):
     include_in_email = models.BooleanField(default=False)
     uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def base_filename(self):
+        if not self.file:
+            return ''
+        return Path(self.file.name).name
+
+    @property
+    def file_stem(self):
+        if not self.file:
+            return ''
+        return Path(self.base_filename).stem
+
+    @property
+    def is_costing_matrix(self):
+        normalized = (self.file_stem or '').strip().lower().replace('_', '-')
+        return normalized == 'costing-matrix'
+
+    @property
+    def can_include_in_email(self):
+        return bool(self.file and not self.is_costing_matrix)
+
+    def save(self, *args, **kwargs):
+        if self.is_costing_matrix:
+            self.include_in_email = False
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.display_name or (self.file.name.split('/')[-1] if self.file else 'Attachment')

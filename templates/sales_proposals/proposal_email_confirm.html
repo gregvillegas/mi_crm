@@ -72,8 +72,11 @@
                         {% for att in proposal.attachments.all %}
                         <div class="col-md-6">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="attach_{{ att.id }}" name="attach_id" value="{{ att.id }}" {% if att.include_in_email %}checked{% endif %}>
+                                <input class="form-check-input" type="checkbox" id="attach_{{ att.id }}" name="attach_id" value="{{ att.id }}" {% if att.include_in_email and att.can_include_in_email %}checked{% endif %} {% if not att.can_include_in_email %}disabled{% endif %}>
                                 <label class="form-check-label" for="attach_{{ att.id }}">{{ att.display_name|default:att.file.name|cut:'proposal_attachments/' }}</label>
+                                {% if not att.can_include_in_email %}
+                                <div><small class="text-danger">Confidential</small></div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}

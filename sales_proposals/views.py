@@ -256,11 +256,7 @@ def proposal_list(request):
     # Calculate Total Value of filtered proposals (in PHP)
     total_proposals_value = 0
     for proposal in proposals:
-        amount_php = proposal.total_amount
-        if proposal.currency == 'USD':
-            rate = proposal.exchange_rate if proposal.exchange_rate > 0 else 1.0
-            amount_php = proposal.total_amount * rate
-        total_proposals_value += amount_php
+        total_proposals_value += proposal.quoted_amount_php
 
     # Group by Team for Executive Roles
     grouped_proposals = []
@@ -294,12 +290,7 @@ def proposal_list(request):
             teams_dict[team_name]['proposals'].append(proposal)
             
             # Calculate PHP equivalent for total
-            amount_php = proposal.total_amount
-            if proposal.currency == 'USD':
-                rate = proposal.exchange_rate if proposal.exchange_rate > 0 else 1.0
-                amount_php = proposal.total_amount * rate
-            
-            teams_dict[team_name]['total_investment'] += amount_php
+            teams_dict[team_name]['total_investment'] += proposal.quoted_amount_php
             
         # Convert to list and sort
         grouped_proposals = list(teams_dict.values())
@@ -394,6 +385,7 @@ def proposal_update(request, pk):
                         'unit_cost': str(i.unit_cost),
                         'unit_price': str(i.unit_price),
                         'warranty': i.warranty,
+                        'is_optional': i.is_optional,
                         'is_bundle': i.is_bundle,
                         'bundled_items': i.bundled_items,
                     }
@@ -435,6 +427,7 @@ def proposal_update(request, pk):
                         'unit_cost': str(i.unit_cost),
                         'unit_price': str(i.unit_price),
                         'warranty': i.warranty,
+                        'is_optional': i.is_optional,
                         'is_bundle': i.is_bundle,
                         'bundled_items': i.bundled_items,
                     }
@@ -685,7 +678,14 @@ def generate_pdf_buffer(proposal):
         table_data.append([
             Paragraph(str(idx), styles['TableText']),
             Paragraph(item.part_number or '', styles['TableText']),
-            Paragraph(item.description or '', styles['TableText']),
+            Paragraph(
+                (
+                    f"{item.description}<br/><font size='7'><i>Option {item.optional_option_number}</i></font>"
+                    if item.is_optional and item.description
+                    else (f"<font size='7'><i>Option {item.optional_option_number}</i></font>" if item.is_optional else (item.description or ''))
+                ),
+                styles['TableText'],
+            ),
             Paragraph(str(int(item.quantity)) if item.quantity % 1 == 0 else str(item.quantity), styles['TableText']),
             Paragraph(f"{currency_symbol} {item.unit_price:,.2f}", styles['TableText']),
             Paragraph(f"{currency_symbol} {item.amount:,.2f}", styles['TableText']),
@@ -702,40 +702,44 @@ def generate_pdf_buffer(proposal):
                 '',
             ])
     
-    # Subtotal
-    table_data.append([
-        '', '', '', '', 
-        Paragraph("Subtotal", styles['TableText']), 
-        Paragraph(f"{currency_symbol} {proposal.subtotal:,.2f}", styles['TableText']), 
-        ''
-    ])
+    if not proposal.has_optional_items:
+        # Subtotal
+        table_data.append([
+            '', '', '', '', 
+            Paragraph("Subtotal", styles['TableText']), 
+            Paragraph(f"{currency_symbol} {proposal.subtotal:,.2f}", styles['TableText']), 
+            ''
+        ])
 
-    # Grand Total Row
-    table_data.append([
-        '', '', '', '', 
-        Paragraph("Grand Total", styles['TableHeader']), 
-        Paragraph(f"{currency_symbol} {proposal.total_amount:,.2f}", styles['TableHeader']), 
-        ''
-    ])
+        # Grand Total Row
+        table_data.append([
+            '', '', '', '', 
+            Paragraph("Grand Total", styles['TableHeader']), 
+            Paragraph(f"{currency_symbol} {proposal.total_amount:,.2f}", styles['TableHeader']), 
+            ''
+        ])
     
     # Tighter widths to improve print margins and reduce empty space in TOTAL PRICE/WARRANTY
     col_widths = [0.45*inch, 1.1*inch, 2.4*inch, 0.5*inch, 1.0*inch, 1.1*inch, 0.95*inch]
     t = Table(table_data, colWidths=col_widths, repeatRows=1)
     
     # Styling
+    table_grid_end_row = -2 if not proposal.has_optional_items else -1
+    table_align_end_row = -2 if not proposal.has_optional_items else -1
     table_style = [
         ('BACKGROUND', (0,0), (-1,0), MIC_RED), # Header Background
         ('TEXTCOLOR', (0,0), (-1,0), colors.white), # Header Text
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ('GRID', (0,0), (-1,-2), 1, colors.black), # Grid for all except last row
-        ('ALIGN', (2,1), (2,-2), 'LEFT'), # Description Left
-        
-        # Total Row Styling
-        ('BACKGROUND', (4,-1), (5,-1), MIC_RED),
-        ('TEXTCOLOR', (4,-1), (5,-1), colors.white),
-        ('GRID', (4,-1), (5,-1), 1, MIC_RED),
+        ('GRID', (0,0), (-1,table_grid_end_row), 1, colors.black),
+        ('ALIGN', (2,1), (2,table_align_end_row), 'LEFT'),
     ]
+    if not proposal.has_optional_items:
+        table_style.extend([
+            ('BACKGROUND', (4,-1), (5,-1), MIC_RED),
+            ('TEXTCOLOR', (4,-1), (5,-1), colors.white),
+            ('GRID', (4,-1), (5,-1), 1, MIC_RED),
+        ])
     t.setStyle(TableStyle(table_style))
     elements.append(t)
     elements.append(Spacer(1, 12))
@@ -948,7 +952,11 @@ def proposal_email(request, pk):
         
         # Attachments selected
         attach_ids = request.POST.getlist('attach_id')
-        selected_attachments = proposal.attachments.filter(id__in=attach_ids)
+        selected_attachments = [
+            att
+            for att in proposal.attachments.filter(id__in=attach_ids)
+            if att.can_include_in_email
+        ]
 
         # Send Email
         subject = f"Proposal: {proposal.subject} - {proposal.proposal_number}"
@@ -1265,13 +1273,8 @@ def log_sales_activity(proposal, user):
 
 def update_sales_funnel(proposal):
     # Determine PHP amounts for Sales Funnel (which tracks in PHP)
-    if proposal.currency == 'USD':
-        rate = proposal.exchange_rate if proposal.exchange_rate > 0 else 1.0
-        retail_php = proposal.total_amount * rate
-        cost_php = proposal.total_cost * rate
-    else:
-        retail_php = proposal.total_amount
-        cost_php = proposal.total_cost
+    retail_php = proposal.quoted_amount_php
+    cost_php = proposal.quoted_cost_php
 
     # Try to find a funnel entry linked to this proposal
     funnel = SalesFunnel.objects.filter(proposal=proposal).first()

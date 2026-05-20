@@ -70,11 +70,12 @@
                     <thead class="table-light">
                         <tr>
                             <th>Number</th>
+                            <th>Reference #</th>
                             <th>Subject</th>
                             <th>Customer</th>
                             <th>Date</th>
                             <th>Amount</th>
-                            <th>Salesperson</th>
+                            <th>AE</th>
                             <th>Status</th>
                             <th>Actions</th>
                         </tr>
@@ -82,15 +83,16 @@
                     <tbody>
                         {% for proposal in group.proposals %}
                         <tr>
-                            <td>
-                                <a href="{% url 'proposal_detail' proposal.pk %}" class="text-decoration-none">
+                            <td class="text-nowrap">
+                                <a href="{% url 'proposal_detail' proposal.pk %}" class="text-decoration-none small">
                                     <strong>{{ proposal.proposal_number }}</strong>
                                 </a>
                             </td>
+                            <td>{{ proposal.reference_number|default:"-" }}</td>
                             <td>{{ proposal.subject }}</td>
                             <td>{{ proposal.customer.company_name }}</td>
-                            <td>{{ proposal.date }}</td>
-                            <td>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.total_amount|intcomma }}</td>
+                            <td>{{ proposal.date|date:"m/d/y" }}</td>
+                            <td>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.quoted_total_amount|intcomma }}</td>
                             <td>
                                 <span class="badge bg-secondary" title="{{ proposal.created_by.get_full_name }}">
                                     {{ proposal.created_by.initials|default:proposal.created_by.username|slice:":3"|upper }}
@@ -136,11 +138,12 @@
                 <thead class="table-dark">
                     <tr>
                         <th>Number</th>
+                        <th>Reference #</th>
                         <th>Subject</th>
                         <th>Customer</th>
                         <th>Date</th>
                         <th>Amount</th>
-                        <th>Salesperson</th>
+                        <th>AE</th>
                         <th>Status</th>
                         <th>Actions</th>
                     </tr>
@@ -148,15 +151,16 @@
                 <tbody>
                     {% for proposal in proposals %}
                     <tr>
-                        <td>
-                            <a href="{% url 'proposal_detail' proposal.pk %}" class="text-decoration-none">
+                        <td class="text-nowrap">
+                            <a href="{% url 'proposal_detail' proposal.pk %}" class="text-decoration-none small">
                                 <strong>{{ proposal.proposal_number }}</strong>
                             </a>
                         </td>
+                        <td>{{ proposal.reference_number|default:"-" }}</td>
                         <td>{{ proposal.subject }}</td>
                         <td>{{ proposal.customer.company_name }}</td>
-                        <td>{{ proposal.date }}</td>
-                        <td>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.total_amount|intcomma }}</td>
+                        <td>{{ proposal.date|date:"m/d/y" }}</td>
+                        <td>{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ proposal.quoted_total_amount|intcomma }}</td>
                         <td>
                             <span class="badge bg-secondary" title="{{ proposal.created_by.get_full_name }}">
                                 {{ proposal.created_by.initials|default:proposal.created_by.username|slice:":3"|upper }}
@@ -186,7 +190,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center py-4">
+                        <td colspan="9" class="text-center py-4">
                             <div class="text-muted">
                                 <i class="fas fa-file-invoice fa-3x mb-3"></i>
                                 <h5>No proposals found</h5>

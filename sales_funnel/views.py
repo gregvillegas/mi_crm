@@ -15,6 +15,14 @@ from decimal import Decimal
 from datetime import datetime
 
 
+def _sum_entry_retail(entries):
+    return sum((entry.display_retail for entry in entries), Decimal('0.00'))
+
+
+def _sum_entry_profit(entries):
+    return sum((entry.profit for entry in entries), Decimal('0.00'))
+
+
 def can_access_funnel(user):
     """Check if user can access sales funnel features"""
     return user.role in ['salesperson', 'supervisor', 'teamlead', 'asm', 'avp', 'admin', 'president', 'gm', 'vp']
@@ -126,10 +134,11 @@ def funnel_dashboard(request):
             funnel_entries = funnel_entries.filter(date_created__lte=date_to)
     
     # Organize entries by stage
-    quoted_entries = funnel_entries.filter(stage='quoted').select_related('salesperson', 'customer')
-    closable_entries = funnel_entries.filter(stage='closable').select_related('salesperson', 'customer')
-    project_entries = funnel_entries.filter(stage='project').select_related('salesperson', 'customer')
-    services_entries = funnel_entries.filter(stage='services').select_related('salesperson', 'customer')
+    quoted_entries = list(funnel_entries.filter(stage='quoted').select_related('salesperson', 'customer', 'proposal'))
+    closable_entries = list(funnel_entries.filter(stage='closable').select_related('salesperson', 'customer', 'proposal'))
+    project_entries = list(funnel_entries.filter(stage='project').select_related('salesperson', 'customer', 'proposal'))
+    services_entries = list(funnel_entries.filter(stage='services').select_related('salesperson', 'customer', 'proposal'))
+    all_visible_entries = quoted_entries + closable_entries + project_entries + services_entries
     
     # Get closed deals statistics based on same user role logic
     if user.role == 'salesperson':
@@ -177,13 +186,13 @@ def funnel_dashboard(request):
     
     # Calculate statistics
     stats = {
-        'total_entries': funnel_entries.count(),
-        'total_value': funnel_entries.aggregate(Sum('retail'))['retail__sum'] or 0,
-        'total_profit': sum(entry.profit for entry in funnel_entries),
-        'quoted_count': quoted_entries.count(),
-        'closable_count': closable_entries.count(),
-        'project_count': project_entries.count(),
-        'services_count': services_entries.count(),
+        'total_entries': len(all_visible_entries),
+        'total_value': _sum_entry_retail(all_visible_entries),
+        'total_profit': _sum_entry_profit(all_visible_entries),
+        'quoted_count': len(quoted_entries),
+        'closable_count': len(closable_entries),
+        'project_count': len(project_entries),
+        'services_count': len(services_entries),
         # Add won/lost stats
         'won_count': won_stats['count'],
         'lost_count': lost_stats['count'],
@@ -195,20 +204,20 @@ def funnel_dashboard(request):
     # Stage totals for table view
     stage_totals = {
         'quoted': {
-            'retail': quoted_entries.aggregate(total=Sum('retail'))['total'] or 0,
-            'profit': quoted_entries.aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0,
+            'retail': _sum_entry_retail(quoted_entries),
+            'profit': _sum_entry_profit(quoted_entries),
         },
         'closable': {
-            'retail': closable_entries.aggregate(total=Sum('retail'))['total'] or 0,
-            'profit': closable_entries.aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0,
+            'retail': _sum_entry_retail(closable_entries),
+            'profit': _sum_entry_profit(closable_entries),
         },
         'project': {
-            'retail': project_entries.aggregate(total=Sum('retail'))['total'] or 0,
-            'profit': project_entries.aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0,
+            'retail': _sum_entry_retail(project_entries),
+            'profit': _sum_entry_profit(project_entries),
         },
         'services': {
-            'retail': services_entries.aggregate(total=Sum('retail'))['total'] or 0,
-            'profit': services_entries.aggregate(total=Sum(F('retail') - F('cost')))['total'] or 0,
+            'retail': _sum_entry_retail(services_entries),
+            'profit': _sum_entry_profit(services_entries),
         },
     }
     brand_suggestions = list(
