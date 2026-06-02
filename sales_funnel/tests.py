@@ -1,10 +1,12 @@
 import csv
 import io
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
+from django.core.management import call_command
 
 from customers.models import Customer
 from sales_funnel.models import SalesFunnel
@@ -29,8 +31,11 @@ class SalesFunnelDashboardFilterTests(TestCase):
         )
         self.client.force_login(self.admin)
 
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
+
         SalesFunnel.objects.create(
-            date_created=date(2026, 5, 1),
+            date_created=week_start,
             company_name='Alpha Network Systems',
             brand='Cisco',
             requirement_description='Network refresh',
@@ -41,7 +46,7 @@ class SalesFunnelDashboardFilterTests(TestCase):
             probability=50,
         )
         SalesFunnel.objects.create(
-            date_created=date(2026, 5, 2),
+            date_created=week_start + timedelta(days=1),
             company_name='Beta Enterprise Solutions',
             brand='IBM',
             requirement_description='Server modernization',
@@ -50,6 +55,17 @@ class SalesFunnelDashboardFilterTests(TestCase):
             stage='quoted',
             salesperson=self.salesperson,
             probability=60,
+        )
+        SalesFunnel.objects.create(
+            date_created=week_start - timedelta(days=7),
+            company_name='Old Quoted Co',
+            brand='OldBrand',
+            requirement_description='Old quote',
+            cost=Decimal('1000.00'),
+            retail=Decimal('2000.00'),
+            stage='quoted',
+            salesperson=self.salesperson,
+            probability=50,
         )
 
     def test_dashboard_brand_filter_supports_typeable_partial_match(self):
@@ -79,6 +95,8 @@ class SalesFunnelDashboardFilterTests(TestCase):
         self.assertEqual(rows[1][2], 'IBM')
 
     def test_dashboard_uses_linked_proposal_quoted_totals_for_optional_items(self):
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
         customer = Customer.objects.create(
             company_name='Gamma Holdings',
             contact_person_name='Gina Buyer',
@@ -110,7 +128,7 @@ class SalesFunnelDashboardFilterTests(TestCase):
         proposal.calculate_totals()
 
         SalesFunnel.objects.create(
-            date_created=date(2026, 5, 3),
+            date_created=week_start + timedelta(days=2),
             company_name='Gamma Holdings',
             brand='Dell',
             requirement_description='Server Cluster',
@@ -129,3 +147,136 @@ class SalesFunnelDashboardFilterTests(TestCase):
         self.assertContains(response, 'Gamma Holdings')
         self.assertContains(response, '45,000.00')
         self.assertContains(response, '15,000.00')
+
+    def test_dashboard_pink_funnel_only_shows_current_week(self):
+        response = self.client.get(reverse('sales_funnel:dashboard'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Alpha Network Systems')
+        self.assertContains(response, 'Beta Enterprise Solutions')
+        self.assertNotContains(response, 'Old Quoted Co')
+
+    def test_table_view_shows_account_manager_header_and_proposal_reference(self):
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
+
+        customer = Customer.objects.create(
+            company_name='Proposal Link Co',
+            contact_person_name='Pol Buyer',
+            email='pol@link.test',
+            salesperson=self.salesperson,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=self.salesperson,
+            subject='Linked Proposal',
+            reference_number='REF20260523001',
+        )
+        SalesFunnel.objects.create(
+            date_created=week_start,
+            company_name='Proposal Link Co',
+            brand='HP',
+            requirement_description='Linked funnel entry',
+            cost=Decimal('0.00'),
+            retail=Decimal('0.00'),
+            stage='quoted',
+            salesperson=self.salesperson,
+            customer=customer,
+            proposal=proposal,
+            probability=50,
+        )
+        SalesFunnel.objects.create(
+            date_created=week_start,
+            company_name='No Proposal Co',
+            brand='HP',
+            requirement_description='Unlinked funnel entry',
+            cost=Decimal('0.00'),
+            retail=Decimal('0.00'),
+            stage='quoted',
+            salesperson=self.salesperson,
+            probability=50,
+        )
+
+        response = self.client.get(reverse('sales_funnel:dashboard'), {'view': 'table'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '>Account Manager<', html=False)
+        self.assertContains(response, '>Ref #<', html=False)
+        self.assertContains(response, 'REF20260523001')
+        proposal_url = reverse('proposal_detail', args=[proposal.pk])
+        self.assertContains(response, f'href="{proposal_url}"', html=False)
+        self.assertNotContains(response, '>No Proposal Co</a>', html=False)
+
+    def test_table_view_uses_am_header_for_salesperson(self):
+        self.client.force_login(self.salesperson)
+        response = self.client.get(reverse('sales_funnel:dashboard'), {'view': 'table'})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '>AM<', html=False)
+        self.assertNotContains(response, '>SP<', html=False)
+
+
+class SalesFunnelPromotionCommandTests(TestCase):
+    def test_promote_quoted_funnel_moves_entries_based_on_retail_threshold(self):
+        admin = User.objects.create_user(
+            username='admin_sf_promote',
+            password='testpass123',
+            role='admin',
+            email='admin_sf_promote@example.com',
+        )
+        salesperson = User.objects.create_user(
+            username='seller_sf_promote',
+            password='testpass123',
+            role='salesperson',
+            email='seller_sf_promote@example.com',
+            initials='SFP',
+        )
+        self.client.force_login(admin)
+
+        today = date(2026, 5, 23)
+        week_start = today - timedelta(days=today.weekday())
+        older_date = week_start - timedelta(days=1)
+
+        green = SalesFunnel.objects.create(
+            date_created=older_date,
+            company_name='Promote Green Co',
+            brand='Cisco',
+            requirement_description='Old quote high value',
+            cost=Decimal('100.00'),
+            retail=Decimal('500000.00'),
+            stage='quoted',
+            salesperson=salesperson,
+            probability=50,
+        )
+        blue = SalesFunnel.objects.create(
+            date_created=older_date,
+            company_name='Promote Blue Co',
+            brand='Dell',
+            requirement_description='Old quote low value',
+            cost=Decimal('100.00'),
+            retail=Decimal('499999.99'),
+            stage='quoted',
+            salesperson=salesperson,
+            probability=50,
+        )
+        keep = SalesFunnel.objects.create(
+            date_created=week_start,
+            company_name='Keep Pink Co',
+            brand='IBM',
+            requirement_description='This week quote',
+            cost=Decimal('100.00'),
+            retail=Decimal('600000.00'),
+            stage='quoted',
+            salesperson=salesperson,
+            probability=50,
+        )
+
+        call_command('promote_quoted_funnel', today='2026-05-23')
+
+        green.refresh_from_db()
+        blue.refresh_from_db()
+        keep.refresh_from_db()
+
+        self.assertEqual(green.stage, 'project')
+        self.assertEqual(blue.stage, 'services')
+        self.assertEqual(keep.stage, 'quoted')

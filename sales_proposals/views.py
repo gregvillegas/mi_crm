@@ -414,7 +414,7 @@ def proposal_update(request, pk):
                 changes = {}
                 from django.forms.models import model_to_dict
                 after = Proposal.objects.get(pk=proposal.pk)
-                fields_to_check = ['customer_id','date','valid_until','stock_availability','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','include_bank_details','currency','exchange_rate']
+                fields_to_check = ['customer_id','date','valid_until','stock_availability','subject','payment_terms','delivery_lead_time','warranty','special_note','introduction','closing','include_bank_details','show_discount','discount_amount','currency','exchange_rate']
                 for f in fields_to_check:
                     if getattr(before, f) != getattr(after, f):
                         changes[f] = {'from': str(getattr(before, f)), 'to': str(getattr(after, f))}
@@ -560,6 +560,7 @@ def generate_pdf_buffer(proposal):
     styles.add(ParagraphStyle(name='ProposalTitle', parent=styles['Heading1'], fontName=font_bold, fontSize=14, spaceAfter=6))
     styles.add(ParagraphStyle(name='NormalSmall', parent=styles['Normal'], fontName=font_normal, fontSize=9, leading=11))
     styles.add(ParagraphStyle(name='TableText', parent=styles['Normal'], fontName=font_normal, fontSize=8, leading=10))
+    styles.add(ParagraphStyle(name='TableTextCenter', parent=styles['TableText'], alignment=TA_CENTER))
     styles.add(ParagraphStyle(name='TableHeader', parent=styles['Normal'], fontName=font_bold, fontSize=8, leading=10, textColor=colors.white, alignment=TA_CENTER))
     styles.add(ParagraphStyle(name='NoteHeader', parent=styles['Normal'], fontName=font_bold, fontSize=9, backColor=MIC_YELLOW))
 
@@ -676,7 +677,7 @@ def generate_pdf_buffer(proposal):
     
     for idx, item in enumerate(proposal.items.all(), start=1):
         table_data.append([
-            Paragraph(str(idx), styles['TableText']),
+            Paragraph(str(idx), styles['TableTextCenter']),
             Paragraph(item.part_number or '', styles['TableText']),
             Paragraph(
                 (
@@ -686,7 +687,7 @@ def generate_pdf_buffer(proposal):
                 ),
                 styles['TableText'],
             ),
-            Paragraph(str(int(item.quantity)) if item.quantity % 1 == 0 else str(item.quantity), styles['TableText']),
+            Paragraph(str(int(item.quantity)) if item.quantity % 1 == 0 else str(item.quantity), styles['TableTextCenter']),
             Paragraph(f"{currency_symbol} {item.unit_price:,.2f}", styles['TableText']),
             Paragraph(f"{currency_symbol} {item.amount:,.2f}", styles['TableText']),
             Paragraph(item.warranty or proposal.warranty, styles['TableText'])
@@ -696,7 +697,13 @@ def generate_pdf_buffer(proposal):
                 '',
                 Paragraph(component['part_number'] or '', styles['TableText']),
                 Paragraph(component['description'] or '', styles['TableText']),
-                '',
+                Paragraph(
+                    (
+                        str(int(component['quantity'])) if component.get('quantity') is not None and component['quantity'] % 1 == 0
+                        else (str(component['quantity']) if component.get('quantity') is not None else '')
+                    ),
+                    styles['TableTextCenter'],
+                ),
                 '',
                 '',
                 '',
@@ -710,6 +717,14 @@ def generate_pdf_buffer(proposal):
             Paragraph(f"{currency_symbol} {proposal.subtotal:,.2f}", styles['TableText']), 
             ''
         ])
+
+        if proposal.show_discount and (proposal.discount_amount or 0) > 0:
+            table_data.append([
+                '', '', '', '',
+                Paragraph("Discount", styles['TableText']),
+                Paragraph(f"-{currency_symbol} {proposal.discount_amount:,.2f}", styles['TableText']),
+                ''
+            ])
 
         # Grand Total Row
         table_data.append([
@@ -769,7 +784,7 @@ def generate_pdf_buffer(proposal):
         [Paragraph("Terms and Conditions:", tc_label), ''],
         [Paragraph("Price Validity", tc_label), Paragraph(validity_text, tc_style)],
         [Paragraph("Stock Availability", tc_label), Paragraph(proposal.stock_availability or "N/A", tc_style)],
-        [Paragraph("Payment Terms", tc_label), Paragraph(proposal.payment_terms, tc_style)],
+        [Paragraph("Payment Terms", tc_label), Paragraph((proposal.payment_terms or '').replace('\n', '<br/>'), tc_style)],
         [Paragraph("Cancellation", tc_label), Paragraph(cancellation_text, tc_style)],
     ]
 

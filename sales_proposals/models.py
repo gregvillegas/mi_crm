@@ -2,9 +2,10 @@ from django.db import models
 from users.models import User
 from customers.models import Customer
 from django.utils import timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from django.core.validators import MinValueValidator
 from pathlib import Path
+import re
 
 class Proposal(models.Model):
     STATUS_CHOICES = [
@@ -16,7 +17,7 @@ class Proposal(models.Model):
     ]
 
     proposal_number = models.CharField(max_length=50, unique=True, editable=False)
-    reference_number = models.CharField(max_length=50, blank=True, null=True, help_text="Optional manual reference number (e.g., Ref No: GGV03022026155)")
+    reference_number = models.CharField(max_length=50, blank=True, null=True, help_text="Optional manual reference number (e.g., Ref No: GGV20260523001)")
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='proposals')
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_proposals')
     date = models.DateField(default=timezone.now)
@@ -29,6 +30,7 @@ class Proposal(models.Model):
         ('', '---------'),
         ('ON-STOCK 3 TO 5 WORKING DAYS', 'ON-STOCK 3 TO 5 WORKING DAYS'),
         ('LIMITED STOCK', 'LIMITED STOCK'),
+        ('ORDER BASIS', 'ORDER BASIS'),
         ('ORDER BASIS (30 TO 45 WORKING DAYS)', 'ORDER BASIS (30 TO 45 WORKING DAYS)'),
         ('ORDER BASIS (60 TO 90 WORKING DAYS)', 'ORDER BASIS (60 TO 90 WORKING DAYS)'),
         ('ORDER BASIS (90 TO 120 WORKING DAYS)', 'ORDER BASIS (90 TO 120 WORKING DAYS)'),
@@ -54,8 +56,8 @@ class Proposal(models.Model):
     exchange_rate = models.DecimalField(max_digits=10, decimal_places=2, default=1.00, help_text="Exchange rate to PHP (1.0 for PHP)")
 
     # Terms
-    payment_terms = models.CharField(max_length=200, default="30 days", help_text="e.g., 30 days, Cash on Delivery")
-    delivery_lead_time = models.CharField(max_length=200, default="Within five (5) to ten (10) working days from receipt of confirmed purchased order.", help_text="e.g., 5-10 working days")
+    payment_terms = models.TextField(default="30 days", help_text="e.g., 30 days, Cash on Delivery")
+    delivery_lead_time = models.CharField(max_length=200, default="Within three (3) to seven (7) working days once the stock arrived.", help_text="e.g., 3-7 working days once the stock arrived")
     warranty = models.CharField(max_length=200, default="1 year - Parts Warranty", help_text="e.g., 1 year - Parts Warranty")
     
     CANCELLATION_CHOICES = [
@@ -70,6 +72,14 @@ class Proposal(models.Model):
     
     # Optional Fields
     include_bank_details = models.BooleanField(default=False, help_text="Include bank details in the proposal PDF")
+    show_discount = models.BooleanField(default=False, help_text="Show discount line in the proposal PDF")
+    discount_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Manual discount amount (informational; does not change totals).",
+    )
     
     # Bank details (per-currency, editable per proposal)
     # PHP
@@ -151,7 +161,7 @@ class Proposal(models.Model):
                 next_seq += 1
                 candidate = f"{prefix}{next_seq:04d}"
             self.proposal_number = candidate
-        # Autogenerate Reference Number: III + MMDDYYYY + ### (per-salesperson sequence)
+        # Autogenerate Reference Number: III + YYYYMMDD + ### (per-salesperson sequence)
         if not self.reference_number and self.created_by_id:
             # Initials
             initials = (self.created_by.initials or "").upper()
@@ -162,7 +172,7 @@ class Proposal(models.Model):
                 initials = initials.ljust(3, "X")
             # Date string from proposal date
             date_obj = self.date or timezone.now().date()
-            date_str = date_obj.strftime("%m%d%Y")
+            date_str = date_obj.strftime("%Y%m%d")
             # Sequence per salesperson
             seq = Proposal.objects.filter(created_by_id=self.created_by_id).count() + 1
             ref = f"{initials}{date_str}{seq:03d}"
@@ -182,11 +192,13 @@ class Proposal(models.Model):
         self.tax_type = 'ZERO'
         self.tax_rate = Decimal('0.00')
         self.tax_amount = Decimal('0.00')
-        self.total_amount = self.subtotal
+        discount = self.effective_discount_amount
+        discounted_total = self.subtotal - discount
+        self.total_amount = discounted_total if discounted_total > 0 else Decimal('0.00')
         
         # Gross profit is Total Revenue (excl tax if we consider net sales, but typically GP is Sales - COGS)
         # Assuming subtotal is Net Sales.
-        self.gross_profit = self.subtotal - self.total_cost
+        self.gross_profit = self.total_amount - self.total_cost
         php_total = self.total_amount
         if self.currency == 'USD':
             rate = self.exchange_rate if self.exchange_rate > 0 else Decimal('1.0')
@@ -217,6 +229,12 @@ class Proposal(models.Model):
         return self.items.filter(is_optional=True).exists()
 
     @property
+    def effective_discount_amount(self):
+        if self.show_discount and (self.discount_amount or 0) > 0:
+            return self.discount_amount
+        return Decimal('0.00')
+
+    @property
     def quoted_subtotal(self):
         return sum(item.amount for item in self.items.all())
 
@@ -226,7 +244,8 @@ class Proposal(models.Model):
 
     @property
     def quoted_total_amount(self):
-        return self.quoted_subtotal
+        discounted_total = self.quoted_subtotal - self.effective_discount_amount
+        return discounted_total if discounted_total > 0 else Decimal('0.00')
 
     @property
     def quoted_gross_profit(self):
@@ -375,7 +394,7 @@ class ProposalItem(models.Model):
     warranty = models.CharField(max_length=150, blank=True, help_text="Per-item warranty (e.g., 1 year parts/labor)")
     is_optional = models.BooleanField(default=False, help_text="Mark this line as optional so it is excluded from the proposal total")
     is_bundle = models.BooleanField(default=False, help_text="Show bundled component part numbers under this priced item")
-    bundled_items = models.TextField(blank=True, help_text="One bundled component per line. Format: PART NUMBER | Description")
+    bundled_items = models.TextField(blank=True, help_text="One bundled component per line. Format: PART NUMBER | Description | Qty")
     margin_pct = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True, help_text="Stored margin percentage for display consistency")
     amount = models.DecimalField(max_digits=12, decimal_places=2, editable=False)
     total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0, editable=False)
@@ -386,23 +405,52 @@ class ProposalItem(models.Model):
         if not line:
             return None
 
-        for delimiter in ('|', '\t', ' - ', ' – ', ' — '):
+        for delimiter in ('\t', '|'):
+            if delimiter in line:
+                parts = [p.strip() for p in line.split(delimiter)]
+                if len(parts) >= 3:
+                    part_number = parts[0]
+                    qty_raw = parts[-1]
+                    description = delimiter.join(parts[1:-1]).strip()
+                    qty = None
+                    if qty_raw:
+                        try:
+                            qty = Decimal(str(qty_raw).replace(',', '').strip())
+                        except (InvalidOperation, TypeError):
+                            qty = None
+                    return {
+                        'part_number': part_number.strip(),
+                        'description': description,
+                        'quantity': qty,
+                    }
+                if len(parts) == 2:
+                    part_number, description = parts
+                    return {
+                        'part_number': part_number.strip(),
+                        'description': description.strip(),
+                        'quantity': None,
+                    }
+
+        for delimiter in (' - ', ' – ', ' — '):
             if delimiter in line:
                 part_number, description = line.split(delimiter, 1)
                 return {
                     'part_number': part_number.strip(),
                     'description': description.strip(),
+                    'quantity': None,
                 }
 
         if ' ' not in line:
             return {
                 'part_number': line,
                 'description': '',
+                'quantity': None,
             }
 
         return {
             'part_number': '',
             'description': line,
+            'quantity': None,
         }
 
     @property
@@ -459,10 +507,14 @@ class ProposalAttachment(models.Model):
             return ''
         return Path(self.base_filename).stem
 
+    @staticmethod
+    def _is_costing_matrix_name(value):
+        normalized = (value or '').strip().lower()
+        return bool(re.search(r'costing[\s\-_]*matrix', normalized))
+
     @property
     def is_costing_matrix(self):
-        normalized = (self.file_stem or '').strip().lower().replace('_', '-')
-        return normalized == 'costing-matrix'
+        return self._is_costing_matrix_name(self.file_stem)
 
     @property
     def can_include_in_email(self):

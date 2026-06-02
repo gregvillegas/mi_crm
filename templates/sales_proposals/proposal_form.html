@@ -71,6 +71,14 @@
                         {{ form.special_note|as_crispy_field }}
                     </div>
                 </div>
+                <div class="row">
+                    <div class="col-md-4">
+                        {{ form.show_discount|as_crispy_field }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.discount_amount|as_crispy_field }}
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -146,7 +154,7 @@
                                 <div class="row bundle-items-row mt-2">
                                     <div class="col-md-11 offset-md-1">
                                         {{ form.bundled_items|as_crispy_field }}
-                                        <small class="text-muted">Paste 2 columns directly from Excel, or enter one bundled component per line using <code>PART NUMBER | Description</code>.</small>
+                                        <small class="text-muted">Paste 3 columns directly from Excel, or enter one bundled component per line using <code>PART NUMBER | Description | Qty</code>.</small>
                                     </div>
                                 </div>
                             </div>
@@ -216,7 +224,7 @@
                             <div class="row bundle-items-row mt-2">
                                 <div class="col-md-11 offset-md-1">
                                     {{ formset.empty_form.bundled_items|as_crispy_field }}
-                                    <small class="text-muted">Paste 2 columns directly from Excel, or enter one bundled component per line using <code>PART NUMBER | Description</code>.</small>
+                                        <small class="text-muted">Paste 3 columns directly from Excel, or enter one bundled component per line using <code>PART NUMBER | Description | Qty</code>.</small>
                                 </div>
                             </div>
                         </div>
@@ -549,7 +557,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!filename) return '';
         const base = filename.split('/').pop().split('\\').pop();
         const stem = base.replace(/\.[^.]+$/, '');
-        return stem.trim().toLowerCase().replace(/_/g, '-');
+        return stem.trim().toLowerCase().replace(/[\s_]+/g, '-').replace(/-+/g, '-');
     }
     function updateAttachmentEmailCheckbox(row) {
         const fileInput = row.querySelector('input[type="file"]');
@@ -559,7 +567,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedName = fileInput.files && fileInput.files.length ? fileInput.files[0].name : '';
         const currentName = row.getAttribute('data-current-filename') || '';
         const stem = normalizeAttachmentStem(selectedName || currentName);
-        const blocked = stem === 'costing-matrix';
+        const blocked = /costing-?matrix/.test(stem) || /costing-+matrix/.test(stem) || /costingmatrix/.test(stem);
         includeCheckbox.checked = blocked ? false : includeCheckbox.checked;
         includeCheckbox.disabled = blocked;
         row.classList.toggle('attachment-row-blocked', blocked);

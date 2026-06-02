@@ -189,7 +189,7 @@
                 {{ filter_form.brand }}
             </div>
             <div class="col-md-3">
-                <label class="form-label">Salesperson</label>
+                <label class="form-label">Account Manager</label>
                 {{ filter_form.salesperson }}
             </div>
             <div class="col-md-3">
@@ -251,10 +251,11 @@
                         <tr>
                             <th style="width: 100px;">Date</th>
                             <th>Company</th>
-                            {% if can_add %}<th class="text-center" style="width: 100px;">SP</th>{% endif %}
+                            <th style="width: 180px;">Ref #</th>
+                            {% if can_add %}<th class="text-center" style="width: 100px;">AM</th>{% endif %}
                             <th class="text-center" style="width: 140px;">SRP</th>
                             <th class="text-center" style="width: 140px;">Profit</th>
-                            {% if not can_add %}<th class="text-center" style="width: 160px;">Salesperson</th>{% endif %}
+                            {% if not can_add %}<th class="text-center" style="width: 160px;">Account Manager</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -262,9 +263,22 @@
                         <tr>
                             <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
                             <td>
-                                <div class="fw-semibold text-primary">{{ entry.company_name }}</div>
+                                <div class="fw-semibold text-primary">
+                                    {% if entry.proposal %}
+                                        <a href="{% url 'proposal_detail' entry.proposal.pk %}" class="text-decoration-none text-primary">{{ entry.company_name }}</a>
+                                    {% else %}
+                                        {{ entry.company_name }}
+                                    {% endif %}
+                                </div>
                                 <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
                                 
+                            </td>
+                            <td class="small">
+                                {% if entry.proposal %}
+                                    {{ entry.proposal.reference_number|default:entry.proposal.proposal_number }}
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                             {% if can_add %}
                             <td class="text-center">
@@ -290,7 +304,7 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No PINK entries</td>
+                            <td colspan="6" class="text-center text-muted py-3">No PINK entries</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -298,6 +312,7 @@
                         <tr class="table-light">
                             <td></td>
                             <td><strong>Total</strong></td>
+                            <td></td>
                             {% if can_add %}<td></td>{% endif %}
                             <td class="text-center"><strong>₱{{ stage_totals.quoted.retail|floatformat:2|intcomma }}</strong></td>
                             <td class="text-center"><strong>₱{{ stage_totals.quoted.profit|floatformat:2|intcomma }}</strong></td>
@@ -335,7 +350,7 @@
                                 </div>
                                 {% if not can_add %}
                                 <div class="col-lg-2 col-md-2 text-center">
-                                    <small class="text-muted d-block">Salesperson</small>
+                                    <small class="text-muted d-block">Account Manager</small>
                                     {% if entry.salesperson.initials %}
                                         <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
                                     {% else %}
@@ -349,14 +364,14 @@
                                 {% endif %}
                                     {% if show_actions %}
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <button class="btn btn-warning btn-sm" onclick="moveEntry({{ entry.id }}, 'closable')" title="Move to Closable">
+                                        <button class="btn btn-warning btn-sm" onclick="moveEntry('{{ entry.id }}', 'closable')" title="Move to Closable">
                                             <i class="fas fa-arrow-right"></i>
                                         </button>
                                         <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         {% if can_add or can_edit_all %}
-                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry({{ entry.id }})" title="Delete">
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry('{{ entry.id }}')" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         {% endif %}
@@ -396,10 +411,11 @@
                         <tr>
                             <th style="width: 100px;">Date</th>
                             <th>Company</th>
-                            {% if can_add %}<th class="text-center" style="width: 100px;">SP</th>{% endif %}
+                            <th style="width: 180px;">Ref #</th>
+                            {% if can_add %}<th class="text-center" style="width: 100px;">AM</th>{% endif %}
                             <th class="text-center" style="width: 140px;">SRP</th>
                             <th class="text-center" style="width: 140px;">Profit</th>
-                            {% if not can_add %}<th class="text-center" style="width: 160px;">Salesperson</th>{% endif %}
+                            {% if not can_add %}<th class="text-center" style="width: 160px;">Account Manager</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -407,9 +423,22 @@
                         <tr>
                             <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
                             <td>
-                                <div class="fw-semibold text-warning">{{ entry.company_name }}</div>
+                                <div class="fw-semibold text-warning">
+                                    {% if entry.proposal %}
+                                        <a href="{% url 'proposal_detail' entry.proposal.pk %}" class="text-decoration-none text-warning">{{ entry.company_name }}</a>
+                                    {% else %}
+                                        {{ entry.company_name }}
+                                    {% endif %}
+                                </div>
                                 <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
                                 
+                            </td>
+                            <td class="small">
+                                {% if entry.proposal %}
+                                    {{ entry.proposal.reference_number|default:entry.proposal.proposal_number }}
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                             {% if can_add %}
                             <td class="text-center">
@@ -434,13 +463,14 @@
                             {% endif %}
                         </tr>
                         {% empty %}
-                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No YELLOW entries</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-3">No YELLOW entries</td></tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="table-light">
                             <td></td>
                             <td><strong>Total</strong></td>
+                            <td></td>
                             {% if can_add %}<td></td>{% endif %}
                             <td class="text-center"><strong>₱{{ stage_totals.closable.retail|floatformat:2|intcomma }}</strong></td>
                             <td class="text-center"><strong>₱{{ stage_totals.closable.profit|floatformat:2|intcomma }}</strong></td>
@@ -478,7 +508,7 @@
                                 </div>
                                 {% if not can_add %}
                                 <div class="col-lg-2 col-md-2 text-center">
-                                    <small class="text-muted d-block">Salesperson</small>
+                                    <small class="text-muted d-block">Account Manager</small>
                                     {% if entry.salesperson.initials %}
                                         <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
                                     {% else %}
@@ -492,10 +522,10 @@
                                 {% endif %}
                                     {% if show_actions %}
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <button class="btn btn-success btn-sm" onclick="closeEntry({{ entry.id }}, true)" title="Mark as Won">
+                                        <button class="btn btn-success btn-sm" onclick="closeEntry('{{ entry.id }}', true)" title="Mark as Won">
                                             <i class="fas fa-check"></i>
                                         </button>
-                                        <button class="btn btn-danger btn-sm" onclick="closeEntry({{ entry.id }}, false)" title="Mark as Lost">
+                                        <button class="btn btn-danger btn-sm" onclick="closeEntry('{{ entry.id }}', false)" title="Mark as Lost">
                                             <i class="fas fa-times"></i>
                                         </button>
                                         <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
@@ -537,10 +567,11 @@
                         <tr>
                             <th style="width: 100px;">Date</th>
                             <th>Company</th>
-                            {% if can_add %}<th class="text-center" style="width: 100px;">SP</th>{% endif %}
+                            <th style="width: 180px;">Ref #</th>
+                            {% if can_add %}<th class="text-center" style="width: 100px;">AM</th>{% endif %}
                             <th class="text-center" style="width: 140px;">SRP</th>
                             <th class="text-center" style="width: 140px;">Profit</th>
-                            {% if not can_add %}<th class="text-center" style="width: 160px;">Salesperson</th>{% endif %}
+                            {% if not can_add %}<th class="text-center" style="width: 160px;">Account Manager</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -548,9 +579,22 @@
                         <tr>
                             <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
                             <td>
-                                <div class="fw-semibold text-success">{{ entry.company_name }}</div>
+                                <div class="fw-semibold text-success">
+                                    {% if entry.proposal %}
+                                        <a href="{% url 'proposal_detail' entry.proposal.pk %}" class="text-decoration-none text-success">{{ entry.company_name }}</a>
+                                    {% else %}
+                                        {{ entry.company_name }}
+                                    {% endif %}
+                                </div>
                                 <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
                                 
+                            </td>
+                            <td class="small">
+                                {% if entry.proposal %}
+                                    {{ entry.proposal.reference_number|default:entry.proposal.proposal_number }}
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                             {% if can_add %}
                             <td class="text-center">
@@ -575,13 +619,14 @@
                             {% endif %}
                         </tr>
                         {% empty %}
-                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No GREEN entries</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-3">No GREEN entries</td></tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="table-light">
                             <td></td>
                             <td><strong>Total</strong></td>
+                            <td></td>
                             {% if can_add %}<td></td>{% endif %}
                             <td class="text-center"><strong>₱{{ stage_totals.project.retail|floatformat:2|intcomma }}</strong></td>
                             <td class="text-center"><strong>₱{{ stage_totals.project.profit|floatformat:2|intcomma }}</strong></td>
@@ -619,7 +664,7 @@
                                 </div>
                                 {% if not can_add %}
                                 <div class="col-lg-2 col-md-2 text-center">
-                                    <small class="text-muted d-block">Salesperson</small>
+                                    <small class="text-muted d-block">Account Manager</small>
                                     {% if entry.salesperson.initials %}
                                         <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
                                     {% else %}
@@ -633,14 +678,14 @@
                                 {% endif %}
                                     {% if show_actions %}
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <button class="btn btn-warning btn-sm" onclick="moveEntry({{ entry.id }}, 'closable')" title="Move to Closable">
+                                        <button class="btn btn-warning btn-sm" onclick="moveEntry('{{ entry.id }}', 'closable')" title="Move to Closable">
                                             <i class="fas fa-arrow-left"></i>
                                         </button>
                                         <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         {% if can_add or can_edit_all %}
-                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry({{ entry.id }})" title="Delete">
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry('{{ entry.id }}')" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         {% endif %}
@@ -680,10 +725,11 @@
                         <tr>
                             <th style="width: 100px;">Date</th>
                             <th>Company</th>
-                            {% if can_add %}<th class="text-center" style="width: 100px;">SP</th>{% endif %}
+                            <th style="width: 180px;">Ref #</th>
+                            {% if can_add %}<th class="text-center" style="width: 100px;">AM</th>{% endif %}
                             <th class="text-center" style="width: 140px;">SRP</th>
                             <th class="text-center" style="width: 140px;">Profit</th>
-                            {% if not can_add %}<th class="text-center" style="width: 160px;">Salesperson</th>{% endif %}
+                            {% if not can_add %}<th class="text-center" style="width: 160px;">Account Manager</th>{% endif %}
                         </tr>
                     </thead>
                     <tbody>
@@ -691,7 +737,13 @@
                         <tr>
                             <td><strong class="small">{{ entry.date_created|date:"M d" }}</strong></td>
                             <td>
-                                <div class="fw-semibold text-primary">{{ entry.company_name }}</div>
+                                <div class="fw-semibold text-primary">
+                                    {% if entry.proposal %}
+                                        <a href="{% url 'proposal_detail' entry.proposal.pk %}" class="text-decoration-none text-primary">{{ entry.company_name }}</a>
+                                    {% else %}
+                                        {{ entry.company_name }}
+                                    {% endif %}
+                                </div>
                                 <div class="text-muted small">{{ entry.requirement_description|truncatechars:60 }}</div>
                                 <!--{% if can_add %}
                                 <div class="mt-1">
@@ -703,6 +755,13 @@
                                     <small class="text-muted ms-1">@{{ entry.salesperson.username }}</small>
                                 </div>
                                 {% endif %} -->
+                            </td>
+                            <td class="small">
+                                {% if entry.proposal %}
+                                    {{ entry.proposal.reference_number|default:entry.proposal.proposal_number }}
+                                {% else %}
+                                    -
+                                {% endif %}
                             </td>
                             {% if can_add %}
                             <td class="text-center">
@@ -727,13 +786,14 @@
                             {% endif %}
                         </tr>
                         {% empty %}
-                        <tr><td colspan="{% if can_add %}6{% else %}5{% endif %}" class="text-center text-muted py-3">No BLUE entries</td></tr>
+                        <tr><td colspan="6" class="text-center text-muted py-3">No BLUE entries</td></tr>
                         {% endfor %}
                     </tbody>
                     <tfoot>
                         <tr class="table-light">
                             <td></td>
                             <td><strong>Total</strong></td>
+                            <td></td>
                             {% if can_add %}<td></td>{% endif %}
                             <td class="text-center"><strong>₱{{ stage_totals.services.retail|floatformat:2|intcomma }}</strong></td>
                             <td class="text-center"><strong>₱{{ stage_totals.services.profit|floatformat:2|intcomma }}</strong></td>
@@ -771,7 +831,7 @@
                                 </div>
                                 {% if not can_add %}
                                 <div class="col-lg-2 col-md-2 text-center">
-                                    <small class="text-muted d-block">Salesperson</small>
+                                    <small class="text-muted d-block">Account Manager</small>
                                     {% if entry.salesperson.initials %}
                                         <span class="badge bg-primary fs-6 px-3 py-2">{{ entry.salesperson.initials }}</span>
                                     {% else %}
@@ -785,14 +845,14 @@
                                 {% endif %}
                                     {% if show_actions %}
                                     <div class="btn-group btn-group-sm" role="group">
-                                        <button class="btn btn-warning btn-sm" onclick="moveEntry({{ entry.id }}, 'closable')" title="Move to Closable">
+                                        <button class="btn btn-warning btn-sm" onclick="moveEntry('{{ entry.id }}', 'closable')" title="Move to Closable">
                                             <i class="fas fa-arrow-right"></i>
                                         </button>
                                         <a href="{% url 'sales_funnel:edit_entry' entry.id %}" class="btn btn-outline-primary btn-sm" title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         {% if can_add or can_edit_all %}
-                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry({{ entry.id }})" title="Delete">
+                                            <button class="btn btn-outline-danger btn-sm" onclick="deleteEntry('{{ entry.id }}')" title="Delete">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         {% endif %}

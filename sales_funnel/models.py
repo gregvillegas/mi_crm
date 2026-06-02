@@ -57,7 +57,7 @@ class SalesFunnel(models.Model):
         on_delete=models.CASCADE,
         related_name='funnel_entries',
         limit_choices_to={'role': 'salesperson'},
-        help_text="Salesperson responsible for this proposal"
+        help_text="Account Manager responsible for this proposal"
     )
     
     customer = models.ForeignKey(

@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -205,18 +206,26 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertIn('bundled_items', form.errors)
 
     def test_attachment_form_blocks_costing_matrix_include_in_email(self):
-        upload = SimpleUploadedFile(
-            'COSTING-MATRIX.xlsx',
-            b'fake-excel-content',
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        )
-        form = ProposalAttachmentForm(
-            data={'include_in_email': 'on'},
-            files={'file': upload},
-        )
+        for filename in [
+            'MY Costing-matrix.xls',
+            'costing-matrix client1.xlsx',
+            'costing matrix cust2.xls',
+            'COSTING-MATRIX-CUST1.xls',
+        ]:
+            with self.subTest(filename=filename):
+                upload = SimpleUploadedFile(
+                    filename,
+                    b'fake-excel-content',
+                    content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                )
+                form = ProposalAttachmentForm(
+                    data={'include_in_email': 'on'},
+                    files={'file': upload},
+                )
 
-        self.assertTrue(form.is_valid(), form.errors)
-        self.assertFalse(form.cleaned_data['include_in_email'])
+                self.assertTrue(form.is_valid(), form.errors)
+                self.assertTrue(form.fields['include_in_email'].disabled)
+                self.assertFalse(form.cleaned_data['include_in_email'])
 
     def test_costing_matrix_attachment_save_forces_include_in_email_false(self):
         user = User.objects.create_user(
@@ -238,7 +247,7 @@ class ProposalPricingWorkflowTests(TestCase):
         )
         attachment = ProposalAttachment.objects.create(
             proposal=proposal,
-            file=SimpleUploadedFile('costing-matrix.xlsx', b'xlsx'),
+            file=SimpleUploadedFile('MY COSTING-MATRIX cust1.xlsx', b'xlsx'),
             include_in_email=True,
             uploaded_by=user,
         )
@@ -260,9 +269,9 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertEqual(
             item.bundle_components,
             [
-                {'part_number': 'B4YT6AV', 'description': 'Base Unit'},
-                {'part_number': '8C9M7AV', 'description': 'No Country of Origin Restriction'},
-                {'part_number': '', 'description': '3 year onsite support'},
+                {'part_number': 'B4YT6AV', 'description': 'Base Unit', 'quantity': None},
+                {'part_number': '8C9M7AV', 'description': 'No Country of Origin Restriction', 'quantity': None},
+                {'part_number': '', 'description': '3 year onsite support', 'quantity': None},
             ],
         )
 
@@ -280,8 +289,8 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertEqual(
             item.bundle_components,
             [
-                {'part_number': 'B4YT6AV', 'description': 'Base Unit'},
-                {'part_number': '8C9M7AV', 'description': 'No Country of Origin Restriction'},
+                {'part_number': 'B4YT6AV', 'description': 'Base Unit', 'quantity': None},
+                {'part_number': '8C9M7AV', 'description': 'No Country of Origin Restriction', 'quantity': None},
             ],
         )
 
@@ -451,6 +460,28 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertContains(response, 'Reference #')
         self.assertContains(response, proposal.reference_number)
 
+    def test_reference_number_autogenerate_uses_yyyymmdd_format(self):
+        user = User.objects.create_user(
+            username='ref_autogen_user',
+            password='testpass123',
+            role='salesperson',
+            email='ref-autogen@example.com',
+            initials='GGV',
+        )
+        customer = Customer.objects.create(
+            company_name='Ref Autogen Corp',
+            contact_person_name='Rae Buyer',
+            email='buyer@refautogen.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Ref Format',
+            date=date(2026, 5, 23),
+        )
+        self.assertEqual(proposal.reference_number, 'GGV20260523001')
+
     @patch('sales_proposals.views.update_sales_funnel')
     @patch('sales_proposals.views.log_sales_activity')
     @patch('sales_proposals.views.EmailMultiAlternatives')
@@ -606,6 +637,9 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertNotIn('validity_subject_to_prior_sale', form.fields)
         self.assertNotIn('validity_availability_at_order', form.fields)
         self.assertIn('stock_availability', form.fields)
+        self.assertEqual(form.fields['payment_terms'].widget.__class__.__name__, 'Textarea')
+        self.assertIn('show_discount', form.fields)
+        self.assertIn('discount_amount', form.fields)
         item_form = ProposalItemForm()
         self.assertIn('is_optional', item_form.fields)
         self.assertIn('is_bundle', item_form.fields)
@@ -615,6 +649,126 @@ class ProposalPricingWorkflowTests(TestCase):
         self.assertEqual(form.fields['php_account_name'].label, 'PHP account name')
         self.assertEqual(form.fields['usd_beneficiary_name'].label, 'USD beneficiary name')
         self.assertEqual(form.fields['usd_bank_address'].label, 'USD bank address')
+        self.assertEqual(form.fields['show_discount'].label, 'Show discount (PDF)')
+        self.assertEqual(form.fields['discount_amount'].label, 'Discount amount')
+
+    def test_proposal_form_requires_discount_amount_when_enabled(self):
+        user = User.objects.create_user(
+            username='discount_user',
+            password='testpass123',
+            role='salesperson',
+            email='discount@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Discount Corp',
+            contact_person_name='Dana Buyer',
+            email='buyer@discount.test',
+            salesperson=user,
+        )
+        data = {
+            'customer': customer.pk,
+            'contact_name': '',
+            'contact_email': '',
+            'contact_phone': '',
+            'subject': 'Discount Proposal',
+            'currency': 'PHP',
+            'exchange_rate': '1.00',
+            'date': '2026-05-18',
+            'valid_until': '',
+            'stock_availability': '',
+            'payment_terms': '30 days',
+            'delivery_lead_time': 'Within five (5) to ten (10) working days from receipt of confirmed purchased order.',
+            'cancellation_terms': 'polite',
+            'include_bank_details': '',
+            'show_discount': 'on',
+            'discount_amount': '0',
+            'php_bank_name': 'BDO Unibank, Inc.',
+            'php_account_name': 'MICRO IMAGE INTERNATIONAL CORP.',
+            'php_account_number': '0123 0001 0002 1111',
+            'php_account_type': 'Current Account / Checking Account',
+            'php_branch': 'Banco De Oro - Salcedo Dela Rosa Branch',
+            'usd_beneficiary_name': 'MICRO IMAGE INTERNATIONAL CORP.',
+            'usd_beneficiary_address': 'Unit 101 Legaspi Suites Bldg., 178 Salcedo St., Makati City',
+            'usd_account_number': '0123 0001 0002 1111',
+            'usd_bank_address': 'G/F State Condominium 1 Building, Salcedo Street, Legaspi Village, Makati, Philippines',
+            'usd_swift_code': 'BOPIPHMM',
+            'introduction': '',
+            'special_note': '',
+            'closing': '',
+        }
+        form = ProposalForm(data=data, user=user)
+        self.assertFalse(form.is_valid())
+        self.assertIn('discount_amount', form.errors)
+
+    def test_proposal_totals_apply_discount_when_enabled(self):
+        user = User.objects.create_user(
+            username='discount_total_user',
+            password='testpass123',
+            role='salesperson',
+            email='discount_total@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Discount Total Corp',
+            contact_person_name='Drew Buyer',
+            email='buyer@discounttotal.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Discount Totals',
+            show_discount=True,
+            discount_amount=Decimal('2500.00'),
+        )
+        ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='SKU-500',
+            description='Workstation',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('50000.00'),
+            unit_price=Decimal('65000.00'),
+        )
+
+        proposal.calculate_totals()
+        proposal.refresh_from_db()
+
+        self.assertEqual(proposal.subtotal, Decimal('65000.00'))
+        self.assertEqual(proposal.total_amount, Decimal('62500.00'))
+
+    def test_bundle_components_parses_quantity_from_tab_or_pipe(self):
+        user = User.objects.create_user(
+            username='bundle_qty_user',
+            password='testpass123',
+            role='salesperson',
+            email='bundleqty@example.com',
+        )
+        customer = Customer.objects.create(
+            company_name='Bundle Qty Corp',
+            contact_person_name='Bea Buyer',
+            email='buyer@bundleqty.test',
+            salesperson=user,
+        )
+        proposal = Proposal.objects.create(
+            customer=customer,
+            created_by=user,
+            subject='Bundle Qty',
+        )
+        item = ProposalItem.objects.create(
+            proposal=proposal,
+            part_number='SKU-BUNDLE',
+            description='Main Item',
+            quantity=Decimal('1'),
+            unit_cost=Decimal('0.00'),
+            unit_price=Decimal('100.00'),
+            is_bundle=True,
+            bundled_items='B4YT6AV\tHP IDS DSC RTX PRO 2000 8GB\t2\n8C9M7AV | No Country of Origin Restriction | 3',
+        )
+        components = item.bundle_components
+        self.assertEqual(len(components), 2)
+        self.assertEqual(components[0]['part_number'], 'B4YT6AV')
+        self.assertEqual(components[0]['quantity'], Decimal('2'))
+        self.assertEqual(components[1]['part_number'], '8C9M7AV')
+        self.assertEqual(components[1]['quantity'], Decimal('3'))
 
 
 class ProposalEmailSignatureTests(TestCase):

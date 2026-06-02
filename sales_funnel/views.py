@@ -12,7 +12,7 @@ from customers.models import Customer, CustomerHistory
 import csv
 from io import TextIOWrapper, StringIO
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def _sum_entry_retail(entries):
@@ -132,9 +132,17 @@ def funnel_dashboard(request):
             funnel_entries = funnel_entries.filter(date_created__gte=date_from)
         if date_to:
             funnel_entries = funnel_entries.filter(date_created__lte=date_to)
+
+    today = timezone.localdate()
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=7)
     
     # Organize entries by stage
-    quoted_entries = list(funnel_entries.filter(stage='quoted').select_related('salesperson', 'customer', 'proposal'))
+    quoted_entries = list(
+        funnel_entries
+        .filter(stage='quoted', date_created__gte=week_start, date_created__lt=week_end)
+        .select_related('salesperson', 'customer', 'proposal')
+    )
     closable_entries = list(funnel_entries.filter(stage='closable').select_related('salesperson', 'customer', 'proposal'))
     project_entries = list(funnel_entries.filter(stage='project').select_related('salesperson', 'customer', 'proposal'))
     services_entries = list(funnel_entries.filter(stage='services').select_related('salesperson', 'customer', 'proposal'))
@@ -309,7 +317,7 @@ def export_funnel_report(request):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     writer = csv.writer(response)
     writer.writerow([
-        'Date', 'Company', 'Brand', 'Stage', 'SRP', 'Cost', 'Profit', 'Salesperson', 'Customer', 'Expected Close', 'Probability', 'Notes'
+        'Date', 'Company', 'Brand', 'Stage', 'SRP', 'Cost', 'Profit', 'Account Manager', 'Customer', 'Expected Close', 'Probability', 'Notes'
     ])
     for e in qs.select_related('salesperson', 'customer').order_by('-date_created'):
         writer.writerow([

@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.microimage.crm.api.RetrofitClient
 import com.microimage.crm.model.Proposal
+import com.microimage.crm.ui.Screen
 import com.microimage.crm.ui.dashboard.ProposalCard
 import kotlinx.coroutines.launch
 
@@ -64,7 +65,9 @@ fun SalesProposalScreen(token: String, navController: NavController) {
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(proposals) { item ->
-                        ProposalCard(item)
+                        ProposalCard(item) {
+                            navController.navigate(Screen.ProposalDetail.createRoute(token, item.id))
+                        }
                     }
                 }
             }

@@ -63,10 +63,10 @@
                         <table class="table table-bordered">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Item #</th>
+                                    <th class="text-center">Item #</th>
                                     <th>Part Number</th>
                                     <th>Description</th>
-                                    <th class="text-end">Qty</th>
+                                    <th class="text-center">Qty</th>
                                     <th class="text-end">Unit Price</th>
                                     <th class="text-end">Extended Price</th>
                                     <th>Warranty</th>
@@ -75,7 +75,7 @@
                             <tbody>
                                 {% for item in proposal.items.all %}
                                 <tr{% if item.is_optional %} class="table-warning"{% endif %}>
-                                    <td>{{ forloop.counter }}</td>
+                                    <td class="text-center">{{ forloop.counter }}</td>
                                     <td>{{ item.part_number }}</td>
                                     <td>
                                         {{ item.description }}
@@ -83,7 +83,7 @@
                                         <div><small class="text-muted">Option {{ item.optional_option_number }}</small></div>
                                         {% endif %}
                                     </td>
-                                    <td class="text-end">{{ item.quantity|intcomma }}</td>
+                                    <td class="text-center">{{ item.quantity|intcomma }}</td>
                                     <td class="text-end">{% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.unit_price|intcomma }}</td>
                                     <td class="text-end">
                                         {% if proposal.currency == 'USD' %}${% else %}₱{% endif %}{{ item.amount|intcomma }}
@@ -95,7 +95,7 @@
                                     <td></td>
                                     <td>{{ component.part_number }}</td>
                                     <td>{{ component.description }}</td>
-                                    <td></td>
+                                    <td class="text-center">{{ component.quantity|default_if_none:"" }}</td>
                                     <td></td>
                                     <td></td>
                                     <td></td>

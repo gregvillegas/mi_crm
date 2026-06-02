@@ -49,111 +49,110 @@
 29-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:13:9-54
 30        android:supportsRtl="true"
 30-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:14:9-35
-31        android:testOnly="true"
-32        android:theme="@style/Theme.MiCRM"
-32-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:15:9-43
-33        android:usesCleartextTraffic="true" >
-33-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:17:9-44
-34        <activity
-34-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:19:9-29:20
-35            android:name="com.microimage.crm.MainActivity"
-35-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:20:13-41
-36            android:exported="true"
-36-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:21:13-36
-37            android:label="@string/app_name"
-37-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:22:13-45
-38            android:theme="@style/Theme.MiCRM" >
-38-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:23:13-47
-39            <intent-filter>
-39-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:24:13-28:29
-40                <action android:name="android.intent.action.MAIN" />
-40-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:25:17-69
-40-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:25:25-66
-41
-42                <category android:name="android.intent.category.LAUNCHER" />
-42-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:27:17-77
-42-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:27:27-74
-43            </intent-filter>
-44        </activity>
-45        <activity
-45-->[androidx.compose.ui:ui-test-manifest:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/618e76c34c062bd901cf65c7f8272984/transformed/ui-test-manifest-1.5.1/AndroidManifest.xml:23:9-25:39
-46            android:name="androidx.activity.ComponentActivity"
-46-->[androidx.compose.ui:ui-test-manifest:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/618e76c34c062bd901cf65c7f8272984/transformed/ui-test-manifest-1.5.1/AndroidManifest.xml:24:13-63
-47            android:exported="true" />
-47-->[androidx.compose.ui:ui-test-manifest:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/618e76c34c062bd901cf65c7f8272984/transformed/ui-test-manifest-1.5.1/AndroidManifest.xml:25:13-36
-48
-49        <provider
-49-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:24:9-32:20
-50            android:name="androidx.startup.InitializationProvider"
-50-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:25:13-67
-51            android:authorities="com.microimage.crm.androidx-startup"
-51-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:26:13-68
-52            android:exported="false" >
-52-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:27:13-37
-53            <meta-data
-53-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:29:13-31:52
-54                android:name="androidx.emoji2.text.EmojiCompatInitializer"
-54-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:30:17-75
-55                android:value="androidx.startup" />
-55-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:31:17-49
-56            <meta-data
-56-->[androidx.lifecycle:lifecycle-process:2.6.2] /Users/greg/.gradle/caches/9.3.1/transforms/58e54c2a4685f79c83fface547a4ecc9/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
-57                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
-57-->[androidx.lifecycle:lifecycle-process:2.6.2] /Users/greg/.gradle/caches/9.3.1/transforms/58e54c2a4685f79c83fface547a4ecc9/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
-58                android:value="androidx.startup" />
-58-->[androidx.lifecycle:lifecycle-process:2.6.2] /Users/greg/.gradle/caches/9.3.1/transforms/58e54c2a4685f79c83fface547a4ecc9/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
-59            <meta-data
-59-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
-60                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
-60-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
-61                android:value="androidx.startup" />
-61-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
-62        </provider>
-63
-64        <activity
-64-->[androidx.compose.ui:ui-tooling-android:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/77718cd4de699e8c8f88444804825d0b/transformed/ui-tooling-release/AndroidManifest.xml:23:9-25:39
-65            android:name="androidx.compose.ui.tooling.PreviewActivity"
-65-->[androidx.compose.ui:ui-tooling-android:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/77718cd4de699e8c8f88444804825d0b/transformed/ui-tooling-release/AndroidManifest.xml:24:13-71
-66            android:exported="true" />
-66-->[androidx.compose.ui:ui-tooling-android:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/77718cd4de699e8c8f88444804825d0b/transformed/ui-tooling-release/AndroidManifest.xml:25:13-36
-67
-68        <receiver
-68-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
-69            android:name="androidx.profileinstaller.ProfileInstallReceiver"
-69-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
-70            android:directBootAware="false"
-70-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
-71            android:enabled="true"
-71-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
-72            android:exported="true"
-72-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
-73            android:permission="android.permission.DUMP" >
-73-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
-74            <intent-filter>
-74-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
-75                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
-75-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
-75-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
-76            </intent-filter>
-77            <intent-filter>
-77-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
-78                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
-78-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
-78-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
-79            </intent-filter>
-80            <intent-filter>
-80-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
-81                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
-81-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
-81-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
-82            </intent-filter>
-83            <intent-filter>
-83-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
-84                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
-84-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
-84-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
-85            </intent-filter>
-86        </receiver>
-87    </application>
-88
-89</manifest>
+31        android:theme="@style/Theme.MiCRM"
+31-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:15:9-43
+32        android:usesCleartextTraffic="true" >
+32-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:17:9-44
+33        <activity
+33-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:19:9-29:20
+34            android:name="com.microimage.crm.MainActivity"
+34-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:20:13-41
+35            android:exported="true"
+35-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:21:13-36
+36            android:label="@string/app_name"
+36-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:22:13-45
+37            android:theme="@style/Theme.MiCRM" >
+37-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:23:13-47
+38            <intent-filter>
+38-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:24:13-28:29
+39                <action android:name="android.intent.action.MAIN" />
+39-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:25:17-69
+39-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:25:25-66
+40
+41                <category android:name="android.intent.category.LAUNCHER" />
+41-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:27:17-77
+41-->/Users/greg/Documents/trae_projects/mi_crm/MiCRM_Android/app/src/main/AndroidManifest.xml:27:27-74
+42            </intent-filter>
+43        </activity>
+44        <activity
+44-->[androidx.compose.ui:ui-test-manifest:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/618e76c34c062bd901cf65c7f8272984/transformed/ui-test-manifest-1.5.1/AndroidManifest.xml:23:9-25:39
+45            android:name="androidx.activity.ComponentActivity"
+45-->[androidx.compose.ui:ui-test-manifest:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/618e76c34c062bd901cf65c7f8272984/transformed/ui-test-manifest-1.5.1/AndroidManifest.xml:24:13-63
+46            android:exported="true" />
+46-->[androidx.compose.ui:ui-test-manifest:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/618e76c34c062bd901cf65c7f8272984/transformed/ui-test-manifest-1.5.1/AndroidManifest.xml:25:13-36
+47
+48        <provider
+48-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:24:9-32:20
+49            android:name="androidx.startup.InitializationProvider"
+49-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:25:13-67
+50            android:authorities="com.microimage.crm.androidx-startup"
+50-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:26:13-68
+51            android:exported="false" >
+51-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:27:13-37
+52            <meta-data
+52-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:29:13-31:52
+53                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+53-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:30:17-75
+54                android:value="androidx.startup" />
+54-->[androidx.emoji2:emoji2:1.4.0] /Users/greg/.gradle/caches/9.3.1/transforms/2a8ff86ba513650b48fc588746838b84/transformed/emoji2-1.4.0/AndroidManifest.xml:31:17-49
+55            <meta-data
+55-->[androidx.lifecycle:lifecycle-process:2.6.2] /Users/greg/.gradle/caches/9.3.1/transforms/58e54c2a4685f79c83fface547a4ecc9/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:29:13-31:52
+56                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+56-->[androidx.lifecycle:lifecycle-process:2.6.2] /Users/greg/.gradle/caches/9.3.1/transforms/58e54c2a4685f79c83fface547a4ecc9/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:30:17-78
+57                android:value="androidx.startup" />
+57-->[androidx.lifecycle:lifecycle-process:2.6.2] /Users/greg/.gradle/caches/9.3.1/transforms/58e54c2a4685f79c83fface547a4ecc9/transformed/lifecycle-process-2.6.2/AndroidManifest.xml:31:17-49
+58            <meta-data
+58-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:29:13-31:52
+59                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+59-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:30:17-85
+60                android:value="androidx.startup" />
+60-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:31:17-49
+61        </provider>
+62
+63        <activity
+63-->[androidx.compose.ui:ui-tooling-android:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/77718cd4de699e8c8f88444804825d0b/transformed/ui-tooling-release/AndroidManifest.xml:23:9-25:39
+64            android:name="androidx.compose.ui.tooling.PreviewActivity"
+64-->[androidx.compose.ui:ui-tooling-android:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/77718cd4de699e8c8f88444804825d0b/transformed/ui-tooling-release/AndroidManifest.xml:24:13-71
+65            android:exported="true" />
+65-->[androidx.compose.ui:ui-tooling-android:1.5.1] /Users/greg/.gradle/caches/9.3.1/transforms/77718cd4de699e8c8f88444804825d0b/transformed/ui-tooling-release/AndroidManifest.xml:25:13-36
+66
+67        <receiver
+67-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:34:9-52:20
+68            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+68-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:35:13-76
+69            android:directBootAware="false"
+69-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:36:13-44
+70            android:enabled="true"
+70-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:37:13-35
+71            android:exported="true"
+71-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:38:13-36
+72            android:permission="android.permission.DUMP" >
+72-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:39:13-57
+73            <intent-filter>
+73-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:40:13-42:29
+74                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+74-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:17-91
+74-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:41:25-88
+75            </intent-filter>
+76            <intent-filter>
+76-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:43:13-45:29
+77                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+77-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:17-85
+77-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:44:25-82
+78            </intent-filter>
+79            <intent-filter>
+79-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:46:13-48:29
+80                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+80-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:17-88
+80-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:47:25-85
+81            </intent-filter>
+82            <intent-filter>
+82-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:49:13-51:29
+83                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+83-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:17-95
+83-->[androidx.profileinstaller:profileinstaller:1.3.0] /Users/greg/.gradle/caches/9.3.1/transforms/39df267960fc6961df617cd8bea92d36/transformed/profileinstaller-1.3.0/AndroidManifest.xml:50:25-92
+84            </intent-filter>
+85        </receiver>
+86    </application>
+87
+88</manifest>
