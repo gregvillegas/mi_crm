@@ -52,6 +52,7 @@ class Campaign(models.Model):
     total_recipients = models.IntegerField(default=0)
     sent_count = models.IntegerField(default=0)
     failed_count = models.IntegerField(default=0)
+    interested_redirect_url = models.URLField(blank=True)
 
     def __str__(self):
         return self.name
@@ -117,6 +118,7 @@ class CampaignRecipient(models.Model):
     
     sent_at = models.DateTimeField(null=True, blank=True)
     error_message = models.TextField(blank=True, null=True)
+    interested_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.email} - {self.campaign.name}"

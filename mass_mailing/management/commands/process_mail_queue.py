@@ -10,6 +10,16 @@ from mass_mailing.rendering import render_campaign_html
 from sales_monitoring.models import SalesActivity, ActivityType, EmailActivity
 from gamification.models import PointLog, GamificationProfile
 
+def insert_before_body_close(html_content, insert_html):
+    html_content = html_content or ''
+    insert_html = insert_html or ''
+    lower = html_content.lower()
+    for close_tag in ('</body>', '</html>'):
+        idx = lower.rfind(close_tag)
+        if idx != -1:
+            return html_content[:idx] + insert_html + html_content[idx:]
+    return html_content + insert_html
+
 class Command(BaseCommand):
     help = 'Process the email queue for scheduled mass mailing campaigns'
 
@@ -85,17 +95,21 @@ class Command(BaseCommand):
                             # In production, use SITE_URL from settings. For this demo, we'll use a placeholder domain or relative path if requested locally
                             domain = getattr(settings, 'SITE_URL', 'http://127.0.0.1:8000')
                             unsub_url = f"{domain}{reverse('mass_mailing:unsubscribe', kwargs={'recipient_id': recipient.id})}"
+                            interested_url = f"{domain}{reverse('mass_mailing:interested', kwargs={'recipient_id': recipient.id})}"
                             
                             footer = f"""
                             <br><br><hr>
-                            <p style="font-size: 11px; color: #666;">
+                            <div style="margin:16px 0 18px 0; text-align: center;">
+                                <a href="{interested_url}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:14px;">Interested - Send More Information</a>
+                            </div>
+                            <p style="font-size: 11px; color: #666; text-align: center;">
                                 This email was sent to you because you are a valued contact of <strong>Micro Image International Corp.</strong>
                                 <br>In accordance with the Data Privacy Act of 2012 (R.A. 10173), you have the right to opt-out of receiving these marketing communications.
                                 <br><br>
                                 <a href="{unsub_url}">Click here to Unsubscribe safely</a>
                             </p>
                             """
-                            html_content += footer
+                            html_content = insert_before_body_close(html_content, footer)
                             
                         # Plain text alternative
                         from django.utils.html import strip_tags

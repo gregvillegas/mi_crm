@@ -337,6 +337,18 @@
                             </div>
                         </div>
 
+                        <div class="mb-4">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    {{ form.interested_redirect_url|as_crispy_field }}
+                                    <small class="text-muted">
+                                        Optional: where the recipient should be redirected after clicking Interested. If blank, the campaign CTA URL (or company website) is used.
+                                    </small>
+                                </div>
+                                <div class="col-md-4"></div>
+                            </div>
+                        </div>
+
                         <div class="mb-4 p-3 bg-light rounded border border-warning">
                             <div class="form-check">
                                 {{ form.include_unsubscribe }}

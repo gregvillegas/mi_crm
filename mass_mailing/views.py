@@ -7,11 +7,12 @@ from django.http import HttpResponseForbidden
 from django.utils import timezone
 from django.db.models import Max
 from django.core.files.base import ContentFile
+from django.conf import settings
 from .models import Campaign, CampaignRecipient, OptOut, MediaLibraryAsset, CampaignAsset
 from .forms import CampaignForm, UnsubscribeForm, CampaignAssetFormSet, MediaLibraryAssetForm
 from .rendering import render_campaign_html
-from customers.models import Customer
-from lead_generation.models import Lead
+from customers.models import Customer, CustomerNote
+from lead_generation.models import Lead, LeadActivity
 
 
 def can_manage_media_library(user):
@@ -337,10 +338,12 @@ def campaign_detail(request, pk):
         return HttpResponseForbidden("You are not allowed to view this campaign.")
         
     recipients = campaign.recipients.all()
+    interested_count = campaign.recipients.filter(interested_at__isnull=False).count()
     
     return render(request, 'mass_mailing/campaign_detail.html', {
         'campaign': campaign,
-        'recipients': recipients
+        'recipients': recipients,
+        'interested_count': interested_count,
     })
 
 @login_required
@@ -470,6 +473,18 @@ def campaign_preview(request, pk):
         }
         
     rendered_body = render_campaign_html(campaign, context_dict, preview=True)
+    if campaign.include_unsubscribe:
+        footer = """
+        <div class="email-footer">
+            <div style="margin-bottom: 14px;">
+                <a href="#" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700;font-size:14px;">Interested - Send More Information</a>
+            </div>
+            This email was sent to you because you are a valued contact of <strong>Micro Image International Corp.</strong><br>
+            In accordance with the Data Privacy Act of 2012 (R.A. 10173), you have the right to opt-out of receiving these marketing communications.<br><br>
+            <a href="#">Click here to Unsubscribe safely</a>
+        </div>
+        """
+        rendered_body = (rendered_body or '') + footer
     
     return render(request, 'mass_mailing/campaign_preview.html', {
         'campaign': campaign,
@@ -552,3 +567,50 @@ def unsubscribe(request, recipient_id):
         form = UnsubscribeForm(initial={'email': recipient.email})
         
     return render(request, 'mass_mailing/unsubscribe.html', {'form': form, 'recipient': recipient})
+
+
+def interested(request, recipient_id):
+    recipient = get_object_or_404(CampaignRecipient, id=recipient_id)
+    campaign = recipient.campaign
+
+    if recipient.interested_at is None:
+        recipient.interested_at = timezone.now()
+        recipient.save(update_fields=['interested_at'])
+
+        ip_address = request.META.get('REMOTE_ADDR', '')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+        note_text = (
+            f"Recipient clicked Interested from campaign '{campaign.name}' "
+            f"({campaign.subject}) on {timezone.localtime(recipient.interested_at).strftime('%Y-%m-%d %H:%M')}."
+        )
+        if ip_address:
+            note_text += f" IP: {ip_address}."
+        if user_agent:
+            note_text += f" UA: {user_agent}."
+
+        if recipient.lead_id:
+            LeadActivity.objects.create(
+                lead=recipient.lead,
+                activity_type='note',
+                title='Interested (Email Campaign)',
+                description=note_text,
+                notes=note_text,
+                performed_by=campaign.created_by,
+                created_by=campaign.created_by,
+                outcome='interested',
+            )
+        elif recipient.customer_id:
+            CustomerNote.objects.create(
+                customer=recipient.customer,
+                author=campaign.created_by,
+                content=note_text,
+            )
+
+    dest = (
+        campaign.interested_redirect_url
+        or campaign.hero_cta_url
+        or getattr(settings, 'COMPANY_WEBSITE_URL', '')
+        or getattr(settings, 'SITE_URL', '/')
+    )
+    return redirect(dest)

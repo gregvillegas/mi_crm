@@ -13,4 +13,5 @@ urlpatterns = [
     path('<int:pk>/preview/', views.campaign_preview, name='campaign_preview'),
     path('<int:pk>/send/', views.campaign_send, name='campaign_send'),
     path('unsubscribe/<uuid:recipient_id>/', views.unsubscribe, name='unsubscribe'),
+    path('interested/<uuid:recipient_id>/', views.interested, name='interested'),
 ]

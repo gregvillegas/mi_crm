@@ -123,14 +123,6 @@
 
         <div class="email-body-container">
             {{ rendered_body|safe }}
-
-            {% if campaign.include_unsubscribe %}
-            <div class="email-footer">
-                This email was sent to you because you are a valued contact of <strong>Micro Image International Corp.</strong><br>
-                In accordance with the Data Privacy Act of 2012 (R.A. 10173), you have the right to opt-out of receiving these marketing communications.<br><br>
-                <a href="#">Click here to Unsubscribe safely</a>
-            </div>
-            {% endif %}
         </div>
     </div>
 </body>

@@ -78,6 +78,7 @@ class CampaignForm(forms.ModelForm):
             'name', 'subject', 'template_type', 'recipient_mode', 'body_html',
             'hero_headline', 'hero_intro', 'hero_bullet_1', 'hero_bullet_2', 'hero_bullet_3',
             'hero_cta_label', 'hero_cta_url',
+            'interested_redirect_url',
             'scheduled_for', 'include_unsubscribe'
         ]
         widgets = {
@@ -93,6 +94,7 @@ class CampaignForm(forms.ModelForm):
             'hero_bullet_3': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Benefit 3'}),
             'hero_cta_label': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Schedule a Call'}),
             'hero_cta_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://...'}),
+            'interested_redirect_url': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://...'}),
             'scheduled_for': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
             'include_unsubscribe': forms.CheckboxInput(attrs={'class': 'form-check-input'})
         }
