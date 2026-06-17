@@ -49,7 +49,18 @@ def profile_view(request):
     else:
         form = UserProfileForm(instance=user)
     
-    return render(request, 'users/profile.html', {'form': form})
+    # Check if user has MFA enabled
+    has_totp = False
+    try:
+        from allauth.mfa.models import Authenticator
+        has_totp = Authenticator.objects.filter(user=user, type=Authenticator.Type.TOTP).exists()
+    except Exception:
+        pass  # allauth.mfa might not be fully set up yet
+    
+    return render(request, 'users/profile.html', {
+        'form': form,
+        'has_totp': has_totp,
+    })
 
 
 def is_manager(user):

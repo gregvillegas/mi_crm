@@ -165,6 +165,36 @@
                 display: inline-block;
             }
         }
+        
+        /* MFA (Two-Factor Authentication) Styles */
+        .letter-spacing {
+            letter-spacing: 0.3em;
+        }
+        
+        .mfa-icon {
+            font-size: 3rem;
+            color: #198754;
+        }
+        
+        .mfa-setup-container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .mfa-qr-code {
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            display: inline-block;
+        }
+        
+        .mfa-secret-code {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
@@ -429,7 +459,8 @@
                                 <li><a class="dropdown-item" href="{% url 'leaderboard' %}"><i class="fas fa-trophy me-2"></i>Leaderboard</a></li>
                                 <li><a class="dropdown-item" href="{% url 'badges' %}"><i class="fas fa-medal me-2"></i>My Badges</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'auth:password_change' %}"><i class="fas fa-key me-2"></i>Change Password</a></li>
+                                <li><a class="dropdown-item" href="{% url 'account_change_password' %}"><i class="fas fa-key me-2"></i>Change Password</a></li>
+                                <li><a class="dropdown-item" href="{% url 'mfa_index' %}"><i class="fas fa-shield-alt me-2"></i>MFA Settings</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item text-danger" href="{% url 'logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                             </ul>

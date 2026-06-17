@@ -7,7 +7,7 @@
 <div class="container py-4">
     <div class="row justify-content-center">
         <div class="col-md-8 col-lg-6">
-            <div class="card shadow">
+            <div class="card shadow mb-4">
                 <div class="card-header bg-primary text-white">
                     <h4 class="mb-0"><i class="fas fa-user-circle me-2"></i>My Profile</h4>
                 </div>
@@ -29,6 +29,36 @@
                     </div>
 
                     {% crispy form %}
+                </div>
+            </div>
+
+            {# MFA Security Card #}
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0"><i class="fas fa-shield-alt me-2"></i>Security</h4>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="mb-1">Two-Factor Authentication</h6>
+                            <p class="text-muted mb-0 small">
+                                {% if has_totp %}
+                                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Enabled</span>
+                                    Your account is protected with an authenticator app.
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="fas fa-times-circle me-1"></i>Not Enabled</span>
+                                    Add an extra layer of security with an authenticator app.
+                                {% endif %}
+                            </p>
+                        </div>
+                        <a href="{% url 'mfa_index' %}" class="btn btn-sm {% if has_totp %}btn-outline-light{% else %}btn-success{% endif %}">
+                            {% if has_totp %}
+                                <i class="fas fa-cog me-1"></i>Manage
+                            {% else %}
+                                <i class="fas fa-plus me-1"></i>Enable
+                            {% endif %}
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>

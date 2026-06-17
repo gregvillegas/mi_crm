@@ -43,9 +43,11 @@ urlpatterns = [
     path('proposals/', include('sales_proposals.urls')), # <-- ADDED
     path('gamification/', include('gamification.urls')), # <-- ADDED
     path('service/', include('customer_service.urls')),
+    # Keep existing login/logout (allauth handles its own URLs separately)
     path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
     path('logout/', logout_view, name='logout'),
-    path('accounts/', include(('django.contrib.auth.urls', 'auth'), namespace='auth')),
+    path('accounts/', include('allauth.urls')),  # allauth + mfa URLs
+    path('accounts/2fa/', include('allauth.mfa.urls')),  # MFA URLs (TOTP setup, authenticator)
     path('mass-mailing/', include('mass_mailing.urls')),
 ]
 

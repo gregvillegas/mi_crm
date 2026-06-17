@@ -1,0 +1,41 @@
+{% extends "mfa/base.html" %}
+{% load i18n %}
+
+{% block mfa_content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0 text-center">
+                    <i class="fas fa-key"></i>
+                    {% trans "Recovery Codes" %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>{% trans "Important:" %}</strong>
+                    {% trans "Save these recovery codes in a safe place. You can use them to access your account if you lose your authenticator device." %}
+                </div>
+
+                <div class="text-center mb-4">
+                    <div class="list-group">
+                        {% for code in codes %}
+                            <div class="list-group-item font-monospace fs-5 text-center">
+                                {{ code }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'mfa_index' %}" class="btn btn-primary">
+                        <i class="fas fa-check"></i>
+                        {% trans "Done" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,113 @@
+{% extends "mfa/base.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title mb-0 text-center">
+                    <i class="fas fa-shield-alt"></i>
+                    {% trans "Two-Factor Authentication" %}
+                </h3>
+            </div>
+            <div class="card-body">
+                <p class="text-muted text-center mb-4">
+                    {% trans "Secure your account with an authenticator app." %}
+                </p>
+
+                {% if has_totp %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i>
+                        {% trans "Two-factor authentication is currently enabled on your account." %}
+                    </div>
+                    <form method="post" action="{% url 'mfa_deactivate_totp' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">{% trans "Password" %}</label>
+                            <input type="password" name="password" id="id_password" class="form-control" required>
+                            {% if form.password.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.password.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-times"></i>
+                                {% trans "Disable Authenticator App" %}
+                            </button>
+                        </div>
+                    </form>
+                {% else %}
+                    <div class="text-center mb-4">
+                        <p class="text-muted">
+                            {% trans "Scan the QR code below with your authenticator app (Google Authenticator, Authy, Microsoft Authenticator, etc.)" %}
+                        </p>
+                        
+                        <div class="my-4 d-flex justify-content-center">
+                            <div id="qrcode"></div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <small>
+                                <strong>{% trans "Manual entry code:" %}</strong><br>
+                                <code class="user-select-all">{{ totp_secret.secret }}</code>
+                            </small>
+                        </div>
+                    </div>
+
+                    <form method="post" action="{% url 'mfa_activate_totp' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_code" class="form-label">{% trans "Enter the 6-digit code from your app" %}</label>
+                            <input type="text" name="code" id="id_code" class="form-control text-center fs-4 letter-spacing" 
+                                   maxlength="6" placeholder="000000" autocomplete="one-time-code" inputmode="numeric" required>
+                            {% if form.code.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.code.errors %}
+                                        <small>{{ error }}</small>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check"></i>
+                                {% trans "Activate Authenticator" %}
+                            </button>
+                        </div>
+                    </form>
+                {% endif %}
+
+                <hr class="my-4">
+                <div class="text-center">
+                    <a href="{% url 'home' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i>
+                        {% trans "Back to Home" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var qrcodeElement = document.getElementById("qrcode");
+        if (qrcodeElement) {
+            new QRCode(qrcodeElement, {
+                text: "{{ totp_secret.uri|safe }}",
+                width: 200,
+                height: 200,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+        }
+    });
+</script>
+{% endblock %}

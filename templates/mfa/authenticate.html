@@ -1,0 +1,60 @@
+{% extends "mfa/base.html" %}
+{% load i18n %}
+
+{% block mfa_content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0 text-center">
+                    <i class="fas fa-lock"></i>
+                    {% trans "Two-Factor Authentication Required" %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <p class="text-muted text-center mb-4">
+                    {% trans "Please enter the 6-digit code from your authenticator app." %}
+                </p>
+
+                <form method="post" action="{{ request.path }}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="id_code" class="form-label">{% trans "Authentication Code" %}</label>
+                        <input type="text" name="code" id="id_code" 
+                               class="form-control text-center fs-3 letter-spacing"
+                               maxlength="6" placeholder="000000" 
+                               autocomplete="one-time-code" inputmode="numeric" autofocus required>
+                        {% if form.errors %}
+                            <div class="text-danger mt-2">
+                                {% for error in form.non_field_errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-check"></i>
+                            {% trans "Verify" %}
+                        </button>
+                    </div>
+                </form>
+
+                <hr class="my-4">
+
+                <div class="text-center">
+                    <form method="post" action="{% url 'mfa_deactivate_totp' %}" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-key"></i>
+                            {% trans "Lost access to your authenticator?" %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

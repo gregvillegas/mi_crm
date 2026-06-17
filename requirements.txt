@@ -5,6 +5,7 @@ crispy-bootstrap5==2025.6
 Django==5.2.5
 django-cors-headers==4.9.0
 django-crispy-forms==2.4
+django-allauth==0.63.2
 djangorestframework==3.16.1
 humanize==4.14.0
 idna==3.11

@@ -1,0 +1,68 @@
+{% extends "allauth/layouts/base.html" %}
+{% load i18n %}
+{% block head_title %}{% trans "Authenticator Confirmation" %}{% endblock head_title %}
+{% block body %}
+<div class="row justify-content-center">
+    <div class="col-lg-8 col-xl-7">
+        <div class="account-heading">
+            <div>
+                <div class="account-badge">
+                    <i class="fas fa-mobile-alt"></i>
+                    {% trans "Two-Factor Verification" %}
+                </div>
+                <h1 class="h2 mt-3">{% trans "Confirm Authenticator Code" %}</h1>
+                <p class="account-subtitle">{% trans "Enter the current verification code from your authenticator app." %}</p>
+            </div>
+        </div>
+        <div class="card account-card">
+            <div class="card-body">
+                <form method="post" action="{% url 'mfa_reauthenticate' %}">
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label for="{{ form.code.id_for_label }}" class="form-label account-label">{% trans "Authenticator Code" %}</label>
+                        <input
+                            type="text"
+                            name="{{ form.code.html_name }}"
+                            id="{{ form.code.id_for_label }}"
+                            class="form-control text-center fs-4 letter-spacing{% if form.code.errors %} is-invalid{% endif %}"
+                            placeholder="000000"
+                            inputmode="numeric"
+                            autocomplete="one-time-code"
+                            maxlength="6"
+                            required
+                        >
+                        {% for error in form.code.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {{ redirect_field }}
+                    <div class="account-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-check me-2"></i>{% trans "Confirm" %}
+                        </button>
+                        <a href="{% url 'mfa_index' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>{% trans "Back to MFA Settings" %}
+                        </a>
+                    </div>
+                </form>
+                {% if reauthentication_alternatives %}
+                <hr class="my-4">
+                <h2 class="h5 mb-3">{% trans "Alternative options" %}</h2>
+                <div class="account-actions">
+                    {% for alt in reauthentication_alternatives %}
+                    <a href="{{ alt.url }}" class="btn btn-outline-primary">{{ alt.description }}</a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock body %}

@@ -1,0 +1,56 @@
+{% extends "mfa/base.html" %}
+{% load i18n %}
+
+{% block mfa_content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card shadow">
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0 text-center">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    {% trans "Disable Two-Factor Authentication" %}
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <strong>{% trans "Warning:" %}</strong>
+                    {% trans "Disabling two-factor authentication will make your account less secure." %}
+                </div>
+
+                <p class="text-muted text-center">
+                    {% trans "Please enter your password to confirm you want to disable two-factor authentication." %}
+                </p>
+
+                <form method="post" action="{% url 'mfa_deactivate_totp' %}">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="id_password" class="form-label">{% trans "Password" %}</label>
+                        <input type="password" name="password" id="id_password" 
+                               class="form-control" autocomplete="current-password" required>
+                        {% if form.password.errors %}
+                            <div class="text-danger mt-1">
+                                {% for error in form.password.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-times"></i>
+                            {% trans "Disable Two-Factor Authentication" %}
+                        </button>
+                        <a href="{% url 'mfa_index' %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left"></i>
+                            {% trans "Cancel" %}
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -502,7 +502,7 @@ def generate_pdf_buffer(proposal):
     
     # Custom Colors
     MIC_RED = colors.HexColor('#B22222') # Firebrick red, approximating the screenshot
-    MIC_YELLOW = colors.HexColor('#FFFF00') # Yellow for the note
+    MIC_YELLOW = colors.HexColor('#FFFFFF') # Yellow for the note
     
     # Custom Styles
     try:
